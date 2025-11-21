@@ -38,8 +38,21 @@ const Billing = () => {
   const [customers, setCustomers] = useState([]);
   const [customerDropdown, setCustomerDropdown] = useState(false);
   const [customerDropdownIndex, setCustomerDropdownIndex] = useState(0);
+
+  const [shippedDropdown, setShippedDropdown] = useState(false);
+  const [shippedDropdownIndex, setShippedDropdownIndex] = useState(0);
+
   const [isSalesmanCustomer, setIsSalesmanCustomer] = useState(savedState?.isSalesmanCustomer || false);
   const [isOthers, setIsOthers] = useState(savedState?.isOthers || false);
+
+  // Add new state
+  const [isShippedDifferent, setIsShippedDifferent] = useState(savedState?.isShippedDifferent || false);
+  const [shippedToInfo, setShippedToInfo] = useState(savedState?.shippedToInfo || {
+    name: '',
+    contact: '',
+    address: '',
+    gstin: ''
+  });
 
   // Refs
   const discountInputRef = useRef();
@@ -77,11 +90,13 @@ const Billing = () => {
       selectedSalesman,
       billNarration,
       customerInfo,
+      shippedToInfo,
+      isShippedDifferent,
       isSalesmanCustomer,
       isOthers
     };
     sessionStorage.setItem('billingState', JSON.stringify(stateToSave));
-  }, [cart, discount, billDate, selectedSalesman, billNarration, customerInfo, isSalesmanCustomer, isOthers]);
+  }, [cart, discount, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
 
   const loadItems = async () => {
     try {
@@ -137,6 +152,39 @@ const Billing = () => {
       console.error('Error fetching customers:', error);
     }
   };
+  const filteredShippedCustomers = customers.filter(c =>
+    (shippedToInfo.name && c.name?.toLowerCase().includes(shippedToInfo.name.toLowerCase())) ||
+    (shippedToInfo.contact && c.contact?.includes(shippedToInfo.contact))
+  );
+  const handleShippedSelect = (customer) => {
+    setShippedToInfo({
+      name: customer.name || '',
+      contact: customer.contact || '',
+      address: customer.address || '',
+      gstin: customer.gstin || ''
+    });
+    setShippedDropdown(false);
+  };
+
+  const handleShippedInputKeyDown = (e, field) => {
+    if (e.key === 'Delete') {
+      setShippedToInfo({ name: '', contact: '', address: '', gstin: '' });
+      setShippedDropdown(false);
+      setShippedDropdownIndex(0);
+      return;
+    }
+    if (filteredShippedCustomers.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      setShippedDropdownIndex(i => (i + 1) % filteredShippedCustomers.length);
+    } else if (e.key === 'ArrowUp') {
+      setShippedDropdownIndex(i => (i - 1 + filteredShippedCustomers.length) % filteredShippedCustomers.length);
+    } else if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      handleShippedSelect(filteredShippedCustomers[shippedDropdownIndex]);
+      setShippedDropdown(false);
+      setShippedDropdownIndex(0);
+    }
+  };
 
   // Clear all form data
   const clearForm = () => {
@@ -144,6 +192,8 @@ const Billing = () => {
     setDiscount(0);
     setBillDate(new Date().toISOString().split('T')[0]);
     setCustomerInfo({ name: '', contact: '', address: '', gstin: '' });
+    setShippedToInfo({ name: '', contact: '', address: '', gstin: '' });
+    setIsShippedDifferent(false);
     setBillNarration('');
     setSelectedSalesman('');
     setIsSalesmanCustomer(false);
@@ -175,7 +225,7 @@ const Billing = () => {
 
   // --- Add to cart with proper rate selection ---
   const addToCart = (item) => {
-    const rate = item.mrp; 
+    const rate = item.mrp;
 
     const existingIndex = cart.findIndex(cartItem => cartItem.id === item.id);
     if (existingIndex !== -1) {
@@ -211,7 +261,7 @@ const Billing = () => {
     }
   };
 
- 
+
 
   // --- Cart keyboard controls ---
   const handleCartKeyDown = (e, idx, itemId) => {
@@ -319,6 +369,11 @@ const Billing = () => {
         customer_contact: customerInfo.contact || null,
         customer_address: customerInfo.address || null,
         customer_gstin: customerInfo.gstin || null,
+        shipped_to_name: isShippedDifferent ? shippedToInfo.name : null,
+        shipped_to_contact: isShippedDifferent ? shippedToInfo.contact : null,
+        shipped_to_address: isShippedDifferent ? shippedToInfo.address : null,
+        shipped_to_gstin: isShippedDifferent ? shippedToInfo.gstin : null,
+        is_shipped_different: isShippedDifferent,
         sale_date: billDate,
         items: saleItems,
         discount,
@@ -345,6 +400,7 @@ const Billing = () => {
           const { createRoot } = await import('react-dom/client');
           const root = createRoot(pdfContainer);
 
+          // Inside completeSale function, where BillPDF is rendered:
           root.render(
             <BillPDF
               billNumber={billNumber}
@@ -365,6 +421,8 @@ const Billing = () => {
               salesman_contact={salesmen.find(s => String(s.id) === String(selectedSalesman))?.contact_info || ""}
               salesman_address={salesmen.find(s => String(s.id) === String(selectedSalesman))?.address || ""}
               note={billNarration}
+              isShippedDifferent={isShippedDifferent}
+              shippedTo={shippedToInfo}
             />
           );
 
@@ -477,6 +535,7 @@ const Billing = () => {
     }
   };
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -489,27 +548,78 @@ const Billing = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-          <p className="text-gray-600">Create invoices and manage billing transactions</p>
+        <div className="relative flex-1 min-w-[200px] max-w-[500px] mr-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input 
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search items... (Ctrl+K to focus, Enter/Tab to add)"
+            value={searchTerm}
+            onChange={e => {
+              setSearchTerm(e.target.value);
+              setSearchDropdown(true);
+              setSearchIndex(0);
+            }}
+            onFocus={() => setSearchDropdown(true)}
+            onBlur={() => setTimeout(() => setSearchDropdown(false), 100)}
+            onKeyDown={handleSearchKeyDown}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            tabIndex={0}
+            autoComplete="off"
+          />
+          {searchDropdown && filteredItems.length > 0 && (
+            <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
+              {filteredItems.map((item, idx) => (
+                <li
+                  key={item.id}
+                  className={`px-3 py-2 cursor-pointer ${idx === searchIndex ? 'bg-blue-100' : ''}`}
+                  onMouseDown={() => {
+                    addToCart(item);
+                    setSearchTerm('');
+                    setSearchDropdown(false);
+                    setSearchIndex(0);
+                  }}
+                  tabIndex={-1}
+                >
+                  {item.name}
+                  <span className="text-xs text-gray-400 ml-2">
+                    (Stock: {item.current_stock}, Rate: ₹{item.mrp})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <div className="mt-4 sm:mt-0 flex items-center gap-3">
-           {/* Bill Date Selection */}
-          
-         
-              <div className="flex-1 ">
-                
-                {/* <label className="block text-sm font-medium text-gray-700 mb-2">Bill Date</label> */}
-                <input
-                  type="date"
-                  value={billDate}
-                  onChange={(e) => setBillDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-          
-          
+        <div className="mt-4 sm:mt-0 flex items-center gap-3 flex-wrap">
+          <div className='w-60'>
+            <select
+              value={selectedSalesman}
+              onChange={e => setSelectedSalesman(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isOthers}
+            >
+              <option value="">Select Salesman</option>
+              {salesmen.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Bill Date Selection */}
+
+
+          <div className="flex-1 ">
+
+            {/* <label className="block text-sm font-medium text-gray-700 mb-2">Bill Date</label> */}
+            <input
+              type="date"
+              value={billDate}
+              onChange={(e) => setBillDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+
           <div className="bg-blue-50 px-4 py-2 rounded-lg">
             <span className="text-sm font-medium text-blue-800">Bill No: {billNumber}</span>
           </div>
@@ -527,53 +637,10 @@ const Billing = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Items List */}
         <div className="lg:col-span-2 space-y-6">
-         
+
 
           {/* Search */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search items... (Ctrl+K to focus, Enter/Tab to add)"
-                value={searchTerm}
-                onChange={e => {
-                  setSearchTerm(e.target.value);
-                  setSearchDropdown(true);
-                  setSearchIndex(0);
-                }}
-                onFocus={() => setSearchDropdown(true)}
-                onBlur={() => setTimeout(() => setSearchDropdown(false), 100)}
-                onKeyDown={handleSearchKeyDown}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                tabIndex={0}
-                autoComplete="off"
-              />
-              {searchDropdown && filteredItems.length > 0 && (
-                <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
-                  {filteredItems.map((item, idx) => (
-                    <li
-                      key={item.id}
-                      className={`px-3 py-2 cursor-pointer ${idx === searchIndex ? 'bg-blue-100' : ''}`}
-                      onMouseDown={() => {
-                        addToCart(item);
-                        setSearchTerm('');
-                        setSearchDropdown(false);
-                        setSearchIndex(0);
-                      }}
-                      tabIndex={-1}
-                    >
-                      {item.name}
-                      <span className="text-xs text-gray-400 ml-2">
-                        (Stock: {item.current_stock}, Rate: ₹{item.mrp})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          
 
           {/* Customer Information */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -681,33 +748,147 @@ const Billing = () => {
                   tabIndex={4}
                 />
               </div>
+
+              <div className="mt-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isShippedDifferent}
+                    onChange={(e) => {
+                      setIsShippedDifferent(e.target.checked);
+                      if (!e.target.checked) {
+                        setShippedToInfo({ name: '', contact: '', address: '', gstin: '' });
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm font-medium text-gray-700">
+                    Ship to a different address
+                  </span>
+                </label>
+              </div>
             </div>
 
-          
-            
+
+
           </div>
+          {/* Shipped To Section - Only show if checkbox is checked */}
+          {isShippedDifferent && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <User className="w-5 h-5 mr-2" />
+                Shipped To
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Name */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={shippedToInfo.name}
+                    onChange={e => {
+                      setShippedToInfo({ ...shippedToInfo, name: e.target.value });
+                      setShippedDropdown(true);
+                      setShippedDropdownIndex(0);
+                    }}
+                    onFocus={() => setShippedDropdown(true)}
+                    onBlur={() => setTimeout(() => setShippedDropdown(false), 100)}
+                    onKeyDown={e => handleShippedInputKeyDown(e, 'name')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Recipient name"
+                    autoComplete="off"
+                  />
+                  {shippedDropdown && filteredShippedCustomers.length > 0 && (
+                    <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
+                      {filteredShippedCustomers.map((customer, idx) => (
+                        <li
+                          key={customer.id}
+                          className={`px-3 py-2 cursor-pointer ${idx === shippedDropdownIndex ? 'bg-blue-100' : ''}`}
+                          onMouseDown={() => handleShippedSelect(customer)}
+                          tabIndex={-1}
+                        >
+                          {customer.name} <span className="text-xs text-gray-400">({customer.contact})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Contact */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
+                  <input
+                    type="number"
+                    value={shippedToInfo.contact}
+                    onWheel={e => e.target.blur()}
+                    onChange={e => {
+                      let val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setShippedToInfo({ ...shippedToInfo, contact: val });
+                      setShippedDropdown(true);
+                      setShippedDropdownIndex(0);
+                    }}
+                    onFocus={() => setShippedDropdown(true)}
+                    onBlur={() => setTimeout(() => setShippedDropdown(false), 100)}
+                    onKeyDown={e => handleShippedInputKeyDown(e, 'contact')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Phone number"
+                    autoComplete="off"
+                  />
+                  {shippedDropdown && filteredShippedCustomers.length > 0 && (
+                    <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
+                      {filteredShippedCustomers.map((customer, idx) => (
+                        <li
+                          key={customer.id}
+                          className={`px-3 py-2 cursor-pointer ${idx === shippedDropdownIndex ? 'bg-blue-100' : ''}`}
+                          onMouseDown={() => handleShippedSelect(customer)}
+                          tabIndex={-1}
+                        >
+                          {customer.contact} <span className="text-xs text-gray-400">({customer.name})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                  <input
+                    type="text"
+                    value={shippedToInfo.address}
+                    onChange={e => setShippedToInfo({ ...shippedToInfo, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Shipping address"
+                  />
+                </div>
+
+                {/* GSTIN */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">GSTIN (Optional)</label>
+                  <input
+                    type="text"
+                    value={shippedToInfo.gstin}
+                    onChange={e => setShippedToInfo({ ...shippedToInfo, gstin: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="GST number"
+                  />
+                </div>
+
+
+              </div>
+            </div>
+          )}
 
           {/* Salesman Selection */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <User className="w-5 h-5 mr-2" />
               Salesman
             </h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Salesman</label>
-              <select
-                value={selectedSalesman}
-                onChange={e => setSelectedSalesman(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isOthers}
-              >
-                <option value="">Select Salesman</option>
-                {salesmen.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              
             </div>
-          </div>
+          </div> */}
 
           {/* Bill Narration */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -892,6 +1073,32 @@ const Billing = () => {
           </div>
         </div>
       </div>
+
+
+
+
+      <BillPDF
+        billNumber={billNumber}
+        customer={customerInfo}
+        items={cart.map(item => ({
+          hsn_code: item.hsn_code,
+          sku: item.sku,
+          name: item.name,
+          quantity: parseInt(item.quantity) || 0,
+          unit_price: item.unit_price
+        }))}
+        discount={discount}
+        subtotal={getSubtotal()}
+        roundingOff={getRoundingOff()}
+        total={getFinalTotal()}
+        sale_type={isOthers ? 'others' : (isSalesmanCustomer ? 'salesman' : 'customer')}
+        salesman_name={salesmen.find(s => String(s.id) === String(selectedSalesman))?.name || ""}
+        salesman_contact={salesmen.find(s => String(s.id) === String(selectedSalesman))?.contact_info || ""}
+        salesman_address={salesmen.find(s => String(s.id) === String(selectedSalesman))?.address || ""}
+        note={billNarration}
+        isShippedDifferent={isShippedDifferent}
+        shippedTo={shippedToInfo}
+      />
     </div>
   );
 };

@@ -8,17 +8,17 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       SELECT bill_number FROM sales
       WHERE bill_number LIKE ?
       ORDER BY id DESC LIMIT 1
-    `).get(`SF/${yearSuffix}/%`);
+    `).get(`SVBS/${yearSuffix}/%`);
 
     let nextNumber = 1;
     if (lastBill?.bill_number) {
-      const match = lastBill.bill_number.match(/SF\/\d{2}-\d{2}\/(\d+)/);
+      const match = lastBill.bill_number.match(/SVBS\/\d{2}-\d{2}\/(\d+)/);
       if (match?.[1]) {
         nextNumber = parseInt(match[1], 10) + 1;
       }
     }
 
-    return `SF/${yearSuffix}/${nextNumber.toString().padStart(0, '0')}`;
+    return `SVBS/${yearSuffix}/${nextNumber.toString().padStart(0, '0')}`;
   });
 
   ipcMain.handle('save-sale', async (event, saleData) => {
@@ -28,6 +28,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       customer_contact,
       customer_address,
       customer_gstin,
+      shipped_to_name,
+      shipped_to_contact,
+      shipped_to_address,
+      shipped_to_gstin,
+      is_shipped_different,
       sale_date,
       items,
       discount,
@@ -38,15 +43,25 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     } = saleData;
 
     const db = getDb();
-    const saleStmt = db.prepare(
-      'INSERT INTO sales (bill_number, customer_name, customer_contact, customer_address, customer_gstin, sale_date, discount, total_amount, rounding_off, salesman_id, sale_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    );
+    const saleStmt = db.prepare(`
+      INSERT INTO sales (
+        bill_number, customer_name, customer_contact, customer_address, customer_gstin,
+        shipped_to_name, shipped_to_contact, shipped_to_address, shipped_to_gstin, is_shipped_different,
+        sale_date, discount, total_amount, rounding_off, salesman_id, sale_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
     const saleResult = saleStmt.run(
       bill_number,
       customer_name,
       customer_contact,
       customer_address,
       customer_gstin,
+      shipped_to_name || null,
+      shipped_to_contact || null,
+      shipped_to_address || null,
+      shipped_to_gstin || null,
+      is_shipped_different ? 1 : 0,
       sale_date,
       discount,
       total_amount,
@@ -54,30 +69,24 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       salesman_id,
       sale_type || 'customer'
     );
+    
     const saleId = saleResult.lastInsertRowid;
 
     const saleItemStmt = db.prepare(
-      'INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, total_price, sale_type, customer_rate, salesman_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, total_price, sale_type) VALUES (?, ?, ?, ?, ?, ?)'
     );
     const updateStockStmt = db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?');
 
     items.forEach((item) => {
-      const itemRates = db.prepare('SELECT customer_rate, salesman_rate FROM items WHERE id = ?').get(item.id);
-      const customerRate = typeof item.customer_rate !== 'undefined' ? item.customer_rate : itemRates?.customer_rate || 0;
-      const salesmanRate = typeof item.salesman_rate !== 'undefined' ? item.salesman_rate : itemRates?.salesman_rate || 0;
-
       saleItemStmt.run(
         saleId,
         item.id,
         item.quantity,
         item.unit_price,
         item.total_price,
-        sale_type || 'customer',
-        customerRate,
-        salesmanRate
+        sale_type || 'customer'
       );
       updateStockStmt.run(item.quantity, item.id);
-      //reduceClosingStock?.(item.id, item.quantity);
     });
 
     return { success: true, saleId };
@@ -114,7 +123,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       }
 
       const items = db.prepare(`
-        SELECT si.*, i.name as item_name, i.hsn_code, i.sku , i.current_stock
+        SELECT si.*, i.name as item_name, i.hsn_code, i.sku, i.current_stock
         FROM sale_items si
         LEFT JOIN items i ON si.item_id = i.id
         WHERE si.sale_id = ?
@@ -136,6 +145,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
 
   ipcMain.handle('update-sale', async (event, saleId, updatedSale) => {
     const db = getDb();
+    
     const oldItems = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(saleId);
     const oldMap = {};
     oldItems.forEach((item) => {
@@ -169,6 +179,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         customer_contact = ?,
         customer_address = ?,
         customer_gstin = ?,
+        shipped_to_name = ?,
+        shipped_to_contact = ?,
+        shipped_to_address = ?,
+        shipped_to_gstin = ?,
+        is_shipped_different = ?,
         sale_date = ?,
         discount = ?,
         total_amount = ?,
@@ -181,6 +196,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       updatedSale.customer_contact,
       updatedSale.customer_address,
       updatedSale.customer_gstin,
+      updatedSale.shipped_to_name || null,
+      updatedSale.shipped_to_contact || null,
+      updatedSale.shipped_to_address || null,
+      updatedSale.shipped_to_gstin || null,
+      updatedSale.is_shipped_different ? 1 : 0,
       updatedSale.sale_date,
       updatedSale.discount,
       updatedSale.total_amount,
@@ -194,32 +214,19 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
 
     const saleItemStmt = db.prepare(`
       INSERT INTO sale_items
-        (sale_id, item_id, quantity, unit_price, total_price, sale_type, customer_rate, salesman_rate)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (sale_id, item_id, quantity, unit_price, total_price, sale_type)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     updatedSale.items.forEach((item) => {
-      const oldItem = oldMap[item.id];
-      let customerRate = oldItem?.customer_rate;
-      let salesmanRate = oldItem?.salesman_rate;
-
-      if (!customerRate || !salesmanRate) {
-        const itemRates = db.prepare('SELECT customer_rate, salesman_rate FROM items WHERE id = ?').get(item.id);
-        customerRate = customerRate || itemRates?.customer_rate || 0;
-        salesmanRate = salesmanRate || itemRates?.salesman_rate || 0;
-      }
-
       saleItemStmt.run(
         saleId,
         item.id,
         parseFloat(item.quantity),
         parseFloat(item.unit_price),
         parseFloat(item.total_price),
-        updatedSale.sale_type || 'customer',
-        customerRate,
-        salesmanRate
+        updatedSale.sale_type || 'customer'
       );
-      //reduceClosingStock?.(item.id, parseFloat(item.quantity));
     });
 
     return { success: true };

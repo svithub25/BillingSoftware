@@ -58,6 +58,15 @@ const SaleEdit = () => {
     items: []
   });
 
+  // --- Shipped To state ---
+  const [isShippedDifferent, setIsShippedDifferent] = useState(false);
+  const [shippedToInfo, setShippedToInfo] = useState({
+    name: '',
+    contact: '',
+    address: '',
+    gstin: ''
+  });
+
   useEffect(() => {
     loadSaleDetails();
     window.electronAPI.getInventory().then(setItems);
@@ -91,6 +100,13 @@ const SaleEdit = () => {
         }))
       });
       setSelectedSalesman(result.salesman_id || '');
+      setIsShippedDifferent(result.is_shipped_different === 1);
+      setShippedToInfo({
+        name: result.shipped_to_name || '',
+        contact: result.shipped_to_contact || '',
+        address: result.shipped_to_address || '',
+        gstin: result.shipped_to_gstin || ''
+      });
     } catch (error) {
       toast.error('Error loading sale details');
     } finally {
@@ -254,7 +270,12 @@ const SaleEdit = () => {
         total_amount: getFinalAmount(),
         rounding_off: getRoundingOff(),
         salesman_id: selectedSalesman || null,
-        sale_type: sale?.sale_type || 'customer' // Keep original sale_type
+        sale_type: sale?.sale_type || 'customer',
+        is_shipped_different: isShippedDifferent ? 1 : 0,
+        shipped_to_name: isShippedDifferent ? shippedToInfo.name : '',
+        shipped_to_contact: isShippedDifferent ? shippedToInfo.contact : '',
+        shipped_to_address: isShippedDifferent ? shippedToInfo.address : '',
+        shipped_to_gstin: isShippedDifferent ? shippedToInfo.gstin : ''
       });
       toast.success('Sale updated successfully!');
       navigate('/sales-history');
@@ -351,6 +372,65 @@ const SaleEdit = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
+              {/* Shipped To Section */}
+          <div className="col-span-2 mt-4">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isShippedDifferent}
+                onChange={e => {
+                  setIsShippedDifferent(e.target.checked);
+                  if (!e.target.checked) {
+                    setShippedToInfo({ name: '', contact: '', address: '', gstin: '' });
+                  }
+                }}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700">
+                Ship to a different address
+              </span>
+            </label>
+          </div>
+          {isShippedDifferent && (
+           <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shipped To Name</label>
+                <input
+                  type="text"
+                  value={shippedToInfo.name}
+                  onChange={e => setShippedToInfo({ ...shippedToInfo, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shipped To Contact</label>
+                <input
+                  type="text"
+                  value={shippedToInfo.contact}
+                  onChange={e => setShippedToInfo({ ...shippedToInfo, contact: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shipped To Address</label>
+                <input
+                  type="text"
+                  value={shippedToInfo.address}
+                  onChange={e => setShippedToInfo({ ...shippedToInfo, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shipped To GSTIN</label>
+                <input
+                  type="text"
+                  value={shippedToInfo.gstin}
+                  onChange={e => setShippedToInfo({ ...shippedToInfo, gstin: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+           </>
+          )}
             {/* Salesman Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Salesman</label>
@@ -512,6 +592,8 @@ const SaleEdit = () => {
               Update Sale
             </button>
           </div>
+
+        
         </div>
       </div>
     // </PinProtected>

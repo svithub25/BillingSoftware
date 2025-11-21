@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  FileText, 
+import {
+  FileText,
   Edit3,
-  Search, 
-  Filter, 
+  Search,
+  Filter,
   Calendar,
   User,
-  Package, 
+  Package,
   Eye,
   RefreshCw,
   Trash2,
@@ -83,7 +83,7 @@ const SalesHistory = () => {
     }
   };
 
-  const fetchSalesmen = async () => { 
+  const fetchSalesmen = async () => {
     try {
       const list = await window.electronAPI.getSalesmen();
       setSalesmen(list);
@@ -128,21 +128,21 @@ const SalesHistory = () => {
         startDate: filters.startDate,
         endDate: filters.endDate
       };
-      
+
       const hasBackendFilters = Object.values(backendFilters).some(val => val);
       if (hasBackendFilters) {
         fetchFiltered();
       } else {
         loadSalesHistory();
       }
-    }, 300); 
-    
+    }, 300);
+
     return () => clearTimeout(debounceTimeout.current);
   }, [filters.startDate, filters.endDate]);
 
   const loadSalesHistory = async () => {
     try {
-      const data = await window.electronAPI.getSalesHistory(); 
+      const data = await window.electronAPI.getSalesHistory();
       console.log('Fetched sales history:', data);
       data.sort((a, b) => {
         const getBillNum = bill => {
@@ -150,22 +150,22 @@ const SalesHistory = () => {
           return parseInt(parts[parts.length - 1], 10) || 0;
         };
         return getBillNum(b.bill_number) - getBillNum(a.bill_number);
-      });  
+      });
       setSales(data);
       setCurrentPage(1); // Reset to first page on fresh load
     } catch (error) {
       console.error('Error loading sales history:', error);
     } finally {
       setLoading(false);
-    }  
+    }
   };
 
   const clearFilters = () => {
     setFilters({
       startDate: '',
-      endDate: '', 
+      endDate: '',
       customer: '',
-      item: '', 
+      item: '',
       salesman: '',
       billNumber: '',
       paymentStatus: '',
@@ -180,7 +180,7 @@ const SalesHistory = () => {
   };
 
   const editSale = (saleId) => {
-    navigate(`/saleedit/${saleId}`); 
+    navigate(`/saleedit/${saleId}`);
   };
 
   const handleDeleteSale = async (saleId) => {
@@ -223,8 +223,8 @@ const SalesHistory = () => {
       }
 
       await window.electronAPI.updateSaleItemPrice(saleId, itemId, newPrice);
-      
-      setSales(prevSales => 
+
+      setSales(prevSales =>
         prevSales.map(sale => {
           if (sale.id === saleId) {
             const updatedSale = { ...sale };
@@ -250,7 +250,7 @@ const SalesHistory = () => {
 
 
 
-  const getTotalSales = () => { 
+  const getTotalSales = () => {
     return filteredSales.reduce((sum, sale) => sum + sale.total_amount, 0);
   };
 
@@ -261,6 +261,7 @@ const SalesHistory = () => {
   const handleReprintBill = async (saleId) => {
     try {
       const saleDetails = await window.electronAPI.getSaleDetails(saleId);
+      console.log('Generating PDF for sale:', saleDetails);
 
       const pdfContainer = document.createElement('div');
       pdfContainer.style.position = 'fixed';
@@ -272,15 +273,15 @@ const SalesHistory = () => {
 
       import('react-dom/client').then(({ createRoot }) => {
         const root = createRoot(pdfContainer);
-        
+
         root.render(
-          <BillPDF 
+          <BillPDF
             billNumber={saleDetails.bill_number}
             customer={{
               name: saleDetails.customer_name,
               contact: saleDetails.customer_contact,
               address: saleDetails.customer_address,
-              gstin: saleDetails.customer_gstin  
+              gstin: saleDetails.customer_gstin
             }}
             items={saleDetails.items.map(item => ({
               hsn_code: item.hsn_code,
@@ -301,6 +302,13 @@ const SalesHistory = () => {
             salesman_contact={saleDetails.salesman_contact_info || ""}
             salesman_address={saleDetails.salesman_address || ""}
             note={saleDetails.narration || ""}
+            isShippedDifferent={saleDetails.is_shipped_different}
+            shippedTo={{
+              name: saleDetails.shipped_to_name || '',
+              contact: saleDetails.shipped_to_contact || '',
+              address: saleDetails.shipped_to_address || '',
+              gstin: saleDetails.shipped_to_gstin || ''
+            }}
           />
         );
 
@@ -371,7 +379,7 @@ const SalesHistory = () => {
     if (isApproved) {
       try {
         const data = await window.electronAPI.getSalePaymentForApproval(saleId);
-        
+
         if (!data.hasPayment) {
           toast.error('Cannot approve: Sale is not marked as paid');
           return;
@@ -398,8 +406,8 @@ const SalesHistory = () => {
     try {
       const success = await window.electronAPI.updateSaleApprovedStatus(saleId, isApproved);
       if (success) {
-        setSales(prevSales => 
-          prevSales.map(sale => 
+        setSales(prevSales =>
+          prevSales.map(sale =>
             sale.id === saleId ? { ...sale, is_approved: isApproved ? 1 : 0 } : sale
           )
         );
@@ -437,10 +445,10 @@ const SalesHistory = () => {
       });
 
       if (result.success) {
-        setSales(prevSales => 
-          prevSales.map(sale => 
-            sale.id === pendingPaymentSale.id 
-              ? { ...sale, is_paid: 1, payment_method: paymentForm.paymentMethod } 
+        setSales(prevSales =>
+          prevSales.map(sale =>
+            sale.id === pendingPaymentSale.id
+              ? { ...sale, is_paid: 1, payment_method: paymentForm.paymentMethod }
               : sale
           )
         );
@@ -464,17 +472,17 @@ const SalesHistory = () => {
     const matchStartDate = !filters.startDate || new Date(sale.sale_date) >= new Date(filters.startDate);
     const matchEndDate = !filters.endDate || new Date(sale.sale_date) <= new Date(filters.endDate);
     const matchCustomer = !filters.customer || (sale.customer_name && sale.customer_name.toLowerCase().includes(filters.customer.toLowerCase()));
-    const matchItem = !filters.item || 
+    const matchItem = !filters.item ||
       (sale.item_names && sale.item_names.toLowerCase().includes(filters.item.toLowerCase()));
     const matchSalesman = !filters.salesman || String(sale.salesman_id) === String(filters.salesman);
     const matchBill = !filters.billNumber || sale.bill_number.toLowerCase().includes(filters.billNumber.toLowerCase());
-    
+
     // New filters
-    const matchPaymentStatus = !filters.paymentStatus || 
+    const matchPaymentStatus = !filters.paymentStatus ||
       (filters.paymentStatus === 'paid' && sale.is_paid === 1) ||
       (filters.paymentStatus === 'unpaid' && (sale.is_paid === 0 || !sale.is_paid));
-    
-    const matchApprovalStatus = !filters.approvalStatus || 
+
+    const matchApprovalStatus = !filters.approvalStatus ||
       (filters.approvalStatus === 'approved' && sale.is_approved === 1) ||
       (filters.approvalStatus === 'not_approved' && (sale.is_approved === 0 || !sale.is_approved));
 
@@ -485,7 +493,7 @@ const SalesHistory = () => {
   useEffect(() => {
     const total = Math.ceil(filteredSales.length / itemsPerPage);
     setTotalPages(total);
-    
+
     // If current page exceeds total pages after filtering, reset to page 1
     if (currentPage > total && total > 0) {
       setCurrentPage(1);
@@ -521,18 +529,18 @@ const SalesHistory = () => {
   const getPageNumbers = () => {
     const pages = [];
     const maxPagesToShow = 5;
-    
+
     let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-    
+
     if (endPage - startPage < maxPagesToShow - 1) {
       startPage = Math.max(1, endPage - maxPagesToShow + 1);
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   };
 
@@ -553,7 +561,7 @@ const SalesHistory = () => {
           <p className="text-gray-600">View and manage all sales transactions</p>
         </div>
       </div>
- 
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -613,7 +621,7 @@ const SalesHistory = () => {
           <Filter className="w-5 h-5 text-gray-500 mr-2" />
           <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
@@ -624,7 +632,7 @@ const SalesHistory = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
             <input
@@ -634,19 +642,19 @@ const SalesHistory = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Customer</label>
             <input
               type="text"
-              value={filters.customer} 
+              value={filters.customer}
               autoFocus
-              onChange={(e) => {e.preventDefault() ; setFilters({ ...filters, customer: e.target.value })}}
+              onChange={(e) => { e.preventDefault(); setFilters({ ...filters, customer: e.target.value }) }}
               placeholder="Search by customer name"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-           
+
           {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Item</label>
             <select
@@ -716,7 +724,7 @@ const SalesHistory = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="flex space-x-3">
           <button
             onClick={clearFilters}
@@ -738,7 +746,7 @@ const SalesHistory = () => {
             Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredSales.length)} of {filteredSales.length} records
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -761,14 +769,14 @@ const SalesHistory = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total Amount
                 </th>
-               
+
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Paid
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Approve
                 </th>
-                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -777,15 +785,28 @@ const SalesHistory = () => {
               {currentSales.map((sale) => (
                 <tr key={sale.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {highlightText(sale.bill_number, filters.billNumber)} 
+                    {highlightText(sale.bill_number, filters.billNumber)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {sale.customer_name} 
+                        {sale.customer_name}
                       </div>
                       {sale.customer_contact && (
                         <div className="text-sm text-gray-500">{sale.customer_contact}</div>
+                      )}
+                      {/* Show shipped to if different */}
+                      {sale.is_shipped_different === 1 && (
+                        <div className="mt-1 text-xs text-blue-700">
+                          <span className="font-semibold">Shipped To:</span> {sale.shipped_to_name}
+                          {sale.shipped_to_contact && <> | {sale.shipped_to_contact}</>}
+                          {sale.shipped_to_address && (
+                            <div className="text-xs text-blue-500">{sale.shipped_to_address}</div>
+                          )}
+                          {sale.shipped_to_gstin && (
+                            <div className="text-xs text-blue-500">GSTIN: {sale.shipped_to_gstin}</div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>
@@ -796,16 +817,16 @@ const SalesHistory = () => {
                     {sale.item_count} items
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {sale.salesman} 
+                    {sale.salesman}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     ₹{sale.total_amount.toLocaleString()}
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     <div className="flex items-center space-x-2">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={sale.is_paid === 1}
                         onChange={(e) => handlePaidChange(sale.id, e.target.checked)}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
@@ -818,8 +839,8 @@ const SalesHistory = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    <input 
-                      type='checkbox' 
+                    <input
+                      type='checkbox'
                       checked={sale.is_approved === 1}
                       onChange={(e) => handleApproveChange(sale.id, e.target.checked)}
                     />
@@ -860,8 +881,8 @@ const SalesHistory = () => {
                 </tr>
               ))}
             </tbody>
-          </table> 
-          
+          </table>
+
           {currentSales.length === 0 && (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -877,16 +898,15 @@ const SalesHistory = () => {
               <button
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
-                className={`flex items-center px-3 py-2 rounded-lg mr-2 ${
-                  currentPage === 1
+                className={`flex items-center px-3 py-2 rounded-lg mr-2 ${currentPage === 1
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                  }`}
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Previous
               </button>
-              
+
               <div className="flex gap-1">
                 {currentPage > 3 && (
                   <>
@@ -899,21 +919,20 @@ const SalesHistory = () => {
                     {currentPage > 4 && <span className="px-2 py-2">...</span>}
                   </>
                 )}
-                
+
                 {getPageNumbers().map((pageNum) => (
                   <button
                     key={pageNum}
                     onClick={() => goToPage(pageNum)}
-                    className={`px-3 py-2 rounded-lg ${
-                      currentPage === pageNum
+                    className={`px-3 py-2 rounded-lg ${currentPage === pageNum
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {pageNum}
                   </button>
                 ))}
-                
+
                 {currentPage < totalPages - 2 && (
                   <>
                     {currentPage < totalPages - 3 && <span className="px-2 py-2">...</span>}
@@ -926,21 +945,20 @@ const SalesHistory = () => {
                   </>
                 )}
               </div>
-              
+
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
-                className={`flex items-center px-3 py-2 rounded-lg ml-2 ${
-                  currentPage === totalPages
+                className={`flex items-center px-3 py-2 rounded-lg ml-2 ${currentPage === totalPages
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                  }`}
               >
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
             </div>
-            
+
             <div className="text-sm text-gray-600">
               Page {currentPage} of {totalPages}
             </div>
@@ -1028,7 +1046,7 @@ const SalesHistory = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-96 overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Approve Sale - Verify Payment Details</h2>
-            
+
             {/* Sale Info */}
             <div className="mb-4 p-4 bg-gray-50 rounded">
               <h3 className="font-semibold mb-2">Sale Information</h3>
@@ -1130,17 +1148,16 @@ const SalesHistory = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Approval History</h2>
-            
+
             <div className="space-y-3">
               <div className="p-3 bg-gray-50 rounded">
                 <div><strong>Bill Number:</strong> {approvalHistory.billNumber}</div>
                 <div><strong>Total Amount:</strong> ₹{approvalHistory.totalAmount}</div>
-                <div><strong>Current Status:</strong> 
-                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                    approvalHistory.currentStatus === 'Approved' 
-                      ? 'bg-green-100 text-green-800' 
+                <div><strong>Current Status:</strong>
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${approvalHistory.currentStatus === 'Approved'
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-yellow-100 text-yellow-800'
-                  }`}>
+                    }`}>
                     {approvalHistory.currentStatus}
                   </span>
                 </div>
@@ -1167,7 +1184,7 @@ const SalesHistory = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-96 overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Payment History</h2>
-            
+
             {paymentHistory.length > 0 ? (
               <div className="space-y-4">
                 {paymentHistory.map((payment, index) => (
@@ -1242,20 +1259,20 @@ const SalesHistory = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Record Payment</h2>
-            
+
             {/* Payment Method Selection */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
               <select
                 value={paymentForm.paymentMethod}
-                onChange={(e) => setPaymentForm({  
-                  ...paymentForm, 
+                onChange={(e) => setPaymentForm({
+                  ...paymentForm,
                   paymentMethod: e.target.value,
-                  paymentDetails: {} 
+                  paymentDetails: {}
                 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
-                <option value="cash">Cash</option> 
+                <option value="cash">Cash</option>
                 <option value="upi">UPI</option>
                 <option value="neft_rtgs">NEFT/RTGS</option>
                 <option value="cheque">Cheque</option>
