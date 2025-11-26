@@ -33,6 +33,8 @@ import SaleEdit from "./components/SaleEdit";
 import Contactus from "./components/Contactus"; 
 import OpeningStockManagement from "./components/Openingstock/OpeningStockManagement"
 import Company from "./components/Company";
+import CreditDebitNote from "./components/CreditDebitNote";
+import BranchGoDown from "./components/BranchGoDown";
  
 
 const App = () => {
@@ -118,6 +120,9 @@ const App = () => {
                 <Route path="/sale/:id" element={<SaleDetails />} />
                 <Route path="/saleedit/:id" element={<SaleEdit />} />
                 <Route path="/purchase-order" element={<PurchaseOrder />} />
+                <Route path="/coming-soon" element={<CreditDebitNote />} />
+                <Route path="/coming-soon1" element={<BranchGoDown />} />
+                <Route path="/coming-soon2" element={<ComingSoon />} />
                 <Route path="/contact" element={<Contactus />} />
               </Routes> 
             </Layout>

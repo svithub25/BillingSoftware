@@ -1,10 +1,11 @@
-import { Download, Printer, RefreshCw, Save, Search, ShoppingCart, Trash2, User, SendHorizontal, Calendar, X } from 'lucide-react';
+import { Download, Printer, RefreshCw, Plus, Save, Search, ShoppingCart, Trash2, User, SendHorizontal, Calendar, X } from 'lucide-react';
 import { useHotkeys } from "react-hotkeys-hook";
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import BillPDF from './BillPDF';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import CustomerFormModal from './admin/modals/CustomerFormModal'; // Add this import
 
 const Billing = () => {
   // Load saved state from sessionStorage or use defaults
@@ -73,6 +74,23 @@ const Billing = () => {
   useHotkeys('ctrl+k', (e) => { e.preventDefault(); searchInputRef.current?.focus(); }, { enableOnTags: ['INPUT'] });
   useHotkeys('ctrl+f', (e) => { e.preventDefault(); discountInputRef.current?.focus(); }, { enableOnTags: ['INPUT'] });
   useHotkeys('ctrl+c', () => completeSale('complete'));
+
+  // Customer modal state
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [customerForm, setCustomerForm] = useState({
+    name: '',
+    contact: '',
+    address: '',
+    email: '',
+    gstin: '',
+    state: '',
+    city: '',
+    country: 'India',
+    pincode: '',
+    credit_limit: '',
+    credit_days: ''
+  });
+  const [customerErrors, setCustomerErrors] = useState({});
 
   useEffect(() => {
     loadItems();
@@ -340,7 +358,10 @@ const Billing = () => {
         return;
       }
     }
-
+    if (!customerInfo.id) {
+      toast.error('Please select a customer from the dropdown.');
+      return;
+    }
     try {
       // Create customer if needed
       if (customerInfo.contact && /^\d{10}$/.test(customerInfo.contact.trim())) {
@@ -535,6 +556,46 @@ const Billing = () => {
     }
   };
 
+  // Validation function
+  const validateCustomerForm = (form) => {
+    const errors = {};
+    if (!form.name || form.name.trim().length < 2) errors.name = 'Name is required';
+    if (!form.contact || form.contact.trim().length < 5) errors.contact = 'Contact is required';
+    return errors;
+  };
+
+  // Handler to add customer
+  const handleAddCustomer = async () => {
+    const errors = validateCustomerForm(customerForm);
+    if (Object.keys(errors).length) {
+      setCustomerErrors(errors);
+      toast.error('Please fill all required fields');
+      return;
+    }
+    try {
+      const newCustomer = await window.electronAPI.addCustomer(customerForm);
+      toast.success('Customer added');
+      setCustomers((prev) => [...prev, newCustomer]);
+      setShowCustomerForm(false);
+      setCustomerForm({
+        name: '',
+        contact: '',
+        address: '',
+        email: '',
+        gstin: '',
+        state: '',
+        city: '',
+        country: 'India',
+        pincode: '',
+        credit_limit: '',
+        credit_days: ''
+      });
+      setCustomerErrors({});
+    } catch (error) {
+      toast.error('Error adding customer');
+      console.error('Error adding customer:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -547,50 +608,23 @@ const Billing = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 min-w-[200px] max-w-[500px] mr-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input 
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search items... (Ctrl+K to focus, Enter/Tab to add)"
-            value={searchTerm}
-            onChange={e => {
-              setSearchTerm(e.target.value);
-              setSearchDropdown(true);
-              setSearchIndex(0);
-            }}
-            onFocus={() => setSearchDropdown(true)}
-            onBlur={() => setTimeout(() => setSearchDropdown(false), 100)}
-            onKeyDown={handleSearchKeyDown}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            tabIndex={0}
-            autoComplete="off"
-          />
-          {searchDropdown && filteredItems.length > 0 && (
-            <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
-              {filteredItems.map((item, idx) => (
-                <li
-                  key={item.id}
-                  className={`px-3 py-2 cursor-pointer ${idx === searchIndex ? 'bg-blue-100' : ''}`}
-                  onMouseDown={() => {
-                    addToCart(item);
-                    setSearchTerm('');
-                    setSearchDropdown(false);
-                    setSearchIndex(0);
-                  }}
-                  tabIndex={-1}
-                >
-                  {item.name}
-                  <span className="text-xs text-gray-400 ml-2">
-                    (Stock: {item.current_stock}, Rate: ₹{item.mrp})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end">
+
         <div className="mt-4 sm:mt-0 flex items-center gap-3 flex-wrap">
+          <div className='w-20'>
+            <select
+              value={selectedSalesman}
+              onChange={e => setSelectedSalesman(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isOthers}
+            >
+              {/* <option value="">Select Salesman</option> */}
+
+              <option value='cash'>Cash</option>
+              <option value='credit'>Credit</option>
+
+            </select>
+          </div>
           <div className='w-60'>
             <select
               value={selectedSalesman}
@@ -636,26 +670,113 @@ const Billing = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Items List */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-1 space-y-6">
 
 
           {/* Search */}
-          
+          <div className="relative flex-1 w-full mr-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search items (Ctrl+K to focus, Enter/Tab to add)"
+              value={searchTerm}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setSearchDropdown(true);
+                setSearchIndex(0);
+              }}
+              onFocus={() => setSearchDropdown(true)}
+              onBlur={() => setTimeout(() => setSearchDropdown(false), 100)}
+              onKeyDown={handleSearchKeyDown}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              tabIndex={0}
+              autoComplete="off"
+            />
+            {searchDropdown && filteredItems.length > 0 && (
+              <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
+                {filteredItems.map((item, idx) => (
+                  <li
+                    key={item.id}
+                    className={`px-3 py-2 cursor-pointer ${idx === searchIndex ? 'bg-blue-100' : ''}`}
+                    onMouseDown={() => {
+                      addToCart(item);
+                      setSearchTerm('');
+                      setSearchDropdown(false);
+                      setSearchIndex(0);
+                    }}
+                    tabIndex={-1}
+                  >
+                    {item.name}
+                    <span className="text-xs text-gray-400 ml-2">
+                      (Stock: {item.current_stock}, Rate: ₹{item.mrp})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* Customer Information */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            {/* <div className='flex justify-between gap-2 mb-8 '> */}
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <User className="w-5 h-5 mr-2" />
               Customer Information
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name with dropdown */}
-              <div className="relative">
+
+            <div className='w-full flex items-center gap-2'>
+              <select
+                value={customerInfo.id || ''}
+                onChange={e => {
+                  const selectedId = e.target.value;
+                  const selectedCustomer = customers.find(c => String(c.id) === String(selectedId));
+                  if (selectedCustomer) {
+                    setCustomerInfo({
+                      id: selectedCustomer.id,
+                      name: selectedCustomer.name || '',
+                      contact: selectedCustomer.contact || '',
+                      address: selectedCustomer.address || '',
+                      gstin: selectedCustomer.gstin || ''
+                    });
+                  } else {
+                    setCustomerInfo({
+                      id: '',
+                      name: '',
+                      contact: '',
+                      address: '',
+                      gstin: ''
+                    });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select Customer</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.contact})</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowCustomerForm(true)}
+                className="ml-2 px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                title="Add New Customer"
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* </div> */}
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> */}
+            {/* Name with dropdown */}
+            {/* <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                 <input
                   ref={customerNameInputRef}
                   type="text"
                   value={customerInfo.name}
+                  disabled
                   onChange={e => {
                     setCustomerInfo({ ...customerInfo, name: e.target.value });
                     setCustomerDropdown(true);
@@ -682,16 +803,17 @@ const Billing = () => {
                       </li>
                     ))}
                   </ul>
-                )}
-              </div>
+                )} 
+              </div> */}
 
-              {/* Contact with dropdown */}
-              <div className="relative">
+            {/* Contact with dropdown */}
+            {/* <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
                 <input
                   ref={customerContactInputRef}
                   type="number"
                   value={customerInfo.contact}
+                  disabled
                   onWheel={e => e.target.blur()}
                   onChange={e => {
                     let val = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -721,53 +843,55 @@ const Billing = () => {
                     ))}
                   </ul>
                 )}
-              </div>
+              </div> */}
 
-              {/* Address */}
-              <div>
+            {/* Address */}
+            {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <input
                   type="text"
                   value={customerInfo.address}
+                  disabled
                   onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Customer address"
                   tabIndex={3}
                 />
-              </div>
+              </div> */}
 
-              {/* GSTIN */}
-              <div>
+            {/* GSTIN */}
+            {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">GSTIN (Optional)</label>
                 <input
                   type="text"
                   value={customerInfo.gstin}
+                  disabled
                   onChange={e => setCustomerInfo({ ...customerInfo, gstin: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="GST number"
                   tabIndex={4}
                 />
-              </div>
+              </div> */}
 
-              <div className="mt-4">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isShippedDifferent}
-                    onChange={(e) => {
-                      setIsShippedDifferent(e.target.checked);
-                      if (!e.target.checked) {
-                        setShippedToInfo({ name: '', contact: '', address: '', gstin: '' });
-                      }
-                    }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm font-medium text-gray-700">
-                    Ship to a different address
-                  </span>
-                </label>
-              </div>
+            <div className="mt-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isShippedDifferent}
+                  onChange={(e) => {
+                    setIsShippedDifferent(e.target.checked);
+                    if (!e.target.checked) {
+                      setShippedToInfo({ name: '', contact: '', address: '', gstin: '' });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-700">
+                  Ship to a different address
+                </span>
+              </label>
             </div>
+            {/* </div> */}
 
 
 
@@ -904,7 +1028,7 @@ const Billing = () => {
         </div>
 
         {/* Cart */}
-        <div className="space-y-6">
+        <div className=" col-span-1  lg:col-span-2 space-y-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Shopping Cart</h2>
             {cart.length === 0 ? (
@@ -917,78 +1041,69 @@ const Billing = () => {
                 {cart.map((item, idx) => {
                   const { totalAmount } = calculateItemTotal({ ...item, quantity: parseInt(item.quantity) || 0 });
                   return (
-                    <div key={item.id} className="border-b border-gray-200 pb-4 flex flex-col gap-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-gray-900">{item.name}</h4>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-red-600 hover:text-red-800"
+                    <div key={item.id} className="border-b border-gray-200 pb-2 flex justify-between items-center gap-2">
+                      {/* Product Name */}
+                      <span className="font-medium text-gray-900  w-5/12 truncate">{item.name}</span>
+                      {/* Quantity Input */}
+                      <div className="flex items-center gap-1 w-24">
+                        <label className="text-xs text-gray-700">Qty</label>
+                        <input
+                          ref={el => qtyInputRefs.current[item.id] = el}
+                          type="number"
+                          onWheel={e => e.target.blur()}
+                          value={item.quantity}
+                          min={1}
+                          max={item.current_stock}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || val === null || val === undefined) {
+                              removeFromCart(item.id);
+                              return;
+                            }
+                            const numVal = parseInt(val);
+                            if (isNaN(numVal) || numVal <= 0) {
+                              removeFromCart(item.id);
+                            } else {
+                              updateCartItemQuantity(item.id, numVal);
+                            }
+                          }}
+                          onKeyDown={e => handleCartKeyDown(e, idx, item.id)}
+                          className="w-12 px-1 py-1 border border-gray-300 rounded text-sm"
                           tabIndex={0}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          autoFocus={item.quantity === ''}
+                        />
+                        <span className="text-xs text-gray-500">/ {item.current_stock}</span>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Quantity Input */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Quantity</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              ref={el => qtyInputRefs.current[item.id] = el}
-                              type="number"
-                              onWheel={e => e.target.blur()}
-                              value={item.quantity}
-                              min={1}
-                              max={item.current_stock}
-                              onChange={e => {
-                                const val = e.target.value;
-                                // If empty string or invalid, remove item
-                                if (val === '' || val === null || val === undefined) {
-                                  removeFromCart(item.id);
-                                  return;
-                                }
-                                const numVal = parseInt(val);
-                                if (isNaN(numVal) || numVal <= 0) {
-                                  removeFromCart(item.id);
-                                } else {
-                                  updateCartItemQuantity(item.id, numVal);
-                                }
-                              }}
-                              onKeyDown={e => handleCartKeyDown(e, idx, item.id)}
-                              className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                              tabIndex={0}
-                              autoFocus={item.quantity === ''}
-                            />
-                            <span className="text-xs text-gray-500">/ {item.current_stock}</span>
-                          </div>
-                        </div>
-
-                        {/* Unit Price Input */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Unit Price</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            onWheel={e => e.target.blur()}
-                            value={item.unit_price}
-                            onChange={e => {
-                              const newPrice = parseFloat(e.target.value) || 0;
-                              setCart(cart.map(cartItem =>
-                                cartItem.id === item.id
-                                  ? { ...cartItem, unit_price: newPrice }
-                                  : cartItem
-                              ));
-                            }}
-                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                            placeholder="₹0.00"
-                          />
-                        </div>
+                      {/* Unit Price Input */}
+                      <div className="flex items-center gap-1 w-24">
+                        <label className="text-xs text-gray-700">Rate</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          onWheel={e => e.target.blur()}
+                          value={item.unit_price}
+                          onChange={e => {
+                            const newPrice = parseFloat(e.target.value) || 0;
+                            setCart(cart.map(cartItem =>
+                              cartItem.id === item.id
+                                ? { ...cartItem, unit_price: newPrice }
+                                : cartItem
+                            ));
+                          }}
+                          className="w-14 px-1 py-1 border border-gray-300 rounded text-sm"
+                          placeholder="₹0.00"
+                        />
                       </div>
-
-                      <div className="flex justify-end">
-                        <span className="font-medium text-gray-900">Total: ₹{totalAmount.toFixed(2)}</span>
-                      </div>
+                      {/* Total */}
+                      <span className="font-medium text-gray-900 w-20 text-right">₹{totalAmount.toFixed(2)}</span>
+                      {/* Remove Button */}
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        className="text-red-600 hover:text-red-800 ml-2"
+                        tabIndex={0}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   );
                 })}
@@ -1034,10 +1149,10 @@ const Billing = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="space-y-2 mt-4">
+                <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     onClick={() => completeSale('complete')}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    className="flex-1 min-w-[150px] flex items-center justify-center p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                     tabIndex={0}
                   >
                     <Save className="w-4 h-4 mr-2" />
@@ -1045,7 +1160,7 @@ const Billing = () => {
                   </button>
                   <button
                     onClick={() => completeSale('print')}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    className="flex-1 min-w-[150px] flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                     tabIndex={0}
                   >
                     <Printer className="w-4 h-4 mr-2" />
@@ -1053,20 +1168,20 @@ const Billing = () => {
                   </button>
                   <button
                     onClick={() => completeSale('pdf')}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                    className="flex-1 min-w-[150px] flex items-center justify-center p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
                     tabIndex={0}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Complete & Generate PDF
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => toast.info('Coming Soon')}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                    className="flex-1 min-w-[150px] flex items-center justify-center p-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                     tabIndex={0}
                   >
                     <SendHorizontal className="w-4 h-4 mr-2" />
                     WhatsApp Invoice
-                  </button>
+                  </button> */}
                 </div>
               </div>
             )}
@@ -1077,7 +1192,7 @@ const Billing = () => {
 
 
 
-      <BillPDF
+      {/* <BillPDF
         billNumber={billNumber}
         customer={customerInfo}
         items={cart.map(item => ({
@@ -1098,6 +1213,34 @@ const Billing = () => {
         note={billNarration}
         isShippedDifferent={isShippedDifferent}
         shippedTo={shippedToInfo}
+      /> */}
+
+      {/* Customer Add Modal */}
+      <CustomerFormModal
+        isOpen={showCustomerForm}
+        isEditing={false}
+        customerForm={customerForm}
+        customerErrors={customerErrors}
+        setCustomerForm={setCustomerForm}
+        setCustomerErrors={setCustomerErrors}
+        onSubmit={handleAddCustomer}
+        onClose={() => {
+          setShowCustomerForm(false);
+          setCustomerForm({
+            name: '',
+            contact: '',
+            address: '',
+            email: '',
+            gstin: '',
+            state: '',
+            city: '',
+            country: 'India',
+            pincode: '',
+            credit_limit: '',
+            credit_days: ''
+          });
+          setCustomerErrors({});
+        }}
       />
     </div>
   );

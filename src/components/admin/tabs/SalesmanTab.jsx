@@ -31,7 +31,7 @@ const SalesmanTab = () => {
   const [confirmState, setConfirmState] = useState({
     open: false,
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const fetchSalesmen = useCallback(async () => {
@@ -39,6 +39,7 @@ const SalesmanTab = () => {
     setLoading(true);
     try {
       const data = await window.electronAPI.getSalesmen();
+      console.log('Fetched salesmen:', data);
       setSalesmen(data);
     } catch (error) {
       console.error('Error loading salesmen:', error);
@@ -113,7 +114,7 @@ const SalesmanTab = () => {
           toast.error('Error deleting salesman');
           console.error('Error deleting salesman:', error);
         } finally {
-          setConfirmState({ open: false, message: '', onConfirm: () => {} });
+          setConfirmState({ open: false, message: '', onConfirm: () => { } });
         }
       }
     });
@@ -212,11 +213,20 @@ const SalesmanTab = () => {
                   <button
                     onClick={() => {
                       setEditingSalesman(salesman.id);
-                      setSalesmanForm({
+                      setSalesmanForm({ 
                         name: salesman.name,
                         contact_info: salesman.contact_info,
                         address: salesman.address,
-                        joining_date: salesman.joining_date
+                        joining_date: salesman.joining_date,
+                        email: salesman.email || '',
+                        state: salesman.state || '',
+                        city: salesman.city || '',
+                        country: salesman.country || 'India',
+                        pincode: salesman.pincode || '',
+                        gstin: salesman.gstin || '',
+                        credit_limit: salesman.credit_limit || '',
+                        credit_days: salesman.credit_days || '',
+                        working_area: salesman.working_area || ''
                       });
                       setShowSalesmanForm(true);
                     }}
@@ -252,7 +262,7 @@ const SalesmanTab = () => {
         open={confirmState.open}
         message={confirmState.message}
         onConfirm={confirmState.onConfirm}
-        onCancel={() => setConfirmState({ open: false, message: '', onConfirm: () => {} })}
+        onCancel={() => setConfirmState({ open: false, message: '', onConfirm: () => { } })}
       />
     </div>
   );

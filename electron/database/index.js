@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { runMigrations } from './migrations.js';
+import Database from "better-sqlite3";
+import { runMigrations } from "./migrations.js";
 
 export function initDatabase(dbPath) {
   const db = new Database(dbPath);
@@ -280,15 +280,26 @@ CREATE TABLE IF NOT EXISTS sale_item_cost_allocation (
 
   `);
 
-  const defaultUser = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
+  const defaultUser = db
+    .prepare("SELECT * FROM users WHERE username = ?")
+    .get("admin");
   if (!defaultUser) {
-    db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('admin', 'admin');
+    db.prepare("INSERT INTO users (username, password) VALUES (?, ?)").run(
+      "admin",
+      "admin"
+    );
   }
 
-  db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('last_backup', new Date().toISOString());
-  db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('bill_counter', '0');
-// Add to your database initialization:
-db.exec(`
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
+    "last_backup",
+    new Date().toISOString()
+  );
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
+    "bill_counter",
+    "0"
+  );
+  // Add to your database initialization:
+  db.exec(`
   -- Bank Accounts Master
   CREATE TABLE IF NOT EXISTS bank_accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -402,9 +413,9 @@ CREATE TABLE IF NOT EXISTS bank_transactions (
   CREATE INDEX IF NOT EXISTS idx_pdc_date ON post_dated_cheques(cheque_date);
 `);
 
-// Insert default categories
-// Insert default categories
-db.exec(`
+  // Insert default categories
+  // Insert default categories
+  db.exec(`
   INSERT OR IGNORE INTO transaction_categories (category_name, category_type, description, is_default) VALUES
   -- EXPENSE CATEGORIES
   ('Purchase of Goods', 'Expense', 'Purchase of trading/raw material goods', 1),
@@ -445,8 +456,8 @@ db.exec(`
   ('Bank Interest', 'Income', 'Interest credited by bank', 1),
   ('Other Income', 'Income', 'Miscellaneous income', 1);
 `);
-//opening stock 
-db.exec(`
+  //opening stock
+  db.exec(`
    -- Enhanced opening stock table (already exists, but ensure it has all needed columns)
   CREATE TABLE IF NOT EXISTS opening_stock (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -468,7 +479,7 @@ db.exec(`
   ON opening_stock(item_id, financial_year);
 `);
 
- // ============================================
+  // ============================================
   // CREATE INDEXES FOR PERFORMANCE OPTIMIZATION
   // ============================================
   db.exec(`
@@ -618,6 +629,23 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_pdc_status_date ON post_dated_cheques(status, cheque_date);
   `);
   db.exec(`
+    CREATE TABLE item_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    purchase_item_id INTEGER NOT NULL,
+    batch_number TEXT NOT NULL,
+    mfg_date DATE,
+    exp_date DATE,
+    qty_received REAL NOT NULL,
+    qty_available REAL NOT NULL,
+    purchase_rate REAL NOT NULL,
+    mrp REAL NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES items(id),
+    FOREIGN KEY (purchase_item_id) REFERENCES purchase_items(id)
+);
+`);
+  db.exec(`
   CREATE TABLE IF NOT EXISTS company_info (
     id INTEGER PRIMARY KEY CHECK(id = 1),
     company_name TEXT NOT NULL DEFAULT 'Your Company Name',
@@ -642,6 +670,11 @@ db.exec(`
     bank_ifsc TEXT DEFAULT '',
     bank_branch TEXT DEFAULT '',
     edit_pin TEXT NULL,
+    terms_1 TEXT DEFAULT '',
+    terms_2 TEXT DEFAULT '',
+    terms_3 TEXT DEFAULT '',
+    terms_4 TEXT DEFAULT '',
+    terms_5 TEXT DEFAULT '',
     is_locked INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -660,33 +693,34 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_company_info_id ON company_info(id);
 `);
 
-const defaultCashAccount = db.prepare('SELECT * FROM bank_accounts WHERE account_name = ?').get('Cash');
-if (!defaultCashAccount) {
-  db.prepare(`
+  const defaultCashAccount = db
+    .prepare("SELECT * FROM bank_accounts WHERE account_name = ?")
+    .get("Cash");
+  if (!defaultCashAccount) {
+    db.prepare(
+      `
     INSERT INTO bank_accounts 
     (account_name, account_number, bank_name, branch_name, ifsc_code, account_type, opening_balance, current_balance, is_active) 
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    'Cash',           // account_name
-    'CASH-001',       // account_number
-    'Cash in Hand',   // bank_name
-    'N/A',           // branch_name
-    'N/A',           // ifsc_code
-    'Current',       // account_type
-    0,               // opening_balance
-    0,               // current_balance
-    1                // is_active
-  );
-}
+  `
+    ).run(
+      "Cash", // account_name
+      "CASH-001", // account_number
+      "Cash in Hand", // bank_name
+      "N/A", // branch_name
+      "N/A", // ifsc_code
+      "Current", // account_type
+      0, // opening_balance
+      0, // current_balance
+      1 // is_active
+    );
+  }
 
   try {
     runMigrations(db);
   } catch (error) {
-    console.error(' Migration error:', error);
+    console.error(" Migration error:", error);
   }
-
 
   return db;
 }
-
-

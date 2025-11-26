@@ -14,7 +14,8 @@ export function registerCompanyHandlers({ ipcMain, getDb, dialog }) {
           city, state, pincode, country, phone, mobile, email, website,
           gstin, pan, cin, logo_path, footer_text,
           bank_name, bank_account_number, bank_ifsc, bank_branch,
-          is_locked, updated_at, edit_pin
+          is_locked, updated_at, edit_pin,
+          terms_1, terms_2, terms_3, terms_4, terms_5
         FROM company_info WHERE id = 1
       `).get();
 
@@ -104,6 +105,11 @@ export function registerCompanyHandlers({ ipcMain, getDb, dialog }) {
           bank_account_number = ?,
           bank_ifsc = ?,
           bank_branch = ?,
+          terms_1 = ?,
+          terms_2 = ?,
+          terms_3 = ?,
+          terms_4 = ?,
+          terms_5 = ?,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = 1
       `);
@@ -128,7 +134,12 @@ export function registerCompanyHandlers({ ipcMain, getDb, dialog }) {
         companyData.bank_name,
         companyData.bank_account_number,
         companyData.bank_ifsc,
-        companyData.bank_branch
+        companyData.bank_branch,
+        companyData.terms_1 || '',
+        companyData.terms_2 || '',
+        companyData.terms_3 || '',
+        companyData.terms_4 || '',
+        companyData.terms_5 || ''
       );
 
       return { success: true, message: 'Company information updated successfully' };

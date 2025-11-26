@@ -519,7 +519,23 @@ const Company = () => {
             />
           </div>
 
-         
+          {/* Terms & Conditions */}
+          <div className="col-span-2">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 mt-4">Terms & Conditions</h2>
+          </div>
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">{`Term ${i}`}</label>
+              <input
+                type="text"
+                value={formData[`terms_${i}`] || ''}
+                onChange={e => handleInputChange(`terms_${i}`, e.target.value)}
+                disabled={!editMode}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder={`Enter term & condition point ${i}`}
+              />
+            </div>
+          ))}
 
           {/* Footer Text */}
           <div className="col-span-2">

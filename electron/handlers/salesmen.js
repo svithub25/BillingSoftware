@@ -1,11 +1,24 @@
 export function registerSalesmanHandlers({ ipcMain, getDb }) {
   ipcMain.handle('add-salesman', async (event, salesmanData) => {
-    const stmt = getDb().prepare('INSERT INTO salesman (name, contact_info, address, joining_date) VALUES (?, ?, ?, ?)');
+    const stmt = getDb().prepare(
+      `INSERT INTO salesman
+        (name, contact_info, address, joining_date, email, state, city, country, pincode, gstin, credit_limit, credit_days, working_area)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
     const result = stmt.run(
       salesmanData.name,
       salesmanData.contact_info,
       salesmanData.address,
-      salesmanData.joining_date
+      salesmanData.joining_date,
+      salesmanData.email,
+      salesmanData.state,
+      salesmanData.city,
+      salesmanData.country || 'India',
+      salesmanData.pincode,
+      salesmanData.gstin,
+      salesmanData.credit_limit,
+      salesmanData.credit_days,
+      salesmanData.working_area
     );
     return { id: result.lastInsertRowid, ...salesmanData };
   });
@@ -16,9 +29,30 @@ export function registerSalesmanHandlers({ ipcMain, getDb }) {
       .all();
   });
 
-  ipcMain.handle('update-salesman', async (event, { id, name, contact_info, address, joining_date }) => {
-    const stmt = getDb().prepare('UPDATE salesman SET name = ?, contact_info = ?, address = ?, joining_date = ? WHERE id = ?');
-    const result = stmt.run(name, contact_info, address, joining_date, id);
+  ipcMain.handle('update-salesman', async (event, salesmanData) => {
+    const stmt = getDb().prepare(
+      `UPDATE salesman SET
+        name = ?, contact_info = ?, address = ?, joining_date = ?,
+        email = ?, state = ?, city = ?, country = ?, pincode = ?, gstin = ?,
+        credit_limit = ?, credit_days = ?, working_area = ?
+        WHERE id = ?`
+    );
+    const result = stmt.run(
+      salesmanData.name,
+      salesmanData.contact_info,
+      salesmanData.address,
+      salesmanData.joining_date,
+      salesmanData.email,
+      salesmanData.state,
+      salesmanData.city,
+      salesmanData.country || 'India',
+      salesmanData.pincode,
+      salesmanData.gstin,
+      salesmanData.credit_limit,
+      salesmanData.credit_days,
+      salesmanData.working_area,
+      salesmanData.id
+    );
     return result.changes > 0;
   });
 
@@ -28,5 +62,3 @@ export function registerSalesmanHandlers({ ipcMain, getDb }) {
     return result.changes > 0;
   });
 }
-
-

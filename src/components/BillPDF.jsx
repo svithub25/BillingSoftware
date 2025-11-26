@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from "react";
-import companyLogo from "../Assets/logo.png";
+import UPI from "../Assets/upi.png";
 import { Building2 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
-function BillPDF({ 
-  billNumber, 
-  customer, 
-  items, 
-  discount = 0, 
-  subtotal = 0, 
-  roundingOff = 0, 
-  total = 0, 
-  sale_type = "", 
-  salesman_name = "", 
-  salesman_contact = "", 
-  salesman_address = "", 
+function BillPDF({
+  billNumber,
+  customer,
+  items,
+  discount = 0,
+  subtotal = 0,
+  roundingOff = 0,
+  total = 0,
+  sale_type = "",
+  salesman_name = "",
+  salesman_contact = "",
+  salesman_address = "",
   note = "",
   isShippedDifferent = false,
   shippedTo = { name: '', contact: '', address: '', gstin: '' }
@@ -33,7 +33,7 @@ function BillPDF({
       console.log('Company Info Result:', result);
       if (result.success && result.data) {
         setCompanyInfo(result.data);
-        
+
         // Load logo if exists
         if (result.data.logo_path) {
           const logoResult = await window.electronAPI.getLogoAsBase64(result.data.logo_path);
@@ -48,78 +48,78 @@ function BillPDF({
   };
 
   console.log(salesman_contact);
-  
+
   // Split items into pages
-  const pages = []; 
+  const pages = [];
   for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
     pages.push(items.slice(i, i + ITEMS_PER_PAGE));
   }
 
- const Header = () => (
-  <div className="border-b border-[hsl(0,0%,0%)] pb-2 mb-2">
-    <div className="flex justify-center">
-      <h2 className="text-xl font-bold text-[hsl(0,0%,0%)]">INVOICE</h2>
-    </div>
-    <div className="flex items-center gap-3">
+  const Header = () => (
+    <div className="border-b border-[hsl(0,0%,0%)] pb-2 mb-2">
+      <div className="flex justify-center">
+        <h2 className="text-xl font-bold text-[hsl(0,0%,0%)]">INVOICE</h2>
+      </div>
       <div className="flex items-center gap-3">
-        {logoDataUrl ? (
-          <img
-            src={logoDataUrl}
-            alt="Company Logo"
-            className="w-20 h-20 object-contain"
-          />
-        ) : (
-          <div className="w-20 h-20 flex items-center justify-center border border-gray-300">
-            <Building2 className="w-12 h-12 text-gray-400" />
-          </div>
-        )}
-      </div>
-      <div className="text-left ml-6 flex-[2] space-y-0.5">
-        <h2 className="text-xl font-bold text-[hsl(0,0%,0%)]">
-          {companyInfo?.company_name || 'Company Name'}
-        </h2>
-        <div className="text-[11px] text-[hsl(0,0%,0%)] space-y-0.5 mt-0.5">
-          {companyInfo?.address_line1 && <p>{companyInfo.address_line1}</p>}
-          {companyInfo?.address_line2 && <p>{companyInfo.address_line2}</p>}
-          {(companyInfo?.city || companyInfo?.state || companyInfo?.pincode) && (
-            <p>
-              {[companyInfo?.city, companyInfo?.state, companyInfo?.pincode]
-                .filter(Boolean)
-                .join(', ')}
-            </p>
+        <div className="flex items-center gap-3">
+          {logoDataUrl ? (
+            <img
+              src={logoDataUrl}
+              alt="Company Logo"
+              className="w-20 h-20 object-contain"
+            />
+          ) : (
+            <div className="w-20 h-20 flex items-center justify-center border border-gray-300">
+              <Building2 className="w-12 h-12 text-gray-400" />
+            </div>
           )}
-          {(companyInfo?.phone || companyInfo?.mobile) && (
-            <span>Contact: {companyInfo?.phone || companyInfo?.mobile}</span>
-          )}
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-[hsl(0,0%,0%)] mt-1">
-            {companyInfo?.email && <span>Email: {companyInfo.email}</span>}
-            {companyInfo?.email && companyInfo.website && <span>|</span>}
-            {companyInfo?.website && <span>Website: {companyInfo.website}</span>}
+        </div>
+        <div className="text-left ml-6 flex-[2] space-y-0.5">
+          <h2 className="text-xl font-bold text-[hsl(0,0%,0%)]">
+            {companyInfo?.company_name || 'Company Name'}
+          </h2>
+          <div className="text-[11px] text-[hsl(0,0%,0%)] space-y-0.5 mt-0.5">
+            {companyInfo?.address_line1 && <p>{companyInfo.address_line1}</p>}
+            {companyInfo?.address_line2 && <p>{companyInfo.address_line2}</p>}
+            {(companyInfo?.city || companyInfo?.state || companyInfo?.pincode) && (
+              <p>
+                {[companyInfo?.city, companyInfo?.state, companyInfo?.pincode]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            )}
+            {(companyInfo?.phone || companyInfo?.mobile) && (
+              <span>Contact: {companyInfo?.phone || companyInfo?.mobile}</span>
+            )}
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-[hsl(0,0%,0%)] mt-1">
+              {companyInfo?.email && <span>Email: {companyInfo.email}</span>}
+              {companyInfo?.email && companyInfo.website && <span>|</span>}
+              {companyInfo?.website && <span>Website: {companyInfo.website}</span>}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="text-right ml-0 flex-1 min-w-[140px]">
-        <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
-          Bill Details
-        </h3>
-        <div className="space-y-0.5 text-xs">
-          <div className="text-right">
-            <span className="font-medium text-[hsl(0,0%,0%)]">{billNumber}</span>
-          </div>
-          <div className="text-right">
-            <span className="font-medium text-[hsl(0,0%,0%)]">
-              {new Date().toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </span>
+        <div className="text-right ml-0 flex-1 min-w-[140px]">
+          <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
+            Bill Details
+          </h3>
+          <div className="space-y-0.5 text-xs">
+            <div className="text-right">
+              <span className="font-medium text-[hsl(0,0%,0%)]">{billNumber}</span>
+            </div>
+            <div className="text-right">
+              <span className="font-medium text-[hsl(0,0%,0%)]">
+                {new Date().toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </span>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 
   // Determine what to show based on sale_type
   const getBilledToInfo = () => {
@@ -208,7 +208,9 @@ function BillPDF({
           </div>
         </div>
       )}
-    </div> 
+      <div className="text-xs">Outstanding</div>
+      <div className="text-xs">Salesman details</div>
+    </div>
   );
 
   const ItemsTable = ({ pageItems, isLastPage }) => (
@@ -246,66 +248,98 @@ function BillPDF({
                 <td className="py-2 px-2 text-xs">&nbsp;</td>
                 <td className="py-2 px-2 text-xs" colSpan={4}>&nbsp;</td>
               </tr>
-            ))} 
+            ))}
           </tbody>
         </table>
       </div>
     </div>
   );
-const Totals = () => (
-  <div className="flex justify-between mb-4">
-    {/* Bank Details */}
-    <div className="text-left space-y-1">
-      <div className="font-semibold text-xs mb-1">Bank Details</div>
-      {companyInfo?.bank_name && (
-        <div className="text-xs">
-          <span className="font-medium">Bank Name:</span> {companyInfo.bank_name}
-        </div>
-      )}
-      {companyInfo?.bank_account_number && (
-        <div className="text-xs">
-          <span className="font-medium">A/C No:</span> {companyInfo.bank_account_number}
-        </div>
-      )}
-      {companyInfo?.bank_ifsc && (
-        <div className="text-xs">
-          <span className="font-medium">IFSC:</span> {companyInfo.bank_ifsc}
-        </div>
-      )}
-      {companyInfo?.bank_branch && (
-        <div className="text-xs">
-          <span className="font-medium">Branch:</span> {companyInfo.bank_branch}
-        </div>
-      )}
-    </div>
-    {/* Totals */}
-    <div className="space-y-1 text-right">
-      <div>
-        <span className="font-semibold text-xs">Subtotal:</span>
-        <span className="ml-2 text-xs">₹{subtotal.toFixed(2)}</span>
-      </div>
-      {discount > 0 && (
+  const Totals = () => (
+    <div className="flex justify-between mb-4">
+      {/* Bank Details */}
+      <div className="text-sm">Amount in Words: Five Lakhs Thirty Three Thousand Four Hundred Only </div>
+      {/* Totals */}
+      <div className="space-y-1 text-right">
         <div>
-          <span className="font-semibold text-black text-xs">Discount ({discount}%):</span>
-          <span className="ml-2 text-black text-xs">-₹{(subtotal * discount / 100).toFixed(2)}</span>
+          <span className="font-semibold text-xs">Subtotal:</span>
+          <span className="ml-2 text-xs">₹{subtotal.toFixed(2)}</span>
         </div>
-      )}
-      {roundingOff !== 0 && (
-        <div>
-          <span className="font-semibold text-xs">Rounding Off:</span>
-          <span className="ml-2 text-xs">{roundingOff >= 0 ? '+' : ''}₹{roundingOff.toFixed(2)}</span>
+         <div>
+            <span className="font-semibold text-black text-xs">CGST (9%) :</span>
+            <span className="ml-2 text-black text-xs">₹12.33</span>
+          </div>
+         <div>
+            <span className="font-semibold text-black text-xs">SGST (9%) :</span>
+            <span className="ml-2 text-black text-xs">₹12.33</span>
+          </div>
+          
+        {discount > 0 && (
+          <div>
+            <span className="font-semibold text-black text-xs">Discount ({discount}%):</span>
+            <span className="ml-2 text-black text-xs">-₹{(subtotal * discount / 100).toFixed(2)}</span>
+          </div>
+        )}
+        {roundingOff !== 0 && (
+          <div>
+            <span className="font-semibold text-xs">Rounding Off:</span>
+            <span className="ml-2 text-xs">{roundingOff >= 0 ? '+' : ''}₹{roundingOff.toFixed(2)}</span>
+          </div>
+        )}
+        <div className="border-t border-[hsl(0,0%,0%)] pt-1">
+          <span className="font-bold text-sm">Total:</span>
+          <span className="ml-2 font-bold text-sm">₹{total.toFixed(2)}</span>
         </div>
-      )}
-      <div className="border-t border-[hsl(0,0%,0%)] pt-1">
-        <span className="font-bold text-sm">Total:</span>
-        <span className="ml-2 font-bold text-sm">₹{total.toFixed(2)}</span>
       </div>
     </div>
-  </div>
-);
+  );
 
   const Footer = () => (
     <div>
+      <div className="flex justify-between items-start mt-6 border-t border-black pt-3 px-8 mb-3">
+        <div className="flex flex-col items-center">
+          <img
+            src={UPI}
+            alt="UPI"
+            className="w-28 h-28 object-contain"
+          />
+          <span className="text-xs text-gray-500">Scan & Pay</span>
+        </div>
+        {/* Bank Details */}
+        <div className="text-left space-y-1 border border-black rounded-lg px-4 py-2 min-w-[220px] bg-white">
+          <div className="font-semibold text-xs mb-1">Bank Details</div>
+          {companyInfo?.bank_name && (
+            <div className="text-xs">
+              <span className="font-medium">Bank Name:</span> {companyInfo.bank_name}
+            </div>
+          )}
+          {companyInfo?.bank_account_number && (
+            <div className="text-xs">
+              <span className="font-medium">A/C No:</span> {companyInfo.bank_account_number}
+            </div>
+          )}
+          {companyInfo?.bank_ifsc && (
+            <div className="text-xs">
+              <span className="font-medium">IFSC:</span> {companyInfo.bank_ifsc}
+            </div>
+          )}
+          {companyInfo?.bank_branch && (
+            <div className="text-xs">
+              <span className="font-medium">Branch:</span> {companyInfo.bank_branch}
+            </div>
+          )}
+        </div>
+        {/* Terms & Conditions from companyInfo */}
+        <div className="w-60">
+          <div className="font-semibold text-xs mb-2">Terms & Conditions</div>
+          <ul className="list-disc pl-5 text-xs space-y-1 text-gray-700">
+            {Array.from({ length: 5 }).map((_, i) => {
+              const term = companyInfo?.[`terms_${i + 1}`];
+              return term ? <li key={i}>{term}</li> : null;
+            })}
+          </ul>
+        </div>
+      </div>
+      {/* start of the below part of the banking details  */}
       {note && note.trim().length > 0 && (
         <div className="mb-2 text-xs border border-black p-1 rounded-md text-[hsl(0,0%,0%)]">
           <strong>Remark: </strong>
@@ -315,7 +349,7 @@ const Totals = () => (
       <div className="border-t border-[hsl(0,0%,0%)] pt-1">
         <div className="text-center space-y-0.5">
           <p className="text-[hsl(0,0%,0%)] font-semibold text-xs">
-            {companyInfo?.footer_text }
+            {companyInfo?.footer_text}
           </p>
           <p className="text-[hsl(0,0%,0%)] font-semibold text-[10px]">
             This is a computer-generated invoice and does not require a physical signature.
@@ -331,7 +365,7 @@ const Totals = () => (
         <div
           key={pageIndex}
           className="bg-white p-8 w-[210mm] h-[297mm] mx-auto shadow-lg border border-[hsl(220_13%_91%)] flex flex-col justify-between"
-          style={{ 
+          style={{
             width: '210mm',
             height: '297mm',
             minHeight: '297mm',
@@ -341,15 +375,15 @@ const Totals = () => (
             flexDirection: 'column'
           }}
         >
-         {/* <div className="float-right">
+          {/* <div className="float-right">
          <h2 className="text-2xl font-bold text-[hsl(0,0%,0%)]">INVOICE</h2>
        </div> */}
           <div className="flex-1">
             <Header />
             {pageIndex === 0 && <BillDetails />}
-            <ItemsTable 
-              pageItems={pageItems} 
-              isLastPage={pageIndex === pages.length - 1} 
+            <ItemsTable
+              pageItems={pageItems}
+              isLastPage={pageIndex === pages.length - 1}
             />
             {pageIndex === pages.length - 1 && <Totals />}
           </div>

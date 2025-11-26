@@ -94,7 +94,7 @@ export function registerInventoryHandlers({ ipcMain, getDb }) {
       const stmt = getDb().prepare(`
         INSERT INTO items
           (name, sku, hsn_code, description, unit, mrp, purchase_rate, sale_rate, gst_percentage, category_id, current_stock, minimum_stock)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const result = stmt.run(

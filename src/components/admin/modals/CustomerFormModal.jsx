@@ -13,15 +13,14 @@ const CustomerFormModal = ({
   if (!isOpen) return null;
 
   const getFieldClass = (error) =>
-    `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-      error ? 'border-red-500' : 'border-gray-300'
+    `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-500' : 'border-gray-300'
     }`;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white rounded-lg p-6 w-full max-w-xl">
         <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Customer' : 'Add New Customer'}</h2>
-        <div className="space-y-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <input
@@ -47,14 +46,96 @@ const CustomerFormModal = ({
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input
+              type="email"
+              value={customerForm.email || ''}
+              onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
+              className={getFieldClass(customerErrors.email)}
+            />
+            {customerErrors.email && <p className="text-red-600 text-xs mt-1">{customerErrors.email}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">GSTIN</label>
             <input
               type="text"
-              value={customerForm.address}
-              onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={customerForm.gstin || ''}
+              onChange={e => setCustomerForm({ ...customerForm, gstin: e.target.value })}
+              className={getFieldClass(customerErrors.gstin)}
+              placeholder="GSTIN"
+            />
+            {customerErrors.gstin && (
+              <p className="text-red-600 text-xs mt-1">{customerErrors.gstin}</p>
+            )}
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+            <textarea
+              value={customerForm.address || ''}
+              onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
+              className={getFieldClass(customerErrors.address)}
+              rows={2}
+              placeholder="Main address"
+            />
+            {customerErrors.address && (
+              <p className="text-red-600 text-xs mt-1">{customerErrors.address}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+            <input
+              type="text"
+              value={customerForm.state || ''}
+              onChange={e => setCustomerForm({ ...customerForm, state: e.target.value })}
+              className={getFieldClass(customerErrors.state)}
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+            <input
+              type="text"
+              value={customerForm.city || ''}
+              onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
+              className={getFieldClass(customerErrors.city)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+            <input
+              type="text"
+              value={customerForm.country || 'India'}
+              onChange={e => setCustomerForm({ ...customerForm, country: e.target.value })}
+              className={getFieldClass(customerErrors.country)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
+            <input
+              type="text"
+              value={customerForm.pincode || ''}
+              onChange={e => setCustomerForm({ ...customerForm, pincode: e.target.value })}
+              className={getFieldClass(customerErrors.pincode)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Credit Limit</label>
+            <input
+              type="number"
+              value={customerForm.credit_limit || ''}
+              onChange={e => setCustomerForm({ ...customerForm, credit_limit: e.target.value })}
+              className={getFieldClass(customerErrors.credit_limit)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
+            <input
+              type="number"
+              value={customerForm.credit_days || ''}
+              onChange={e => setCustomerForm({ ...customerForm, credit_days: e.target.value })}
+              className={getFieldClass(customerErrors.credit_days)}
+            />
+          </div>
+
         </div>
         <div className="flex space-x-3">
           <button
@@ -76,4 +157,3 @@ const CustomerFormModal = ({
 };
 
 export default CustomerFormModal;
-

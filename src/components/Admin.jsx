@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Users, Tag, Percent } from 'lucide-react';
+import { Package, Users, Tag, Percent, Menu } from 'lucide-react';
 import PinProtected from './reusables/PinProtected';
 import ProductsTab from './admin/tabs/ProductsTab';
 import SuppliersTab from './admin/tabs/SuppliersTab';
@@ -21,6 +21,7 @@ const TAB_CONFIG = [
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState(TAB_CONFIG[0].id);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const ActiveTabComponent =
     TAB_CONFIG.find((tab) => tab.id === activeTab)?.component ?? TAB_CONFIG[0].component;
@@ -39,21 +40,58 @@ const Admin = () => {
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              {TAB_CONFIG.map((tab) => (
+            {/* Responsive Tabs */}
+            <nav className="flex px-6">
+              {/* Mobile: Hamburger menu */}
+              <div className="w-full flex md:hidden justify-between items-center">
+                <span className="font-semibold text-base">Menu</span>
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className="p-2"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-label="Open menu"
                 >
-                  <tab.icon className="w-4 h-4 mr-2" />
-                  {tab.name}
+                  <Menu className="w-6 h-6" />
                 </button>
-              ))}
+              </div>
+              {/* Mobile: Dropdown */}
+              {menuOpen && (
+                <div className="absolute left-0 right-0 top-20 bg-white shadow-lg z-10 md:hidden">
+                  {TAB_CONFIG.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center py-3 px-6 border-b font-medium text-sm ${
+                        activeTab === tab.id
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4 mr-2" />
+                      {tab.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Desktop: Horizontal tabs */}
+              <div className="hidden md:flex space-x-8 w-full">
+                {TAB_CONFIG.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === tab.id
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4 mr-2" />
+                    {tab.name}
+                  </button>
+                ))}
+              </div>
             </nav>
           </div>
 
@@ -66,5 +104,5 @@ const Admin = () => {
   );
 };
 
-export default Admin;
+export default Admin; 
 

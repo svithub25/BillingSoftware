@@ -24,14 +24,48 @@ export function registerCustomerHandlers({ ipcMain, getDb }) {
   });
 
   ipcMain.handle('add-customer', async (event, customer) => {
-    const stmt = getDb().prepare('INSERT INTO customer (name, contact, address, gstin) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(customer.name, customer.contact, customer.address, customer.gstin);
+    const stmt = getDb().prepare(
+      `INSERT INTO customer
+        (name, contact, address, gstin, email, state, city, country, pincode, credit_limit, credit_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const result = stmt.run(
+      customer.name,
+      customer.contact,
+      customer.address,
+      customer.gstin,
+      customer.email,
+      customer.state,
+      customer.city,
+      customer.country || 'India',
+      customer.pincode,
+      customer.credit_limit,
+      customer.credit_days
+    );
     return { id: result.lastInsertRowid, ...customer };
   });
 
   ipcMain.handle('update-customer', async (event, customer) => {
-    const stmt = getDb().prepare('UPDATE customer SET name = ?, contact = ?, address = ?, gstin = ? WHERE id = ?');
-    const result = stmt.run(customer.name, customer.contact, customer.address, customer.gstin, customer.id);
+    const stmt = getDb().prepare(
+      `UPDATE customer SET
+        name = ?, contact = ?, address = ?, gstin = ?,
+        email = ?, state = ?, city = ?, country = ?, pincode = ?, credit_limit = ?, credit_days = ?
+        WHERE id = ?`
+    );
+    const result = stmt.run(
+      customer.name,
+      customer.contact,
+      customer.address,
+      customer.gstin,
+      customer.email,
+      customer.state,
+      customer.city,
+      customer.country || 'India',
+      customer.pincode,
+      customer.credit_limit,
+      customer.credit_days,
+      customer.id
+    );
     return result.changes > 0;
   });
 

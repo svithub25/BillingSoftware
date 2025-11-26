@@ -285,7 +285,7 @@ const Backup = () => {
           </p>
 
           <div className="bg-red-50 rounded-lg p-4 mb-6">
-            <h3 className="font-medium text-red-900 mb-2">⚠️ Important Warning:</h3>
+            <h3 className="font-medium text-red-900 mb-2">Important Warning:</h3>
             <ul className="text-sm text-red-800 space-y-1">
               <li>• This will permanently replace all current data</li>
               <li>• Create a backup first if you want to keep current data</li>

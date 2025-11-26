@@ -5,15 +5,36 @@ export function registerSupplierHandlers({ ipcMain, getDb }) {
       .all();
   });
 
-  ipcMain.handle('add-supplier', async (event, { name, contact, address, gstin }) => {
-    const stmt = getDb().prepare('INSERT INTO suppliers (name, contact, address, gstin) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(name, contact, address, gstin);
-    return { id: result.lastInsertRowid, name, contact, address, gstin };
+  ipcMain.handle('add-supplier', async (event, supplier) => {
+    const {
+      name, contact, address, gstin,
+      email, state, city, country = 'India', pincode, credit_days
+    } = supplier;
+    const stmt = getDb().prepare(
+      `INSERT INTO suppliers
+        (name, contact, address, gstin, email, state, city, country, pincode, credit_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const result = stmt.run(
+      name, contact, address, gstin, email, state, city, country, pincode, credit_days
+    );
+    return { id: result.lastInsertRowid, ...supplier };
   });
 
-  ipcMain.handle('update-supplier', async (event, { id, name, contact, address, gstin }) => {
-    const stmt = getDb().prepare('UPDATE suppliers SET name = ?, contact = ?, address = ?, gstin = ? WHERE id = ?');
-    const result = stmt.run(name, contact, address, gstin, id);
+  ipcMain.handle('update-supplier', async (event, supplier) => {
+    const {
+      id, name, contact, address, gstin,
+      email, state, city, country = 'India', pincode, credit_days
+    } = supplier;
+    const stmt = getDb().prepare(
+      `UPDATE suppliers SET
+        name = ?, contact = ?, address = ?, gstin = ?,
+        email = ?, state = ?, city = ?, country = ?, pincode = ?, credit_days = ?
+        WHERE id = ?`
+    );
+    const result = stmt.run(
+      name, contact, address, gstin, email, state, city, country, pincode, credit_days, id
+    );
     return result.changes > 0;
   });
 
