@@ -47,7 +47,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Purchase Order', href: '/purchase-order', icon: ClipboardList },
     { name: 'Billing', href: '/billing', icon: ReceiptIndianRupee },
     { name: 'Sales History', href: '/sales-history', icon: FileText },
-    { name: 'Credit & Debit Note', href: '/coming-soon', icon: ArrowRightLeft },
+    { name: 'Credit & Debit Note', href: '/credit-debit-note', icon: ArrowRightLeft },
     { name: 'To Branch/Godown', href: '/coming-soon1', icon: Warehouse },
     { name: 'Ledger', href: '/ledger', icon: BookOpen }, 
     { name: 'Banking', href: '/banking', icon: IndianRupee }, 

@@ -35,6 +35,8 @@ import Contactus from "./components/Contactus";
 import OpeningStockManagement from "./components/Openingstock/OpeningStockManagement"
 import Company from "./components/Company";
 import CreditDebitNote from "./components/CreditDebitNote";
+import CreditDebitNoteDetails from "./components/CreditDebitNoteDetails";
+import CreditDebitNoteEdit from "./components/CreditDebitNoteEdit";
 import BranchGoDown from "./components/BranchGoDown";
  
 
@@ -122,7 +124,9 @@ const App = () => {
                 <Route path="/sale/:id" element={<SaleDetails />} />
                 <Route path="/saleedit/:id" element={<SaleEdit />} />
                 <Route path="/purchase-order" element={<PurchaseOrder />} />
-                <Route path="/coming-soon" element={<CreditDebitNote />} />
+                <Route path="/credit-debit-note" element={<CreditDebitNote />} />
+                <Route path="/credit-debit-note/:id" element={<CreditDebitNoteDetails />} />
+                <Route path="/credit-debit-note/:id/edit" element={<CreditDebitNoteEdit />} />
                 <Route path="/coming-soon1" element={<BranchGoDown />} />
                 <Route path="/coming-soon2" element={<ComingSoon />} />
                 <Route path="/contact" element={<Contactus />} />
