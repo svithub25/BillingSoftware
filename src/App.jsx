@@ -22,10 +22,11 @@ import ComingSoon from "./components/ComingSoon";
 import Banking from "./components/Banking/index";
 import Analytics from "./components/Analytics"; 
 import Admin from "./components/Admin";
-import ItemDetails from "./components/ItemDetails";
+import ItemDetails from "./components/ItemDetails"; 
 import PurchaseDetails from "./components/PurchaseDetails";
 import SaleDetails from "./components/SaleDetails";
 import PurchaseOrder from "./components/PurchaseOrder";
+import PurchaseHistory from "./components/PurchaseHistory";
 import Layout from "./components/Layout"; 
 import ShortcutHelp from "./components/ShortcutHelp";
 import PurchaseEdit from "./components/PurchaseEdit";
@@ -105,6 +106,7 @@ const App = () => {
                 <Route path="/company" element={<Company />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/purchase" element={<Purchase />} />
+                <Route path="/purchase-history" element={<PurchaseHistory />} />
                 <Route path="/billing" element={<Billing />} />
                 <Route path="/sales-history" element={<SalesHistory />} />
                  <Route path="/ledger" element={<Ledger />} />

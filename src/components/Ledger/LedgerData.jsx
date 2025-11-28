@@ -398,19 +398,44 @@ const LedgerData = () => {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Profit</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Margin %</th>
-                  </tr>
+                  </tr> 
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {selectedTransaction.items?.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="px-4 py-3 text-sm">{item.name}</td>
-                      <td className="px-4 py-3 text-sm text-right">{item.quantity}</td>
-                      <td className="px-4 py-3 text-sm text-right">₹{(item.unit_price || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">₹{(item.total_amount || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-right text-orange-600 font-medium">₹{(item.cost || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">₹{(item.profit || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-purple-600">{item.profit_margin || '0'}%</td>
-                    </tr>
+                    item.batches && item.batches.length > 0
+                      ? item.batches.map((batch, bIdx) => (
+                          <tr key={idx + '-' + bIdx}>
+                            <td className="px-4 py-3 text-sm">
+                              {item.name}
+                              <span className="ml-2 text-xs text-gray-500">
+                                Batch: <span className="font-medium">{batch.batch_number}</span>
+                                {batch.mfg_date && (
+                                  <> | Mfg: <span className="font-medium">{batch.mfg_date}</span></>
+                                )}
+                                {batch.exp_date && (
+                                  <> | Exp: <span className="font-medium">{batch.exp_date}</span></>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right">{batch.quantity}</td>
+                            <td className="px-4 py-3 text-sm text-right">₹{(item.unit_price || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-semibold">₹{((item.unit_price || 0) * batch.quantity).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-orange-600 font-medium">₹{(batch.cost_amount || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">₹{(item.profit || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-medium text-purple-600">{item.profit_margin || '0'}%</td>
+                          </tr>
+                        ))
+                      : (
+                          <tr key={idx}>
+                            <td className="px-4 py-3 text-sm">{item.name}</td>
+                            <td className="px-4 py-3 text-sm text-right">{item.quantity}</td>
+                            <td className="px-4 py-3 text-sm text-right">₹{(item.unit_price || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-semibold">₹{(item.total_amount || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-orange-600 font-medium">₹{(item.cost || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">₹{(item.profit || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-medium text-purple-600">{item.profit_margin || '0'}%</td>
+                          </tr>
+                        )
                   ))}
                 </tbody>
               </table>
@@ -445,4 +470,4 @@ const LedgerData = () => {
   );
 };
 
-export default LedgerData;
+export default LedgerData; 

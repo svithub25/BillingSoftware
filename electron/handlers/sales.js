@@ -77,8 +77,16 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     );
     const updateStockStmt = db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?');
 
+    // Prepare cost allocation insert
+    const costAllocStmt = db.prepare(`
+      INSERT INTO sale_item_cost_allocation (
+        sale_item_id, purchase_item_id, quantity_allocated, purchase_rate, cost_amount
+      ) VALUES (?, ?, ?, ?, ?)
+    `);
+
     items.forEach((item) => {
-      saleItemStmt.run(
+      // Save sale item
+      const saleItemResult = saleItemStmt.run(
         saleId,
         item.id,
         item.quantity,
@@ -86,7 +94,30 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         item.total_price,
         sale_type || 'customer'
       );
+      const saleItemId = saleItemResult.lastInsertRowid;
+
+      // Update stock
       updateStockStmt.run(item.quantity, item.id);
+
+      // Save batch allocations if present
+      if (item.batches && Array.isArray(item.batches)) {
+        item.batches.forEach(batch => {
+          // Find purchase_item_id from item_batches table
+          const batchRow = db.prepare('SELECT purchase_item_id FROM item_batches WHERE id = ?').get(batch.batch_id);
+          if (batchRow) {
+            costAllocStmt.run(
+              saleItemId,
+              batchRow.purchase_item_id,
+              batch.qty,
+              batch.purchase_rate,
+              batch.qty * batch.purchase_rate
+            );
+            // Update batch qty_available
+            db.prepare('UPDATE item_batches SET qty_available = qty_available - ? WHERE id = ?')
+              .run(batch.qty, batch.batch_id);
+          }
+        });
+      }
     });
 
     return { success: true, saleId };

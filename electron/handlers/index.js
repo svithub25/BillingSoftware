@@ -17,6 +17,7 @@ import { registerPrintingHandler } from './printing.js';
 import { registerAppInfoHandler } from './appInfo.js';
 import { registerOpeningStockHandlers} from './openingstock.js';
 import { registerCompanyHandlers } from './company.js';
+import { registerNotesHandlers } from './notes.js';
 
 export function registerAllHandlers(context) {
   const {
@@ -60,6 +61,8 @@ export function registerAllHandlers(context) {
   registerPrintingHandler({ ipcMain, shell });
   registerAppInfoHandler({ ipcMain, app, packageJsonPath: paths.packageJson });
 
+  registerNotesHandlers({ ipcMain, getDb });
+  
   if (backupManager) {
     // backup handlers registered via manager during creation
   }
@@ -67,6 +70,7 @@ export function registerAllHandlers(context) {
   if (licenseManager) {
     // license manager handled registration during creation
   }
+
 }
 
 

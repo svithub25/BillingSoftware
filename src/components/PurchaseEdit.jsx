@@ -343,7 +343,7 @@ const getFilteredItems = (search) =>
       });
       console.log('the saadasdasdad',data);
       toast.success('Purchase updated successfully!'); 
-      navigate('/purchase');
+      navigate('/purchase-history');
     } catch (error) {
       toast.error('Error updating purchase: ' + error);
       
@@ -360,7 +360,7 @@ const getFilteredItems = (search) =>
       
           <div className="flex items-center mb-6">
         <button
-          onClick={() => navigate('/purchase')}
+          onClick={() => navigate('/purchase-history')}
           className="flex items-center text-blue-600 hover:text-blue-800 mr-4"
         >
           <ArrowLeft className="w-5 h-5 mr-1" />

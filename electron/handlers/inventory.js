@@ -83,6 +83,10 @@ export function registerInventoryHandlers({ ipcMain, getDb }) {
       throw error;
     }
   });
+  // electron/handlers/items.js
+ipcMain.handle('get-item-batches', async (event, itemId) => {
+  return getDb().prepare('SELECT * FROM item_batches WHERE item_id = ? AND qty_available > 0').all(itemId);
+});
 
   ipcMain.handle('add-item', async (event, itemData) => {
     try {

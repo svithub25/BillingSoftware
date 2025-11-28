@@ -6,14 +6,15 @@ import BillPDF from './BillPDF';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import CustomerFormModal from './admin/modals/CustomerFormModal'; // Add this import
+import BatchSelectModal from './BatchSelectModal'; // <-- Add this import
 
-const Billing = () => {
+const Billing = () => { 
   // Load saved state from sessionStorage or use defaults
   const loadSavedState = () => {
     const saved = sessionStorage.getItem('billingState');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        return JSON.parse(saved); 
       } catch (e) {
         console.error('Error loading saved state:', e);
         return null;
@@ -92,6 +93,10 @@ const Billing = () => {
   });
   const [customerErrors, setCustomerErrors] = useState({});
 
+  // Batch modal state
+  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null });
+  const [selectedBatches, setSelectedBatches] = useState({}); // { [cartIdx]: [{batch, qty}] }
+
   useEffect(() => {
     loadItems();
     generateBillNumber();
@@ -116,7 +121,7 @@ const Billing = () => {
     sessionStorage.setItem('billingState', JSON.stringify(stateToSave));
   }, [cart, discount, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
 
-  const loadItems = async () => {
+  const loadItems = async () => { 
     try {
       const data = await window.electronAPI.getInventory();
       console.log('Inventory data loaded:', data);
@@ -242,44 +247,69 @@ const Billing = () => {
   };
 
   // --- Add to cart with proper rate selection ---
-  const addToCart = (item) => {
-    const rate = item.mrp;
+  const fetchItemBatches = async (itemId) => {
+    return await window.electronAPI.getItemBatches(itemId);
+  };
 
-    const existingIndex = cart.findIndex(cartItem => cartItem.id === item.id);
-    if (existingIndex !== -1) {
-      setCart(cart.map((cartItem) =>
-        cartItem.id === item.id
-          ? { ...cartItem, quantity: '', unit_price: rate }
-          : cartItem
-      ));
-      setTimeout(() => {
-        qtyInputRefs.current[item.id]?.focus();
-      }, 0);
+  const addToCart = async (item) => {
+    const batches = await fetchItemBatches(item.id);
+    if (batches && batches.length > 0) {
+      setBatchModal({ open: true, item, batches, cartIdx: cart.length });
     } else {
-      setCart(prevCart => {
-        const newCart = [
-          ...prevCart,
-          {
-            id: item.id,
-            name: item.name,
-            sku: item.sku,
-            hsn_code: item.hsn_code,
-            unit_price: rate,
-            quantity: '',
-            current_stock: item.current_stock,
-            gst_percentage: item.gst_percentage,
-            unit: item.unit
-          }
-        ];
-        setTimeout(() => {
-          qtyInputRefs.current[item.id]?.focus();
-        }, 0);
-        return newCart;
-      });
+      // No batches, add as usual
+      setCart(prevCart => [
+        ...prevCart,
+        {
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          hsn_code: item.hsn_code,
+          unit_price: item.mrp,
+          quantity: '',
+          current_stock: item.current_stock,
+          gst_percentage: item.gst_percentage,
+          unit: item.unit
+        }
+      ]);
     }
   };
 
+  // Handle batch selection and add to cart
+  const handleBatchSelection = (cartIdx, item, batchSelections) => {
+    setBatchModal({ open: false, item: null, batches: [], cartIdx: null });
+    setSelectedBatches(prev => ({ ...prev, [cartIdx]: batchSelections }));
 
+    // Calculate total qty and use MRP from batches (not purchase_rate)
+    const totalQty = batchSelections.reduce((sum, b) => sum + Number(b.qty), 0);
+    // Use weighted average MRP if multiple batches, else single batch MRP
+    const avgMRP = batchSelections.length
+      ? batchSelections.reduce((sum, b) => sum + Number(b.batch.mrp) * Number(b.qty), 0) / totalQty
+      : item.mrp;
+
+    setCart(prevCart => [
+      ...prevCart,
+      {
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        hsn_code: item.hsn_code,
+        unit_price: avgMRP, // <-- Use avgMRP here
+        quantity: totalQty,
+        current_stock: item.current_stock,
+        gst_percentage: item.gst_percentage,
+        unit: item.unit,
+        batches: batchSelections.map(b => ({
+          batch_id: b.batch.id,
+          batch_number: b.batch.batch_number,
+          qty: b.qty,
+          mfg_date: b.batch.mfg_date,
+          exp_date: b.batch.exp_date,
+          purchase_rate: b.batch.purchase_rate,
+          mrp: b.batch.mrp
+        }))
+      }
+    ]);
+  };
 
   // --- Cart keyboard controls ---
   const handleCartKeyDown = (e, idx, itemId) => {
@@ -380,7 +410,8 @@ const Billing = () => {
           quantity: parseInt(item.quantity),
           unit_price: item.unit_price,
           gst_percentage: item.gst_percentage,
-          total_price: totalAmount
+          total_price: totalAmount,
+          batches: item.batches || [] // <-- include batches here
         };
       });
 
@@ -767,112 +798,6 @@ const Billing = () => {
               </button>
             </div>
 
-            {/* </div> */}
-            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> */}
-            {/* Name with dropdown */}
-            {/* <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <input
-                  ref={customerNameInputRef}
-                  type="text"
-                  value={customerInfo.name}
-                  disabled
-                  onChange={e => {
-                    setCustomerInfo({ ...customerInfo, name: e.target.value });
-                    setCustomerDropdown(true);
-                    setCustomerDropdownIndex(0);
-                  }}
-                  onFocus={() => setCustomerDropdown(true)}
-                  onBlur={() => setTimeout(() => setCustomerDropdown(false), 100)}
-                  onKeyDown={e => handleCustomerInputKeyDown(e, 'name')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Customer name"
-                  tabIndex={1}
-                  autoComplete="off"
-                />
-                {customerDropdown && filteredCustomers.length > 0 && (
-                  <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
-                    {filteredCustomers.map((customer, idx) => (
-                      <li
-                        key={customer.id}
-                        className={`px-3 py-2 cursor-pointer ${idx === customerDropdownIndex ? 'bg-blue-100' : ''}`}
-                        onMouseDown={() => handleCustomerSelect(customer)}
-                        tabIndex={-1}
-                      >
-                        {customer.name} <span className="text-xs text-gray-400">({customer.contact})</span>
-                      </li>
-                    ))}
-                  </ul>
-                )} 
-              </div> */}
-
-            {/* Contact with dropdown */}
-            {/* <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
-                <input
-                  ref={customerContactInputRef}
-                  type="number"
-                  value={customerInfo.contact}
-                  disabled
-                  onWheel={e => e.target.blur()}
-                  onChange={e => {
-                    let val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                    setCustomerInfo({ ...customerInfo, contact: val });
-                    setCustomerDropdown(true);
-                    setCustomerDropdownIndex(0);
-                  }}
-                  onFocus={() => setCustomerDropdown(true)}
-                  onBlur={() => setTimeout(() => setCustomerDropdown(false), 100)}
-                  onKeyDown={e => handleCustomerInputKeyDown(e, 'contact')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Phone number"
-                  tabIndex={2}
-                  autoComplete="off"
-                />
-                {customerDropdown && filteredCustomers.length > 0 && (
-                  <ul className="absolute z-50 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
-                    {filteredCustomers.map((customer, idx) => (
-                      <li
-                        key={customer.id}
-                        className={`px-3 py-2 cursor-pointer ${idx === customerDropdownIndex ? 'bg-blue-100' : ''}`}
-                        onMouseDown={() => handleCustomerSelect(customer)}
-                        tabIndex={-1}
-                      >
-                        {customer.contact} <span className="text-xs text-gray-400">({customer.name})</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div> */}
-
-            {/* Address */}
-            {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                <input
-                  type="text"
-                  value={customerInfo.address}
-                  disabled
-                  onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Customer address"
-                  tabIndex={3}
-                />
-              </div> */}
-
-            {/* GSTIN */}
-            {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">GSTIN (Optional)</label>
-                <input
-                  type="text"
-                  value={customerInfo.gstin}
-                  disabled
-                  onChange={e => setCustomerInfo({ ...customerInfo, gstin: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="GST number"
-                  tabIndex={4}
-                />
-              </div> */}
-
             <div className="mt-4">
               <label className="flex items-center cursor-pointer">
                 <input
@@ -1242,8 +1167,21 @@ const Billing = () => {
           setCustomerErrors({});
         }}
       />
+
+      {/* Batch Select Modal */}
+      {batchModal.open && (
+        <BatchSelectModal
+          item={batchModal.item}
+          batches={batchModal.batches}
+          onClose={() => setBatchModal({ open: false, item: null, batches: [], cartIdx: null })}
+          onSelect={(batchSelections) => handleBatchSelection(batchModal.cartIdx, batchModal.item, batchSelections)}
+        />
+      )}
     </div>
   );
 };
 
 export default Billing;
+
+// --- BatchSelectModal Component ---
+// Create this file: src/components/BatchSelectModal.jsx

@@ -33,7 +33,8 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
       `);
 
       items.forEach((item) => {
-        purchaseItemStmt.run(
+        // Insert purchase item (only once!)
+        const purchaseItemResult = purchaseItemStmt.run(
           purchaseId,
           item.id,
           item.quantity,
@@ -44,11 +45,38 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
           item.total_price,
           item.discount || 0
         );
+        const purchaseItemId = purchaseItemResult.lastInsertRowid;
+
         // Update stock and last purchase info
         updateItemStmt.run(item.quantity, supplier_id, purchase_date, item.id);
         
         // Only update purchase_rate if this purchase is the latest or newer
         updatePurchaseRateStmt.run(item.unit_price, item.id, purchase_date);
+
+        // Insert batch info for each item row
+        db.prepare(`
+          INSERT INTO item_batches (
+            item_id,
+            purchase_item_id,
+            batch_number,
+            mfg_date,
+            exp_date,
+            qty_received,
+            qty_available,
+            purchase_rate,
+            mrp
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          item.id,
+          purchaseItemId,
+          item.batch_number || '',
+          item.mfg_date || null,
+          item.exp_date || null,
+          item.quantity,
+          item.quantity, // qty_available = qty_received at purchase
+          item.unit_price,
+          item.mrp || 0
+        );
       });
 
       return { success: true, purchaseId };

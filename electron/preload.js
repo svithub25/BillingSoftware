@@ -19,6 +19,7 @@ const channelGroups = {
     deleteItem: 'delete-item',
     getItemDetails: 'get-item-details',
     getItems: 'get-items',
+    getItemBatches: 'get-item-batches',
     checkSkuExists: 'check-sku-exists',
     checkCategoryExists: 'check-category-exists',
     checkGstExists: 'check-gst-exists',
@@ -108,6 +109,12 @@ const channelGroups = {
     getCashflowReport: 'get-cashflow-report',
     getDaybook: 'get-daybook'
   },
+  notes : {
+  createCreditDebitNote: 'create-credit-debit-note',
+  updateCreditDebitNote: 'update-credit-debit-note',
+  deleteCreditDebitNote: 'delete-credit-debit-note',
+  getCreditDebitNotes: 'get-credit-debit-notes'
+},
   backup: {
     backupDatabase: 'backup-database',
     restoreDatabase: 'restore-database',

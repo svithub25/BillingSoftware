@@ -193,7 +193,7 @@ export function registerTransactionHandlers({ ipcMain, getDb }) {
 
   ipcMain.handle('get-transaction-details', async (event, { type, refNumber }) => {
     const db = getDb();
-    
+
     if (type === 'sale') {
       const sale = db.prepare(`
         SELECT s.*, sm.name as salesman_name
@@ -204,6 +204,7 @@ export function registerTransactionHandlers({ ipcMain, getDb }) {
 
       if (!sale) return null;
 
+      // Fetch sale items
       const items = db.prepare(`
         SELECT 
           si.*,
@@ -217,14 +218,43 @@ export function registerTransactionHandlers({ ipcMain, getDb }) {
         AND (si.status_code = 0 OR si.status_code IS NULL)
       `).all(sale.id);
 
+      // Fetch batch allocations for each sale item
+      const batchAllocStmt = db.prepare(`
+        SELECT
+          sica.sale_item_id,
+          sica.quantity_allocated,
+          sica.purchase_rate,
+          sica.cost_amount,
+          ib.batch_number,
+          ib.mfg_date,
+          ib.exp_date
+        FROM sale_item_cost_allocation sica
+        JOIN item_batches ib ON sica.purchase_item_id = ib.purchase_item_id
+        WHERE sica.sale_item_id IN (${items.map(() => '?').join(',')})
+      `);
+      const batchAllocRows = items.length > 0 ? batchAllocStmt.all(...items.map(it => it.id)) : [];
+
+      // Map batch allocations to sale items
+      const batchAllocMap = {};
+      batchAllocRows.forEach(row => {
+        if (!batchAllocMap[row.sale_item_id]) batchAllocMap[row.sale_item_id] = [];
+        batchAllocMap[row.sale_item_id].push({
+          batch_number: row.batch_number,
+          mfg_date: row.mfg_date,
+          exp_date: row.exp_date,
+          quantity: row.quantity_allocated,
+          purchase_rate: row.purchase_rate,
+          cost_amount: row.cost_amount
+        });
+      });
+
       let totalCost = 0;
       let totalProfit = 0;
 
       const itemsWithCost = items.map(item => {
         const itemGST = (item.cgst_amount || 0) + (item.sgst_amount || 0);
         const baseRevenue = (item.total_price || 0) - itemGST;
-        
-        // Use allocated cost or estimate
+
         let itemCost = item.allocated_cost || 0;
         if (itemCost === 0) {
           if (item.purchase_rate > 0) {
@@ -245,7 +275,8 @@ export function registerTransactionHandlers({ ipcMain, getDb }) {
           cost: itemCost,
           profit: itemProfit,
           profit_margin: profitMargin,
-          total_amount: item.total_price
+          total_amount: item.total_price,
+          batches: batchAllocMap[item.id] || []
         };
       });
 

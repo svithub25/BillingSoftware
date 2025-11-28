@@ -43,6 +43,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Inventory', href: '/inventory', icon: Package },
     { name: 'Purchase', href: '/purchase', icon: ShoppingCart },
+    { name: 'Purchase History', href: '/purchase-history', icon: ShoppingCart },
     { name: 'Purchase Order', href: '/purchase-order', icon: ClipboardList },
     { name: 'Billing', href: '/billing', icon: ReceiptIndianRupee },
     { name: 'Sales History', href: '/sales-history', icon: FileText },
