@@ -38,6 +38,7 @@ import CreditDebitNote from "./components/CreditDebitNote";
 import CreditDebitNoteDetails from "./components/CreditDebitNoteDetails";
 import CreditDebitNoteEdit from "./components/CreditDebitNoteEdit";
 import BranchGoDown from "./components/BranchGoDown";
+import DynamicReports from "./components/DynamicReports";
  
 
 const App = () => {
@@ -58,6 +59,8 @@ const App = () => {
   useHotkeys("ctrl+l", () => navigate("/ledger"), [navigate]);
   useHotkeys("ctrl+u", () => navigate("/company"), [navigate]);
   useHotkeys("ctrl+y", () => navigate("/analytics"), [navigate]);
+  useHotkeys("ctrl+g", () => navigate("/branch-godown"), [navigate]);
+  useHotkeys("ctrl+r", () => navigate("/dynamic-reports"), [navigate]);
   useHotkeys("ctrl+e", () => navigate("/export"), [navigate]);
   useHotkeys("ctrl+n", () => navigate("/admin"), [navigate]);
   useHotkeys("ctrl+k", () => navigate("/banking"), [navigate]); 
@@ -114,8 +117,9 @@ const App = () => {
                  <Route path="/ledger" element={<Ledger />} />
                 <Route path="/export" element={<Export />} />
                 <Route path="/backup" element={<Backup />} />  
-                <Route path="/analytics" element={<Analytics />} />  
-                 <Route path="/banking" element={<Banking />} /> 
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/dynamic-reports" element={<DynamicReports />} />
+                 <Route path="/banking" element={<Banking />} />
                  <Route path="/openingstock" element={<OpeningStockManagement />} /> 
                 <Route path="/admin" element={<Admin />} /> 
                 <Route path="/item/:id" element={<ItemDetails />} />
@@ -127,7 +131,7 @@ const App = () => {
                 <Route path="/credit-debit-note" element={<CreditDebitNote />} />
                 <Route path="/credit-debit-note/:id" element={<CreditDebitNoteDetails />} />
                 <Route path="/credit-debit-note/:id/edit" element={<CreditDebitNoteEdit />} />
-                <Route path="/coming-soon1" element={<BranchGoDown />} />
+                <Route path="/branch-godown" element={<BranchGoDown />} />
                 <Route path="/coming-soon2" element={<ComingSoon />} />
                 <Route path="/contact" element={<Contactus />} />
               </Routes> 

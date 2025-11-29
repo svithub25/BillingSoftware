@@ -72,10 +72,29 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     
     const saleId = saleResult.lastInsertRowid;
 
+    // Get default godown ID
+    const defaultGodown = db.prepare('SELECT id FROM godowns WHERE is_default = 1 LIMIT 1').get();
+    const defaultGodownId = defaultGodown?.id;
+
+    if (!defaultGodownId) {
+      throw new Error('Default godown not found. Please set up a default warehouse location.');
+    }
+
     const saleItemStmt = db.prepare(
       'INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, total_price, sale_type) VALUES (?, ?, ?, ?, ?, ?)'
     );
     const updateStockStmt = db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?');
+
+    // Prepare location stock update statement
+    const updateLocationStockStmt = db.prepare(`
+      INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(item_id, godown_id) DO UPDATE SET
+        current_stock = current_stock + excluded.current_stock,
+        available_stock = available_stock + excluded.available_stock,
+        last_movement_date = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+    `);
 
     // Prepare cost allocation insert
     const costAllocStmt = db.prepare(`
@@ -96,8 +115,16 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       );
       const saleItemId = saleItemResult.lastInsertRowid;
 
-      // Update stock
+      // Update global stock
       updateStockStmt.run(item.quantity, item.id);
+
+      // Deduct stock from default godown location
+      updateLocationStockStmt.run(
+        item.id,
+        defaultGodownId,
+        -item.quantity,
+        -item.quantity
+      );
 
       // Save batch allocations if present
       if (item.batches && Array.isArray(item.batches)) {
@@ -129,8 +156,26 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       'SELECT item_id, quantity FROM sale_items WHERE sale_id = ? AND (status_code = 0 OR status_code IS NULL)'
     ).all(billId);
 
+    // Get default godown ID
+    const defaultGodown = db.prepare('SELECT id FROM godowns WHERE is_default = 1 LIMIT 1').get();
+    const defaultGodownId = defaultGodown?.id;
+
     saleItems.forEach((item) => {
+      // Update global stock
       db.prepare('UPDATE items SET current_stock = current_stock + ? WHERE id = ?').run(item.quantity, item.item_id);
+
+      // Add stock back to default godown location
+      if (defaultGodownId) {
+        db.prepare(`
+          INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(item_id, godown_id) DO UPDATE SET
+            current_stock = current_stock + excluded.current_stock,
+            available_stock = available_stock + excluded.available_stock,
+            last_movement_date = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        `).run(item.item_id, defaultGodownId, item.quantity, item.quantity);
+      }
     });
 
     db.prepare('UPDATE sales SET status_code = 1 WHERE id = ?').run(billId);

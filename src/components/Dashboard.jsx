@@ -42,6 +42,7 @@ const Dashboard = () => {
     { key: 'Ctrl + P', description: 'Go to Purchase' },
     { key: 'Ctrl + O', description: 'Go to Purchase Order' },
     { key: 'Ctrl + B', description: 'Go to Billing Module' },
+    { key: 'Ctrl + G', description: 'Go to Godown/Branch' },
     { key: 'Ctrl + H', description: 'View Sales History' },
     { key: 'Ctrl + S', description: 'View Salesman Commission' },
     { key: 'Ctrl + L', description: 'Open Ledger' },

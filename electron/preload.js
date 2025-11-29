@@ -109,12 +109,41 @@ const channelGroups = {
     getCashflowReport: 'get-cashflow-report',
     getDaybook: 'get-daybook'
   },
-  notes : {
-  createCreditDebitNote: 'create-credit-debit-note',
-  updateCreditDebitNote: 'update-credit-debit-note',
-  deleteCreditDebitNote: 'delete-credit-debit-note',
-  getCreditDebitNotes: 'get-credit-debit-notes'
-},
+  notes: {
+    createCreditDebitNote: 'create-credit-debit-note',
+    updateCreditDebitNote: 'update-credit-debit-note',
+    deleteCreditDebitNote: 'delete-credit-debit-note',
+    getCreditDebitNotes: 'get-credit-debit-notes'
+  },
+  dynamicReports: {
+    getReportTypes: 'get-report-types',
+    generateDynamicReport: 'generate-dynamic-report',
+    getReportFilterOptions: 'get-report-filter-options',
+    generateComplexReport: 'generate-complex-report',
+    generateCustomReport: 'generate-custom-report'
+  },
+  stockMovements: {
+    // Godown/Branch Management
+    getGodowns: 'get-godowns',
+    getActiveGodowns: 'get-active-godowns',
+    addGodown: 'add-godown',
+    updateGodown: 'update-godown',
+    deleteGodown: 'delete-godown',
+
+    // Stock Movement Operations
+    generateMovementNumber: 'generate-movement-number',
+    createStockMovement: 'create-stock-movement',
+    getStockMovements: 'get-stock-movements',
+    getStockMovementDetails: 'get-stock-movement-details',
+    updateMovementStatus: 'update-movement-status',
+    receiveStockMovement: 'receive-stock-movement',
+    deleteStockMovement: 'delete-stock-movement',
+
+    // Stock by Location
+    getItemStockByLocation: 'get-item-stock-by-location',
+    getLocationStock: 'get-location-stock',
+    getInventoryForTransfer: 'get-inventory-for-transfer'
+  },
   backup: {
     backupDatabase: 'backup-database',
     restoreDatabase: 'restore-database',

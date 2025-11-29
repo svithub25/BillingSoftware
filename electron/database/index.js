@@ -861,6 +861,239 @@ CREATE INDEX IF NOT EXISTS idx_nfa_adjusted_purchase ON note_financial_adjustmen
   CREATE INDEX IF NOT EXISTS idx_company_info_id ON company_info(id);
 `);
 
+  // ============================================
+  // GODOWNS/BRANCHES AND STOCK MOVEMENTS
+  // ============================================
+  db.exec(`
+    -- Godowns/Branches Master Table
+    CREATE TABLE IF NOT EXISTS godowns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      code TEXT UNIQUE NOT NULL,
+      location_type TEXT CHECK(location_type IN ('godown', 'branch', 'warehouse', 'shop', 'other')) DEFAULT 'godown',
+      address TEXT,
+      city TEXT,
+      state TEXT,
+      pincode TEXT,
+      contact_person TEXT,
+      contact_number TEXT,
+      email TEXT,
+      is_active INTEGER DEFAULT 1,
+      is_default INTEGER DEFAULT 0,
+      remarks TEXT,
+      status_code INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Stock Movements (Transfers, Adjustments, etc.)
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+      -- Document identification
+      movement_number TEXT UNIQUE NOT NULL,
+      movement_date DATE NOT NULL,
+
+      -- Movement type
+      movement_category TEXT CHECK(movement_category IN (
+        'transfer',           -- godown to godown
+        'branch_transfer',    -- branch to branch
+        'adjustment_in',      -- stock increase (found, reconciliation)
+        'adjustment_out',     -- stock decrease (damage, theft, write-off)
+        'return_in',          -- goods returned by customer
+        'return_out',         -- goods returned to supplier
+        'production_in',      -- manufactured goods
+        'production_out',     -- raw material consumption
+        'sample_out',         -- free samples given
+        'opening_balance'     -- opening stock entry
+      )) NOT NULL,
+
+      -- Source and Destination
+      from_location_type TEXT CHECK(from_location_type IN ('godown', 'branch', 'party', 'none')),
+      from_location_id INTEGER,
+      from_godown_id INTEGER,
+
+      to_location_type TEXT CHECK(to_location_type IN ('godown', 'branch', 'party', 'none')),
+      to_location_id INTEGER,
+      to_godown_id INTEGER,
+
+      -- Status workflow
+      movement_status TEXT CHECK(movement_status IN (
+        'draft',
+        'pending_approval',
+        'approved',
+        'in_transit',
+        'partially_received',
+        'completed',
+        'cancelled'
+      )) DEFAULT 'draft',
+
+      -- Dates
+      dispatch_date DATE,
+      expected_date DATE,
+      received_date DATE,
+
+      -- Transport details (for transfers)
+      transport_mode TEXT,
+      vehicle_number TEXT,
+      driver_name TEXT,
+      driver_contact TEXT,
+      lr_number TEXT,
+      transporter_name TEXT,
+      freight_charges REAL DEFAULT 0,
+      e_way_bill_number TEXT,
+
+      -- Reference documents
+      reference_doc_type TEXT,
+      reference_doc_id INTEGER,
+      reference_doc_number TEXT,
+
+      -- Party details (if applicable)
+      party_type TEXT CHECK(party_type IN ('customer', 'supplier', 'none')),
+      party_id INTEGER,
+      party_name TEXT,
+
+      -- Totals
+      total_quantity REAL DEFAULT 0,
+      total_value REAL DEFAULT 0,
+
+      -- Personnel
+      created_by INTEGER,
+      approved_by INTEGER,
+      dispatched_by INTEGER,
+      received_by INTEGER,
+
+      -- Notes
+      reason TEXT,
+      dispatch_notes TEXT,
+      receiving_notes TEXT,
+
+      is_approved INTEGER DEFAULT 0,
+      approval_date DATETIME,
+
+      status_code INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+      FOREIGN KEY (from_godown_id) REFERENCES godowns (id),
+      FOREIGN KEY (to_godown_id) REFERENCES godowns (id),
+      FOREIGN KEY (created_by) REFERENCES users (id),
+      FOREIGN KEY (approved_by) REFERENCES users (id),
+      FOREIGN KEY (dispatched_by) REFERENCES users (id),
+      FOREIGN KEY (received_by) REFERENCES users (id)
+    );
+
+    -- Stock Movement Items
+    CREATE TABLE IF NOT EXISTS stock_movement_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      movement_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+
+      -- Quantities
+      planned_quantity REAL NOT NULL,
+      dispatched_quantity REAL,
+      received_quantity REAL DEFAULT 0,
+      accepted_quantity REAL DEFAULT 0,
+      rejected_quantity REAL DEFAULT 0,
+      damaged_quantity REAL DEFAULT 0,
+
+      -- Batch/Serial tracking
+      batch_number TEXT,
+      serial_numbers TEXT,
+      manufacturing_date DATE,
+      expiry_date DATE,
+
+      -- Costing
+      unit_rate REAL,
+      total_value REAL,
+
+      -- Condition tracking
+      condition_on_dispatch TEXT CHECK(condition_on_dispatch IN ('new', 'good', 'used', 'refurbished')),
+      condition_on_receipt TEXT CHECK(condition_on_receipt IN ('good', 'damaged', 'partial_damage', 'not_received')),
+
+      remarks TEXT,
+      status_code INTEGER DEFAULT 0,
+
+      FOREIGN KEY (movement_id) REFERENCES stock_movements (id) ON DELETE CASCADE,
+      FOREIGN KEY (item_id) REFERENCES items (id)
+    );
+
+    -- Movement Acknowledgments
+    CREATE TABLE IF NOT EXISTS movement_acknowledgments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      movement_id INTEGER NOT NULL,
+
+      acknowledgment_stage TEXT CHECK(acknowledgment_stage IN (
+        'dispatch', 'receipt', 'quality_check', 'approval'
+      )) NOT NULL,
+
+      acknowledged_by_name TEXT NOT NULL,
+      designation TEXT,
+      signature_data TEXT,
+      acknowledgment_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+      remarks TEXT,
+
+      FOREIGN KEY (movement_id) REFERENCES stock_movements (id) ON DELETE CASCADE
+    );
+
+    -- Item Location Stock (Track stock per godown/branch)
+    CREATE TABLE IF NOT EXISTS item_location_stock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL,
+      godown_id INTEGER NOT NULL,
+      current_stock REAL DEFAULT 0,
+      reserved_stock REAL DEFAULT 0,
+      available_stock REAL DEFAULT 0,
+      last_movement_date DATETIME,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+      FOREIGN KEY (item_id) REFERENCES items (id),
+      FOREIGN KEY (godown_id) REFERENCES godowns (id),
+      UNIQUE(item_id, godown_id)
+    );
+
+    -- Indexes for performance
+    CREATE INDEX IF NOT EXISTS idx_godowns_name ON godowns(name);
+    CREATE INDEX IF NOT EXISTS idx_godowns_code ON godowns(code);
+    CREATE INDEX IF NOT EXISTS idx_godowns_type ON godowns(location_type);
+    CREATE INDEX IF NOT EXISTS idx_godowns_active ON godowns(is_active);
+
+    CREATE INDEX IF NOT EXISTS idx_movements_number ON stock_movements(movement_number);
+    CREATE INDEX IF NOT EXISTS idx_movements_date ON stock_movements(movement_date);
+    CREATE INDEX IF NOT EXISTS idx_movements_category ON stock_movements(movement_category);
+    CREATE INDEX IF NOT EXISTS idx_movements_status ON stock_movements(movement_status);
+    CREATE INDEX IF NOT EXISTS idx_movements_from_godown ON stock_movements(from_godown_id);
+    CREATE INDEX IF NOT EXISTS idx_movements_to_godown ON stock_movements(to_godown_id);
+    CREATE INDEX IF NOT EXISTS idx_movements_reference ON stock_movements(reference_doc_type, reference_doc_id);
+
+    CREATE INDEX IF NOT EXISTS idx_movement_items_movement ON stock_movement_items(movement_id);
+    CREATE INDEX IF NOT EXISTS idx_movement_items_item ON stock_movement_items(item_id);
+    CREATE INDEX IF NOT EXISTS idx_movement_items_batch ON stock_movement_items(batch_number);
+
+    CREATE INDEX IF NOT EXISTS idx_location_stock_item ON item_location_stock(item_id);
+    CREATE INDEX IF NOT EXISTS idx_location_stock_godown ON item_location_stock(godown_id);
+    CREATE INDEX IF NOT EXISTS idx_location_stock_composite ON item_location_stock(item_id, godown_id);
+  `);
+
+  // Insert default main godown
+  const defaultGodown = db
+    .prepare("SELECT * FROM godowns WHERE is_default = 1")
+    .get();
+  if (!defaultGodown) {
+    db.prepare(
+      `INSERT INTO godowns (name, code, location_type, is_active, is_default, remarks)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      "Main Warehouse",
+      "MAIN-001",
+      "warehouse",
+      1,
+      1,
+      "Default main warehouse location"
+    );
+  }
+
   const defaultCashAccount = db
     .prepare("SELECT * FROM bank_accounts WHERE account_name = ?")
     .get("Cash");

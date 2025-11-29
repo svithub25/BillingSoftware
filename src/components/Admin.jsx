@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Users, Tag, Percent, Menu } from 'lucide-react';
+import { Package, Users, Tag, Percent, Menu, Warehouse } from 'lucide-react';
 import PinProtected from './reusables/PinProtected';
 import ProductsTab from './admin/tabs/ProductsTab';
 import SuppliersTab from './admin/tabs/SuppliersTab';
@@ -8,6 +8,7 @@ import GstTab from './admin/tabs/GstTab';
 import CategoriesTab from './admin/tabs/CategoriesTab';
 import SalesmanTab from './admin/tabs/SalesmanTab';
 import CustomersTab from './admin/tabs/CustomersTab';
+import GodownsTab from './admin/tabs/GodownsTab';
 
 const TAB_CONFIG = [
   { id: 'products', name: 'Products', icon: Package, component: ProductsTab },
@@ -16,7 +17,8 @@ const TAB_CONFIG = [
   { id: 'units', name: 'Units', icon: Tag, component: UnitsTab },
   { id: 'gst', name: 'GST Rates', icon: Percent, component: GstTab },
   { id: 'salesman', name: 'Salesmen', icon: Users, component: SalesmanTab },
-  { id: 'customers', name: 'Customers', icon: Users, component: CustomersTab }
+  { id: 'customers', name: 'Customers', icon: Users, component: CustomersTab },
+  { id: 'godowns', name: 'Godowns/Branches', icon: Warehouse, component: GodownsTab }
 ];
 
 const Admin = () => {

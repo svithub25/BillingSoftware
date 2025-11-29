@@ -21,9 +21,10 @@ import {
   X,
   Warehouse,
   BadgeIndianRupee,
-  User, 
+  User,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  FileBarChart
 } from 'lucide-react';
 import svi from '../Assets/SVILogo.png'
 
@@ -48,10 +49,11 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Billing', href: '/billing', icon: ReceiptIndianRupee },
     { name: 'Sales History', href: '/sales-history', icon: FileText },
     { name: 'Credit & Debit Note', href: '/credit-debit-note', icon: ArrowRightLeft },
-    { name: 'To Branch/Godown', href: '/coming-soon1', icon: Warehouse },
-    { name: 'Ledger', href: '/ledger', icon: BookOpen }, 
-    { name: 'Banking', href: '/banking', icon: IndianRupee }, 
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 }, 
+    { name: 'To Branch/Godown', href: '/branch-godown', icon: Warehouse },
+    { name: 'Ledger', href: '/ledger', icon: BookOpen },
+    { name: 'Banking', href: '/banking', icon: IndianRupee },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Dynamic Reports', href: '/dynamic-reports', icon: FileBarChart },
     { name: 'Export', href: '/export', icon: Download }, 
     // { name: 'openingstock', href: '/openingstock', icon: Download }, 
     

@@ -18,6 +18,8 @@ import { registerAppInfoHandler } from './appInfo.js';
 import { registerOpeningStockHandlers} from './openingstock.js';
 import { registerCompanyHandlers } from './company.js';
 import { registerNotesHandlers } from './notes.js';
+import { registerDynamicReportsHandlers } from './dynamicreports.js';
+import { registerStockMovementHandlers } from './stockmovements.js';
 
 export function registerAllHandlers(context) {
   const {
@@ -62,7 +64,9 @@ export function registerAllHandlers(context) {
   registerAppInfoHandler({ ipcMain, app, packageJsonPath: paths.packageJson });
 
   registerNotesHandlers({ ipcMain, getDb });
-  
+  registerDynamicReportsHandlers({ ipcMain, getDb });
+  registerStockMovementHandlers({ ipcMain, getDb });
+
   if (backupManager) {
     // backup handlers registered via manager during creation
   }
