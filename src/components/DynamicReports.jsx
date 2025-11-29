@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FileDown, Filter, BarChart3, Search, X, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { FileDown, Filter, BarChart3, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 const DynamicReports = () => {
-  const [activeTab, setActiveTab] = useState('predefined'); // 'predefined', 'complex', 'custom'
+  const [activeTab, setActiveTab] = useState('predefined'); // 'predefined', 'complex'
   const [reportTypes, setReportTypes] = useState([]);
   const [selectedReportType, setSelectedReportType] = useState('');
   const [filterOptions, setFilterOptions] = useState({});
@@ -18,14 +18,6 @@ const DynamicReports = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-
-  // Custom Report Builder State
-  const [customConfig, setCustomConfig] = useState({
-    source: 'sales', // sales, purchases, items
-    dimensions: [],
-    measures: [],
-    filters: []
-  });
 
   // Complex Report State
   const [complexReportType, setComplexReportType] = useState('');
@@ -91,8 +83,6 @@ const DynamicReports = () => {
           reportType: complexReportType,
           filters: filters
         });
-      } else if (activeTab === 'custom') {
-        result = await window.electronAPI.generateCustomReport(customConfig);
       }
 
       setReportData(result.data || []);
@@ -123,7 +113,7 @@ const DynamicReports = () => {
     }
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(selectedReport?.name || complexReportType || 'Custom Report');
+    const worksheet = workbook.addWorksheet(selectedReport?.name || complexReportType || 'Report');
 
     let currentRow = 1;
 
@@ -184,7 +174,7 @@ const DynamicReports = () => {
 
       // Report title
       const reportTitleRow = worksheet.getRow(currentRow);
-      reportTitleRow.getCell(1).value = selectedReport?.name || complexReportType || 'Custom Report';
+      reportTitleRow.getCell(1).value = selectedReport?.name || complexReportType || 'Report';
       reportTitleRow.getCell(1).font = { size: 14, bold: true };
       reportTitleRow.getCell(1).alignment = { horizontal: 'center' };
       worksheet.mergeCells(currentRow, 1, currentRow, reportColumns.length);
@@ -286,7 +276,7 @@ const DynamicReports = () => {
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
-    const fileName = `${selectedReport?.name || complexReportType || 'Custom_Report'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `${selectedReport?.name || complexReportType || 'Report'}_${new Date().toISOString().split('T')[0]}.xlsx`;
     saveAs(blob, fileName);
   };
 
@@ -584,149 +574,6 @@ const DynamicReports = () => {
     }
   ];
 
-  // Available dimensions for custom reports
-  const availableDimensions = {
-    sales: [
-      { id: 'customer_name', label: 'Customer Name', table: 'sales' },
-      { id: 'salesman_id', label: 'Salesman', table: 'salesman', join: true },
-      { id: 'category_id', label: 'Category', table: 'categories', join: true },
-      { id: 'item_id', label: 'Item', table: 'items', join: true },
-      { id: 'sale_date', label: 'Sale Date', table: 'sales' },
-      { id: 'payment_method', label: 'Payment Method', table: 'sales' },
-      { id: 'is_paid', label: 'Payment Status', table: 'sales' }
-    ],
-    purchases: [
-      { id: 'supplier_id', label: 'Supplier', table: 'suppliers', join: true },
-      { id: 'category_id', label: 'Category', table: 'categories', join: true },
-      { id: 'item_id', label: 'Item', table: 'items', join: true },
-      { id: 'purchase_date', label: 'Purchase Date', table: 'purchases' },
-      { id: 'payment_method', label: 'Payment Method', table: 'purchases' },
-      { id: 'is_paid', label: 'Payment Status', table: 'purchases' }
-    ],
-    items: [
-      { id: 'category_id', label: 'Category', table: 'categories', join: true },
-      { id: 'unit', label: 'Unit', table: 'items' }
-    ]
-  };
-
-  const availableMeasures = [
-    { id: 'count', label: 'Count of Records', aggregation: 'COUNT(*)' },
-    { id: 'total_amount', label: 'Total Amount', aggregation: 'SUM(total_amount)' },
-    { id: 'avg_amount', label: 'Average Amount', aggregation: 'AVG(total_amount)' },
-    { id: 'total_quantity', label: 'Total Quantity', aggregation: 'SUM(quantity)' },
-    { id: 'avg_quantity', label: 'Average Quantity', aggregation: 'AVG(quantity)' }
-  ];
-
-  const renderCustomReportBuilder = () => (
-    <div className="space-y-6">
-      {/* Data Source Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Data Source</label>
-        <select
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={customConfig.source}
-          onChange={(e) => setCustomConfig({ ...customConfig, source: e.target.value, dimensions: [], measures: [] })}
-        >
-          <option value="sales">Sales</option>
-          <option value="purchases">Purchases</option>
-          <option value="items">Items</option>
-        </select>
-      </div>
-
-      {/* Dimensions Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Dimensions (Group By) - Select fields to group data
-        </label>
-        <div className="border border-gray-300 rounded-md p-4 bg-gray-50">
-          {customConfig.dimensions.length === 0 && (
-            <p className="text-sm text-gray-500 mb-2">No dimensions selected. Click below to add.</p>
-          )}
-          {customConfig.dimensions.map((dim, index) => (
-            <div key={index} className="flex items-center space-x-2 mb-2">
-              <select
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                value={dim}
-                onChange={(e) => {
-                  const newDims = [...customConfig.dimensions];
-                  newDims[index] = e.target.value;
-                  setCustomConfig({ ...customConfig, dimensions: newDims });
-                }}
-              >
-                <option value="">Select Dimension</option>
-                {availableDimensions[customConfig.source]?.map((d) => (
-                  <option key={d.id} value={d.id}>{d.label}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => {
-                  const newDims = customConfig.dimensions.filter((_, i) => i !== index);
-                  setCustomConfig({ ...customConfig, dimensions: newDims });
-                }}
-                className="p-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={() => setCustomConfig({ ...customConfig, dimensions: [...customConfig.dimensions, ''] })}
-            className="flex items-center space-x-2 px-3 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Dimension</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Measures Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Measures (What to Calculate)
-        </label>
-        <div className="border border-gray-300 rounded-md p-4 bg-gray-50">
-          {customConfig.measures.length === 0 && (
-            <p className="text-sm text-gray-500 mb-2">No measures selected. Click below to add.</p>
-          )}
-          {customConfig.measures.map((measure, index) => (
-            <div key={index} className="flex items-center space-x-2 mb-2">
-              <select
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                value={measure}
-                onChange={(e) => {
-                  const newMeasures = [...customConfig.measures];
-                  newMeasures[index] = e.target.value;
-                  setCustomConfig({ ...customConfig, measures: newMeasures });
-                }}
-              >
-                <option value="">Select Measure</option>
-                {availableMeasures.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => {
-                  const newMeasures = customConfig.measures.filter((_, i) => i !== index);
-                  setCustomConfig({ ...customConfig, measures: newMeasures });
-                }}
-                className="p-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={() => setCustomConfig({ ...customConfig, measures: [...customConfig.measures, ''] })}
-            className="flex items-center space-x-2 px-3 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Measure</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -775,21 +622,6 @@ const DynamicReports = () => {
               }`}
             >
               Complex Reports
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('custom');
-                setReportData([]);
-                setReportColumns([]);
-                setFilters({});
-              }}
-              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'custom'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Custom Report Builder
             </button>
           </div>
         </div>
@@ -931,33 +763,6 @@ const DynamicReports = () => {
           </div>
         )}
 
-        {/* Custom Report Builder Tab */}
-        {activeTab === 'custom' && (
-          <div className="mb-6">
-            {renderCustomReportBuilder()}
-
-            <div className="mt-6 flex items-center space-x-4">
-              <button
-                onClick={handleGenerateReport}
-                disabled={isLoading || customConfig.dimensions.length === 0 || customConfig.measures.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Search className="w-4 h-4" />
-                <span>{isLoading ? 'Generating...' : 'Generate Custom Report'}</span>
-              </button>
-
-              {reportData.length > 0 && (
-                <button
-                  onClick={handleExportToExcel}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center space-x-2"
-                >
-                  <FileDown className="w-4 h-4" />
-                  <span>Export to Excel</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Error Message */}
         {error && (
@@ -1084,7 +889,7 @@ const DynamicReports = () => {
         )}
 
         {/* No Data Message */}
-        {!isLoading && reportData.length === 0 && (selectedReportType || complexReportType || (activeTab === 'custom' && customConfig.dimensions.length > 0)) && (
+        {!isLoading && reportData.length === 0 && (selectedReportType || complexReportType) && (
           <div className="text-center py-12">
             <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">
@@ -1105,13 +910,6 @@ const DynamicReports = () => {
           <div className="text-center py-12">
             <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">Select a complex report to get started</p>
-          </div>
-        )}
-
-        {activeTab === 'custom' && customConfig.dimensions.length === 0 && (
-          <div className="text-center py-12">
-            <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Configure your custom report by selecting dimensions and measures</p>
           </div>
         )}
       </div>  

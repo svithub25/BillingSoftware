@@ -130,6 +130,10 @@ ipcMain.handle('get-items', async () => {
 - **customers**: Customer master with GSTIN
 - **godown_branches**: Multi-location inventory support
 
+## Context
+- Database: See @context-light.md (Do NOT read schema.sql)
+- Styling: See @context-light.md (Do NOT read project-styling.md)
+
 ### React Routing Structure
 
 Routes defined in `App.jsx`:
@@ -252,5 +256,4 @@ src/
 **Stock discrepancies**: Verify that all stock-affecting operations (purchase, sale, credit note, debit note) properly update both `items.current_stock` and batch records.
 
 **Build failures**: Ensure `dist/` folder exists before running electron-builder. Run `npm run build` first.
-- Remeber to refer to the database schema @schema.sql when you try to add some major changes to the file as the forms or anything should be done schema wise
-- I want you to refer to the @project-styling.md file for styling guidlines so that the pages that we create look similar to the existing software.
+

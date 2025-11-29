@@ -28,3 +28,5 @@ src/components/ss.sql
 *.sw?
 .env
 database.db
+project-stylingg.md
+dataschema.sql

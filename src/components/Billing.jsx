@@ -94,8 +94,8 @@ const Billing = () => {
   const [customerErrors, setCustomerErrors] = useState({});
 
   // Batch modal state
-  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null });
-  const [selectedBatches, setSelectedBatches] = useState({}); // { [cartIdx]: [{batch, qty}] }
+  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+  const [selectedBatches, setSelectedBatches] = useState({}); // { [itemId]: [{batch, qty}] }
 
   useEffect(() => {
     loadItems();
@@ -221,6 +221,7 @@ const Billing = () => {
     setSelectedSalesman('');
     setIsSalesmanCustomer(false);
     setIsOthers(false);
+    setSelectedBatches({});
     sessionStorage.removeItem('billingState');
     return true;
   };
@@ -252,63 +253,101 @@ const Billing = () => {
   };
 
   const addToCart = async (item) => {
+    // Check if item already exists in cart
+    const existingCartItem = cart.find(c => c.id === item.id);
+    if (existingCartItem) {
+      // Reopen batch modal if item already in cart and has batches
+      if (existingCartItem.batches && existingCartItem.batches.length > 0) {
+        reopenBatchModal(existingCartItem);
+      } else {
+        // If no batches, just let user edit quantity directly
+        toast.info('Item already in cart. Update quantity in the cart.');
+      }
+      return;
+    }
+
     const batches = await fetchItemBatches(item.id);
+    // Always open batch modal if batches exist OR if there's stock to manage
+    // This allows selecting from general stock even if no batch tracking exists
     if (batches && batches.length > 0) {
-      setBatchModal({ open: true, item, batches, cartIdx: cart.length });
+      setBatchModal({ open: true, item, batches, cartIdx: cart.length, existingSelections: null });
+    } else if (item.current_stock > 0) {
+      // No batches but has stock - still open modal to select general stock
+      setBatchModal({ open: true, item, batches: [], cartIdx: cart.length, existingSelections: null });
     } else {
-      // No batches, add as usual
-      setCart(prevCart => [
-        ...prevCart,
-        {
-          id: item.id,
-          name: item.name,
-          sku: item.sku,
-          hsn_code: item.hsn_code,
-          unit_price: item.mrp,
-          quantity: '',
-          current_stock: item.current_stock,
-          gst_percentage: item.gst_percentage,
-          unit: item.unit
-        }
-      ]);
+      // No stock at all
+      toast.error('Item is out of stock');
     }
   };
 
-  // Handle batch selection and add to cart
+  // Handle batch selection and add to cart or update existing cart item
   const handleBatchSelection = (cartIdx, item, batchSelections) => {
-    setBatchModal({ open: false, item: null, batches: [], cartIdx: null });
-    setSelectedBatches(prev => ({ ...prev, [cartIdx]: batchSelections }));
+    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
 
-    // Calculate total qty and use MRP from batches (not purchase_rate)
+    // Calculate total qty and use weighted average MRP
     const totalQty = batchSelections.reduce((sum, b) => sum + Number(b.qty), 0);
-    // Use weighted average MRP if multiple batches, else single batch MRP
-    const avgMRP = batchSelections.length
-      ? batchSelections.reduce((sum, b) => sum + Number(b.batch.mrp) * Number(b.qty), 0) / totalQty
+
+    // Calculate weighted average MRP
+    const avgMRP = totalQty > 0
+      ? batchSelections.reduce((sum, b) => {
+          const mrp = b.batch ? Number(b.batch.mrp) : Number(item.mrp);
+          return sum + mrp * Number(b.qty);
+        }, 0) / totalQty
       : item.mrp;
 
-    setCart(prevCart => [
-      ...prevCart,
-      {
-        id: item.id,
-        name: item.name,
-        sku: item.sku,
-        hsn_code: item.hsn_code,
-        unit_price: avgMRP, // <-- Use avgMRP here
-        quantity: totalQty,
-        current_stock: item.current_stock,
-        gst_percentage: item.gst_percentage,
-        unit: item.unit,
-        batches: batchSelections.map(b => ({
-          batch_id: b.batch.id,
-          batch_number: b.batch.batch_number,
-          qty: b.qty,
-          mfg_date: b.batch.mfg_date,
-          exp_date: b.batch.exp_date,
-          purchase_rate: b.batch.purchase_rate,
-          mrp: b.batch.mrp
-        }))
-      }
-    ]);
+    const cartItem = {
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      hsn_code: item.hsn_code,
+      unit_price: avgMRP,
+      quantity: totalQty,
+      current_stock: item.current_stock,
+      gst_percentage: item.gst_percentage,
+      unit: item.unit,
+      batches: batchSelections.map(b => ({
+        batch_id: b.batch ? b.batch.id : null,
+        batch_number: b.batch ? b.batch.batch_number : 'No Batch',
+        qty: b.qty,
+        mfg_date: b.batch ? b.batch.mfg_date : null,
+        exp_date: b.batch ? b.batch.exp_date : null,
+        purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
+        mrp: b.batch ? b.batch.mrp : item.mrp
+      }))
+    };
+
+    // Check if we're updating an existing cart item
+    const existingCartItem = cart.find(c => c.id === item.id);
+    if (existingCartItem) {
+      // Update existing item
+      setCart(prevCart => prevCart.map(c => c.id === item.id ? cartItem : c));
+    } else {
+      // Add new item
+      setCart(prevCart => [...prevCart, cartItem]);
+    }
+
+    // Store batch selections for reopening
+    setSelectedBatches(prev => ({ ...prev, [item.id]: batchSelections }));
+  };
+
+  // Reopen batch modal to edit selections
+  const reopenBatchModal = async (cartItem) => {
+    const batches = await fetchItemBatches(cartItem.id);
+    if (batches && batches.length > 0) {
+      // Convert cart item batches back to selection format
+      const existingSelections = cartItem.batches?.map(b => ({
+        batch_id: b.batch_id,
+        qty: b.qty
+      })) || [];
+
+      setBatchModal({
+        open: true,
+        item: cartItem,
+        batches,
+        cartIdx: null,
+        existingSelections
+      });
+    }
   };
 
   // --- Cart keyboard controls ---
@@ -349,6 +388,12 @@ const Billing = () => {
 
   const removeFromCart = (itemId) => {
     setCart(cart.filter(item => item.id !== itemId));
+    // Also clean up batch selections
+    setSelectedBatches(prev => {
+      const updated = { ...prev };
+      delete updated[itemId];
+      return updated;
+    });
   };
 
   // --- Totals ---
@@ -972,31 +1017,43 @@ const Billing = () => {
                       {/* Quantity Input */}
                       <div className="flex items-center gap-1 w-24">
                         <label className="text-xs text-gray-700">Qty</label>
-                        <input
-                          ref={el => qtyInputRefs.current[item.id] = el}
-                          type="number"
-                          onWheel={e => e.target.blur()}
-                          value={item.quantity}
-                          min={1}
-                          max={item.current_stock}
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val === '' || val === null || val === undefined) {
-                              removeFromCart(item.id);
-                              return;
-                            }
-                            const numVal = parseInt(val);
-                            if (isNaN(numVal) || numVal <= 0) {
-                              removeFromCart(item.id);
-                            } else {
-                              updateCartItemQuantity(item.id, numVal);
-                            }
-                          }}
-                          onKeyDown={e => handleCartKeyDown(e, idx, item.id)}
-                          className="w-12 px-1 py-1 border border-gray-300 rounded text-sm"
-                          tabIndex={0}
-                          autoFocus={item.quantity === ''}
-                        />
+                        {item.batches && item.batches.length > 0 ? (
+                          // Read-only with click to edit batches
+                          <div
+                            onClick={() => reopenBatchModal(item)}
+                            className="w-12 px-1 py-1 border border-blue-300 bg-blue-50 rounded text-sm text-center cursor-pointer hover:bg-blue-100 transition-colors font-medium text-blue-700"
+                            title="Click to edit batch selection"
+                          >
+                            {item.quantity}
+                          </div>
+                        ) : (
+                          // Editable input for non-batched items
+                          <input
+                            ref={el => qtyInputRefs.current[item.id] = el}
+                            type="number"
+                            onWheel={e => e.target.blur()}
+                            value={item.quantity}
+                            min={1}
+                            max={item.current_stock}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || val === null || val === undefined) {
+                                removeFromCart(item.id);
+                                return;
+                              }
+                              const numVal = parseInt(val);
+                              if (isNaN(numVal) || numVal <= 0) {
+                                removeFromCart(item.id);
+                              } else {
+                                updateCartItemQuantity(item.id, numVal);
+                              }
+                            }}
+                            onKeyDown={e => handleCartKeyDown(e, idx, item.id)}
+                            className="w-12 px-1 py-1 border border-gray-300 rounded text-sm"
+                            tabIndex={0}
+                            autoFocus={item.quantity === ''}
+                          />
+                        )}
                         <span className="text-xs text-gray-500">/ {item.current_stock}</span>
                       </div>
                       {/* Unit Price Input */}
@@ -1117,7 +1174,7 @@ const Billing = () => {
 
 
 
-      {/* <BillPDF
+      <BillPDF
         billNumber={billNumber}
         customer={customerInfo}
         items={cart.map(item => ({
@@ -1138,8 +1195,8 @@ const Billing = () => {
         note={billNarration}
         isShippedDifferent={isShippedDifferent}
         shippedTo={shippedToInfo}
-      /> */}
-
+      />
+ 
       {/* Customer Add Modal */}
       <CustomerFormModal
         isOpen={showCustomerForm}
@@ -1173,7 +1230,8 @@ const Billing = () => {
         <BatchSelectModal
           item={batchModal.item}
           batches={batchModal.batches}
-          onClose={() => setBatchModal({ open: false, item: null, batches: [], cartIdx: null })}
+          existingSelections={batchModal.existingSelections}
+          onClose={() => setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null })}
           onSelect={(batchSelections) => handleBatchSelection(batchModal.cartIdx, batchModal.item, batchSelections)}
         />
       )}

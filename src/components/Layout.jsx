@@ -1,30 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard,
-  Building2, 
+  LayoutDashboard, 
+  ReceiptIndianRupee, 
   Package, 
-  ShoppingCart,  
-  ReceiptIndianRupee,
-  FileText,
-  BookOpen,  
-  Download, 
-  Database,
-  BarChart3,
-  Settings,
-  LogOut,
-  ArrowRightLeft,
-  IndianRupee,
+  ChevronLeft, 
+  ChevronRight, 
   Menu,
-  ClipboardList,
-  MessageSquareShare,
-  X,
-  Warehouse,
-  BadgeIndianRupee,
+  Warehouse, 
+  ShoppingCart, 
+  ClipboardList, 
+  History, // Better for history than GalleryVerticalEnd
+  FileText, 
+  ArrowRightLeft, 
+  BookOpen, 
   User,
-  ChevronRight,
-  ChevronLeft,
-  FileBarChart
+  
+  LogOut,
+  Landmark, // Better for "Banking" than a currency symbol
+  BarChart3,  
+  FileBarChart, 
+  Download, 
+  Building2, 
+  ShieldCheck, // Better for "Admin" (permissions) than Settings
+  Database, 
+  Headphones
 } from 'lucide-react';
 import svi from '../Assets/SVILogo.png'
 
@@ -40,28 +40,39 @@ const Layout = ({ children, user, onLogout }) => {
   const hoverTimeoutRef = useRef(null);
   const sidebarRef = useRef(null);
 
-  const navigation = [
+const navigation = [
+    // --- Overview ---
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+
+    // --- Core Operations (Sales & Stock) ---
+    { name: 'Billing', href: '/billing', icon: ReceiptIndianRupee }, // High frequency action
     { name: 'Inventory', href: '/inventory', icon: Package },
-    { name: 'Purchase', href: '/purchase', icon: ShoppingCart },
-    { name: 'Purchase History', href: '/purchase-history', icon: ShoppingCart },
-    { name: 'Purchase Order', href: '/purchase-order', icon: ClipboardList },
-    { name: 'Billing', href: '/billing', icon: ReceiptIndianRupee },
+    { name: 'To Branch/Godown', href: '/branch-godown', icon: Warehouse },
+
+    // --- Procurement (Grouped) ---
+    { name: 'Purchase Order', href: '/purchase-order', icon: ClipboardList }, // Planning
+    { name: 'Purchase', href: '/purchase', icon: ShoppingCart }, // Execution
+    { name: 'Purchase History', href: '/purchase-history', icon: History }, // Review
+
+    // --- Records & Adjustments ---
     { name: 'Sales History', href: '/sales-history', icon: FileText },
     { name: 'Credit & Debit Note', href: '/credit-debit-note', icon: ArrowRightLeft },
-    { name: 'To Branch/Godown', href: '/branch-godown', icon: Warehouse },
+
+    // --- Finance & Accounts ---
     { name: 'Ledger', href: '/ledger', icon: BookOpen },
-    { name: 'Banking', href: '/banking', icon: IndianRupee },
+    { name: 'Banking', href: '/banking', icon: Landmark }, // Changed to Landmark (Bank building)
+
+    // --- Intelligence & Data ---
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Dynamic Reports', href: '/dynamic-reports', icon: FileBarChart },
-    { name: 'Export', href: '/export', icon: Download }, 
-    // { name: 'openingstock', href: '/openingstock', icon: Download }, 
+    { name: 'Export Data', href: '/export', icon: Download }, 
     
-    { name: 'Backup', href: '/backup', icon: Database },
-    { name: 'Admin', href: '/admin', icon: Settings },
-    { name: 'Company', href: '/company', icon: Building2 },
-    { name: 'Contact Us', href: '/contact', icon: MessageSquareShare },
-  ];
+    // --- System & Administration ---
+    { name: 'Company Profile', href: '/company', icon: Building2 },
+    { name: 'Admin Controls', href: '/admin', icon: ShieldCheck }, // Shield implies security/access
+    { name: 'Data Backup', href: '/backup', icon: Database },
+    { name: 'Contact Support', href: '/contact', icon: Headphones },
+];
 
   // Handle ESC key to toggle sidebar
   useEffect(() => {
@@ -135,7 +146,7 @@ const Layout = ({ children, user, onLogout }) => {
   }, [hoverTriggered]);
 
   // Handle menu item click - close auto-expanded sidebar
-  const handleMenuItemClick = () => {
+  const handleMenuItemClick = () => { 
      setDesktopSidebarCollapsed(!desktopSidebarCollapsed);
     setHoverTriggered(false); 
   };

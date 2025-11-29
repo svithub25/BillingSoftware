@@ -41,6 +41,7 @@ const initialForm = {
   party_gstin: '',
   party_state: '',
   party_city: '',
+  salesman_id: '',
   note_date: new Date().toISOString().substring(0, 10),
   reason: '',
   reason_code: '',
@@ -67,8 +68,9 @@ const initialForm = {
 const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-const CreditDebitNoteEdit = () => {
-  const { id } = useParams();
+const CreditDebitNoteEdit = () => { 
+  const { id } = useParams(); 
+ 
   const navigate = useNavigate();
   const isEdit = id && id !== 'new';
 
@@ -78,6 +80,9 @@ const CreditDebitNoteEdit = () => {
   const [purchaseList, setPurchaseList] = useState([]);
   const [itemsList, setItemsList] = useState([]);
   const [parties, setParties] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [salesmen, setSalesmen] = useState([]);
 
   // Item search states
   const [itemSearch, setItemSearch] = useState({});
@@ -87,31 +92,70 @@ const CreditDebitNoteEdit = () => {
   const getFiltered = (list, search) =>
     list.filter(item => item.name?.toLowerCase().includes((search || '').toLowerCase()));
 
-  useEffect(() => {
+  useEffect(() => { 
+     
     loadInitialData();
     // eslint-disable-next-line
   }, []);
 
   useEffect(() => {
     if (isEdit) {
+
       loadNoteData();
+    } else {
+      // Auto-generate note number for new notes
+      generateNoteNumber(formData.note_type);
     }
     // eslint-disable-next-line
   }, [id]);
 
+  // Generate new note number when note type changes for new notes
+  useEffect(() => {
+    if (!isEdit) {
+      generateNoteNumber(formData.note_type);
+    }
+    // eslint-disable-next-line
+  }, [formData.note_type]);
+
+  // Auto-update reference_type based on note_type
+  useEffect(() => {
+    if (formData.note_type === 'credit') {
+      setFormData(prev => ({ ...prev, reference_type: 'sale' }));
+    } else if (formData.note_type === 'debit') {
+      setFormData(prev => ({ ...prev, reference_type: 'purchase' }));
+    }
+    // eslint-disable-next-line
+  }, [formData.note_type]);
+
+  const generateNoteNumber = async (noteType) => {
+    try {
+      const noteNumber = await window.electronAPI.generateNoteNumber(noteType);
+      setFormData(prev => ({ ...prev, note_number: noteNumber }));
+    } catch (error) {
+      console.error('Error generating note number:', error);
+      toast.error('Error generating note number');
+    }
+  };
+
   const loadInitialData = async () => {
     try {
-      const [salesRes, purchaseRes, itemsRes, partiesRes] = await Promise.all([
+      const [salesRes, purchaseRes, itemsRes, partiesRes, customersRes, suppliersRes, salesmenRes] = await Promise.all([
         window.electronAPI.getSalesHistory?.() || Promise.resolve([]),
         window.electronAPI.getPurchaseHistory?.() || Promise.resolve([]),
         window.electronAPI.getInventory?.() || Promise.resolve([]),
-        window.electronAPI.getAllParties?.() || Promise.resolve([])
+        window.electronAPI.getAllParties?.() || Promise.resolve([]),
+        window.electronAPI.getCustomers?.() || Promise.resolve([]),
+        window.electronAPI.getSuppliers?.() || Promise.resolve([]),
+        window.electronAPI.getSalesmen?.() || Promise.resolve([])
       ]);
 
       setSalesList(salesRes);
       setPurchaseList(purchaseRes);
       setItemsList(itemsRes);
       setParties(partiesRes);
+      setCustomers(customersRes);
+      setSuppliers(suppliersRes);
+      setSalesmen(salesmenRes);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error loading form data');
@@ -222,6 +266,7 @@ const CreditDebitNoteEdit = () => {
           party_gstin: saleDetails.customer_gstin || '',
           party_state: saleDetails.customer_state || '',
           party_city: saleDetails.customer_city || '',
+          salesman_id: saleDetails.salesman_id || '',
           items: saleDetails.items?.map(item => ({
             item_id: item.item_id || item.id,
             item_name: item.item_name,
@@ -454,7 +499,16 @@ const CreditDebitNoteEdit = () => {
             </div>
             <div>
               <label className={labelClass}>Note Number *</label>
-              <input type="text" name="note_number" value={formData.note_number} onChange={handleChange} className={inputClass} placeholder="CN-2024-001" required />
+              <input
+                type="text"
+                name="note_number" 
+                value={formData.note_number}
+                onChange={handleChange}
+                className={`${inputClass} ${!isEdit ? 'bg-gray-100' : ''}`}
+                placeholder={!isEdit ? "Auto-generated..." : "CN/24-25/0001"}
+                readOnly={!isEdit}
+                required
+              />
             </div>
             <div>
               <label className={labelClass}>Note Date *</label>
@@ -463,10 +517,75 @@ const CreditDebitNoteEdit = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className={labelClass}>Party Name</label>
-              <input type="text" name="party_name" value={formData.party_name} onChange={handleChange} className={inputClass} />
-            </div>
+            {formData.note_type === 'credit' ? (
+              <>
+                <div>
+                  <label className={labelClass}>Customer *</label>
+                  <select
+                    name="party_name"
+                    value={formData.party_name}
+                    onChange={(e) => {
+                      const selected = customers.find(c => c.name === e.target.value);
+                      setFormData(prev => ({
+                        ...prev,
+                        party_name: e.target.value,
+                        party_contact: selected?.contact || '',
+                        party_address: selected?.address || '',
+                        party_gstin: selected?.gstin || '',
+                        party_state: selected?.state || '',
+                        party_city: selected?.city || ''
+                      }));
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">-- Select Customer --</option>
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.name}>{customer.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Salesman</label>
+                  <select
+                    name="salesman_id"
+                    value={formData.salesman_id || ''}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option value="">-- Select Salesman --</option>
+                    {salesmen.map(salesman => (
+                      <option key={salesman.id} value={salesman.id}>{salesman.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className={labelClass}>Supplier *</label>
+                <select
+                  name="party_name"
+                  value={formData.party_name}
+                  onChange={(e) => {
+                    const selected = suppliers.find(s => s.name === e.target.value);
+                    setFormData(prev => ({
+                      ...prev,
+                      party_name: e.target.value,
+                      party_contact: selected?.contact || '',
+                      party_address: selected?.address || '',
+                      party_gstin: selected?.gstin || '',
+                      party_state: selected?.state || '',
+                      party_city: selected?.city || ''
+                    }));
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">-- Select Supplier --</option>
+                  {suppliers.map(supplier => (
+                    <option key={supplier.id} value={supplier.name}>{supplier.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className={labelClass}>Reason</label>
               <input type="text" name="reason" value={formData.reason} onChange={handleChange} className={inputClass} placeholder="e.g. Damaged Goods" />
@@ -476,17 +595,14 @@ const CreditDebitNoteEdit = () => {
 
         {/* Section 2: Reference Details */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Reference Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            {formData.note_type === 'credit' ? 'Original Sale Details' : 'Original Purchase Details'}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Reference Type *</label>
-              <select name="reference_type" value={formData.reference_type} onChange={handleChange} className={inputClass}>
-                <option value="sale">Sale</option>
-                <option value="purchase">Purchase</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Select Reference Bill</label>
+              <label className={labelClass}>
+                {formData.note_type === 'credit' ? 'Select Sale Bill' : 'Select Purchase Bill'}
+              </label>
               {formData.reference_type === 'sale' ? (
                 <select name="sale_id" value={formData.sale_id} onChange={handleReferenceSelect} className={inputClass}>
                   <option value="">-- Select Sale --</option>

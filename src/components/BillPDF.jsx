@@ -1,8 +1,60 @@
 import React, { useState, useEffect } from "react";
 import UPI from "../Assets/upi.png";
 import { Building2 } from 'lucide-react';
-
+import QRCode from 'react-qr-code'; 
 const ITEMS_PER_PAGE = 10;
+
+
+
+function numberToWords(num) {
+  const a = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const b = [
+    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'
+  ];
+  const units = [
+    { name: 'Crore', value: 10000000 },
+    { name: 'Lakh', value: 100000 },
+    { name: 'Thousand', value: 1000 },
+    { name: 'Hundred', value: 100 }
+  ];
+
+  if (num === 0) return 'Zero';
+
+  let words = '';
+  let remainder = num;
+
+  for (let i = 0; i < units.length; i++) {
+    const unitValue = Math.floor(remainder / units[i].value);
+    if (unitValue > 0) {
+      words += numberToWords(unitValue) + ' ' + units[i].name + ' ';
+      remainder = remainder % units[i].value;
+    }
+  }
+
+  if (remainder > 19) {
+    words += b[Math.floor(remainder / 10)] + ' ';
+    remainder = remainder % 10;
+  }
+  if (remainder > 0) {
+    words += a[remainder] + ' ';
+  }
+
+  return words.trim();
+}
+
+function amountInWords(amount) {
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees) * 100);
+  let words = numberToWords(rupees) + ' Rupees';
+  if (paise > 0) {
+    words += ' and ' + numberToWords(paise) + ' Paise';
+  }
+  words += ' Only';
+  return words;
+}
 
 function BillPDF({
   billNumber,
@@ -208,8 +260,24 @@ function BillPDF({
           </div>
         </div>
       )}
+      {/* outstanding will go here */}
       <div className="text-xs">Outstanding</div>
-      <div className="text-xs">Salesman details</div>
+ 
+      <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
+            Salesman Details
+          </h3>
+          <div className="bg-[hsl(0,0%,100%)] border border-[hsl(0,0%,0%)] p-1 rounded-lg space-y-0.5">
+            <p className="font-semibold text-[hsl(0,0%,0%)] text-[13px]">{salesman_name}</p>
+            {salesman_address && (
+              <p className="text-[11px] text-[hsl(0,0%,0%)]">{salesman_address}</p>
+            )}
+           
+            {salesman_contact && (
+              <p className="text-[11px] text-[hsl(0,0%,0%)]">Contact: {salesman_contact}</p>
+            )}
+          </div>
+        </div>
     </div>
   );
 
@@ -255,9 +323,9 @@ function BillPDF({
     </div>
   );
   const Totals = () => (
-    <div className="flex justify-between mb-4">
+    <div className="flex justify-between mb-4"> 
       {/* Bank Details */}
-      <div className="text-sm">Amount in Words: Five Lakhs Thirty Three Thousand Four Hundred Only </div>
+      <div className="text-sm">Amount in Words: {amountInWords(total)} </div>
       {/* Totals */}
       <div className="space-y-1 text-right">
         <div>
@@ -292,18 +360,44 @@ function BillPDF({
       </div>
     </div>
   );
+  const UpiPaymentQr = ({ totalAmount, billId, merchantVpa, merchantName }) => {
+  
+  // Wrap the note in encodeURIComponent to handle spaces and special chars safely
+  const note = encodeURIComponent(`Bill-${billId}`);
+  const name = encodeURIComponent(merchantName);
+  
+  const upiString = `upi://pay?pa=${merchantVpa}&pn=${name}&am=${totalAmount}&cu=INR`;
+
+  return (  
+    <QRCode 
+      value={upiString} 
+      size={128} 
+      level="H" 
+    />
+  );
+}
+
 
   const Footer = () => (
     <div>
       <div className="flex justify-between items-start mt-6 border-t border-black pt-3 px-8 mb-3">
-        <div className="flex flex-col items-center">
-          <img
-            src={UPI}
-            alt="UPI"
-            className="w-28 h-28 object-contain"
-          />
-          <span className="text-xs text-gray-500">Scan & Pay</span>
-        </div>
+           {companyInfo?.upi_id && companyInfo.upi_id.trim() !== '' &&
+          <div className="flex flex-col items-center">
+            {/* <img
+              src={UPI}
+              alt="UPI"
+              className="w-28 h-28 object-contain"
+            /> */}
+            <UpiPaymentQr 
+              totalAmount={total} 
+              billId={billNumber} 
+              merchantVpa={companyInfo.upi_id}
+              merchantName={companyInfo.company_name} 
+            />
+            <span className="text-xs text-gray-500">Scan & Pay</span>
+          </div>
+        }
+        
         {/* Bank Details */}
         <div className="text-left space-y-1 border border-black rounded-lg px-4 py-2 min-w-[220px] bg-white">
           <div className="font-semibold text-xs mb-1">Bank Details</div>

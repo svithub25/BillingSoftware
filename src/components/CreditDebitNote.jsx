@@ -8,7 +8,8 @@ import {
   ChevronRight,
   Trash2,
   Plus,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
@@ -103,6 +104,15 @@ const CreditDebitNote = () => {
     }
   };
 
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      type: 'all',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
   const getPageNumbers = () => {
     const pages = [];
     const maxPagesToShow = 5;
@@ -161,7 +171,7 @@ const CreditDebitNote = () => {
               placeholder="Search note, party, or invoice"
             />
           </div>
-          <select
+          <select 
             value={filters.type}
             onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -185,11 +195,11 @@ const CreditDebitNote = () => {
             placeholder="To Date"
           />
           <button
-            onClick={loadNotes}
+            onClick={clearFilters}
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md font-medium transition-colors flex items-center"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            <X className="w-4 h-4 mr-2" />
+            Clear Filters
           </button>
         </div>
 

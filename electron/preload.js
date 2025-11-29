@@ -110,6 +110,7 @@ const channelGroups = {
     getDaybook: 'get-daybook'
   },
   notes: {
+    generateNoteNumber: 'generate-note-number',
     createCreditDebitNote: 'create-credit-debit-note',
     updateCreditDebitNote: 'update-credit-debit-note',
     deleteCreditDebitNote: 'delete-credit-debit-note',

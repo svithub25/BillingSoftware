@@ -60,7 +60,8 @@ const App = () => {
   useHotkeys("ctrl+u", () => navigate("/company"), [navigate]);
   useHotkeys("ctrl+y", () => navigate("/analytics"), [navigate]);
   useHotkeys("ctrl+g", () => navigate("/branch-godown"), [navigate]);
-  useHotkeys("ctrl+r", () => navigate("/dynamic-reports"), [navigate]);
+  useHotkeys("ctrl+t", () => navigate("/dynamic-reports"), [navigate]);
+  useHotkeys("ctrl+q", () => navigate("/credit-debit-note"), [navigate]);
   useHotkeys("ctrl+e", () => navigate("/export"), [navigate]);
   useHotkeys("ctrl+n", () => navigate("/admin"), [navigate]);
   useHotkeys("ctrl+k", () => navigate("/banking"), [navigate]); 
@@ -129,6 +130,7 @@ const App = () => {
                 <Route path="/saleedit/:id" element={<SaleEdit />} />
                 <Route path="/purchase-order" element={<PurchaseOrder />} />
                 <Route path="/credit-debit-note" element={<CreditDebitNote />} />
+                <Route path="/credit-debit-note/new" element={<CreditDebitNoteEdit />} />
                 <Route path="/credit-debit-note/:id" element={<CreditDebitNoteDetails />} />
                 <Route path="/credit-debit-note/:id/edit" element={<CreditDebitNoteEdit />} />
                 <Route path="/branch-godown" element={<BranchGoDown />} />

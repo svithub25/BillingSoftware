@@ -518,7 +518,17 @@ const Company = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">UPI ID</label>
+  <input
+    type="text"
+    value={formData.upi_id || ''}
+    onChange={(e) => handleInputChange('upi_id', e.target.value)}
+    disabled={!editMode}
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter UPI ID"
+  />
+</div>
           {/* Terms & Conditions */}
           <div className="col-span-2">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 mt-4">Terms & Conditions</h2>
