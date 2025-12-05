@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  BarChart3, TrendingUp, Calendar, Package, DollarSign, Users, RefreshCw, 
+  BarChart3, TrendingUp, Calendar, Package, IndianRupee, Users, RefreshCw, 
   ArrowUpRight, ArrowDownRight, Search, X
 } from 'lucide-react';
 import PinProtected from './reusables/PinProtected';
@@ -559,7 +559,7 @@ const Analytics = () => {
                 <p className="text-2xl font-bold text-green-900">₹{formatINR(summary.totalSales)}</p>
                 <p className="text-xs text-green-600 mt-1">{summary.totalOrders} orders</p>
               </div>
-              <DollarSign className="w-12 h-12 text-green-500 opacity-20" />
+              <IndianRupee className="w-12 h-12 text-green-500 opacity-20" />
             </div>
           </div>
 

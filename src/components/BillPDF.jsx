@@ -1,45 +1,482 @@
-import React, { useState, useEffect } from "react";
-import UPI from "../Assets/upi.png";
-import { Building2 } from 'lucide-react';
-import QRCode from 'react-qr-code'; 
-const ITEMS_PER_PAGE = 10;
+import React from 'react';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
+// ============================================================
+// PROFESSIONAL INVOICE - CLEAN MINIMAL DESIGN
+// ============================================================
 
+const styles = StyleSheet.create({
+  // Page
+  page: {
+    padding: 0,
+    fontSize: 9,
+    fontFamily: 'Helvetica',
+    backgroundColor: '#ffffff',
+  },
+
+  // Top Banner
+  topBanner: {
+    backgroundColor: '#2c3e50',
+    height: 8,
+  },
+
+  // Main Content Container
+  content: {
+    padding: 36,
+    paddingTop: 24,
+  },
+
+  // ==================== HEADER ====================
+  headerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 30,
+  },
+  brandArea: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  logoBox: {
+    width: 56,
+    height: 56,
+    marginRight: 14,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 4,
+  },
+  logo: {
+    width: 52,
+    height: 52,
+    objectFit: 'contain',
+  },
+  brandInfo: {
+    flex: 1,
+  },
+  brandName: {
+    fontSize: 18,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    marginBottom: 6,
+  },
+  brandContact: {
+    fontSize: 8,
+    color: '#5d6d7e',
+    lineHeight: 1.6,
+  },
+
+  // Invoice Title Area
+  invoiceTitleArea: {
+    alignItems: 'flex-end',
+  },
+  invoiceTitle: {
+    fontSize: 28,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    letterSpacing: 2,
+    marginBottom: 10,
+  },
+  invoiceInfoGrid: {
+    alignItems: 'flex-end',
+  },
+  invoiceInfoRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  invoiceInfoLabel: {
+    fontSize: 8,
+    color: '#7f8c8d',
+    width: 70,
+    textAlign: 'right',
+    marginRight: 8,
+  },
+  invoiceInfoValue: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    width: 90,
+    textAlign: 'right',
+  },
+
+  // ==================== PARTIES SECTION ====================
+  partiesRow: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    gap: 20,
+  },
+  partyCard: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    padding: 14,
+    borderRadius: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3498db',
+  },
+  partyCardAlt: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    padding: 14,
+    borderRadius: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#27ae60',
+  },
+  partyCardSalesman: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    padding: 14,
+    borderRadius: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#9b59b6',
+  },
+  partyLabel: {
+    fontSize: 7,
+    fontFamily: 'Helvetica-Bold',
+    color: '#7f8c8d',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  partyName: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    marginBottom: 6,
+  },
+  partyText: {
+    fontSize: 8,
+    color: '#5d6d7e',
+    lineHeight: 1.5,
+    marginBottom: 2,
+  },
+  partyGstin: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    marginTop: 4,
+  },
+
+  // ==================== TABLE ====================
+  tableSection: {
+    marginBottom: 20,
+  },
+  tableHead: {
+    flexDirection: 'row',
+    backgroundColor: '#2c3e50',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  tableHeadCell: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tableBody: {
+    borderWidth: 1,
+    borderColor: '#ecf0f1',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  tableRowLast: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  tableRowAlt: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+    backgroundColor: '#fafbfc',
+  },
+  tableCell: {
+    fontSize: 9,
+    color: '#34495e',
+  },
+  tableCellBold: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+  },
+  // Column widths
+  colNum: { width: '7%', textAlign: 'center' },
+  colItem: { width: '45%', paddingRight: 10 },
+  colQty: { width: '12%', textAlign: 'center' },
+  colRate: { width: '18%', textAlign: 'right' },
+  colTotal: { width: '18%', textAlign: 'right' },
+
+  // ==================== SUMMARY ====================
+  summarySection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  amountWords: {
+    flex: 1.2,
+    paddingRight: 30,
+    paddingTop: 8,
+  },
+  amountWordsTitle: {
+    fontSize: 7,
+    fontFamily: 'Helvetica-Bold',
+    color: '#7f8c8d',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  amountWordsText: {
+    fontSize: 9,
+    color: '#34495e',
+    fontStyle: 'italic',
+    lineHeight: 1.5,
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 4,
+  },
+  totalsCard: {
+    width: 220,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  totalsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  totalsLabel: {
+    fontSize: 9,
+    color: '#5d6d7e',
+  },
+  totalsValue: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+  },
+  totalsFinal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#2c3e50',
+  },
+  totalsFinalLabel: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#ffffff',
+  },
+  totalsFinalValue: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    color: '#ffffff',
+  },
+
+  // ==================== REMARKS ====================
+  remarksBox: {
+    backgroundColor: '#fef9e7',
+    padding: 12,
+    borderRadius: 4,
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f39c12',
+  },
+  remarksLabel: {
+    fontSize: 7,
+    fontFamily: 'Helvetica-Bold',
+    color: '#7f8c8d',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  remarksText: {
+    fontSize: 8,
+    color: '#34495e',
+    lineHeight: 1.5,
+  },
+
+  // ==================== FOOTER ====================
+  footerSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
+    paddingTop: 16,
+  },
+  footerGrid: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 16,
+  },
+  qrArea: {
+    alignItems: 'center',
+    width: 100,
+  },
+  qrImage: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#f8f9fa',
+    padding: 4,
+    borderRadius: 4,
+  },
+  qrText: {
+    fontSize: 7,
+    color: '#7f8c8d',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  bankArea: {
+    flex: 1,
+    paddingHorizontal: 16,
+    borderLeftWidth: 1,
+    borderLeftColor: '#ecf0f1',
+  },
+  bankTitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  bankLine: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  bankLabel: {
+    fontSize: 8,
+    color: '#7f8c8d',
+    width: 65,
+  },
+  bankValue: {
+    fontSize: 8,
+    color: '#2c3e50',
+    flex: 1,
+  },
+  termsArea: {
+    flex: 1.3,
+    paddingLeft: 16,
+    borderLeftWidth: 1,
+    borderLeftColor: '#ecf0f1',
+  },
+  termsTitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  termLine: {
+    fontSize: 7,
+    color: '#5d6d7e',
+    marginBottom: 4,
+    lineHeight: 1.4,
+    paddingLeft: 10,
+  },
+
+  // Signature Area
+  signatureArea: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#ecf0f1',
+  },
+  signatureBlock: {
+    width: 180,
+    alignItems: 'center',
+  },
+  signatureLine: {
+    width: '100%',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2c3e50',
+    marginBottom: 6,
+    height: 40,
+  },
+  signatureLabel: {
+    fontSize: 8,
+    color: '#5d6d7e',
+  },
+
+  // Footer Note
+  footerNote: {
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  footerNoteMain: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  footerNoteSub: {
+    fontSize: 7,
+    color: '#95a5a6',
+    fontStyle: 'italic',
+  },
+
+  // Bottom Banner
+  bottomBanner: {
+    backgroundColor: '#2c3e50',
+    height: 8,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+});
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 
 function numberToWords(num) {
-  const a = [
-    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen'
   ];
-  const b = [
-    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'
-  ];
-  const units = [
-    { name: 'Crore', value: 10000000 },
-    { name: 'Lakh', value: 100000 },
-    { name: 'Thousand', value: 1000 },
-    { name: 'Hundred', value: 100 }
-  ];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
   if (num === 0) return 'Zero';
 
+  const crore = Math.floor(num / 10000000);
+  num %= 10000000;
+  const lakh = Math.floor(num / 100000);
+  num %= 100000;
+  const thousand = Math.floor(num / 1000);
+  num %= 1000;
+  const hundred = Math.floor(num / 100);
+  const remainder = num % 100;
+
   let words = '';
-  let remainder = num;
 
-  for (let i = 0; i < units.length; i++) {
-    const unitValue = Math.floor(remainder / units[i].value);
-    if (unitValue > 0) {
-      words += numberToWords(unitValue) + ' ' + units[i].name + ' ';
-      remainder = remainder % units[i].value;
-    }
-  }
+  if (crore > 0) words += numberToWords(crore) + ' Crore ';
+  if (lakh > 0) words += numberToWords(lakh) + ' Lakh ';
+  if (thousand > 0) words += numberToWords(thousand) + ' Thousand ';
+  if (hundred > 0) words += ones[hundred] + ' Hundred ';
 
-  if (remainder > 19) {
-    words += b[Math.floor(remainder / 10)] + ' ';
-    remainder = remainder % 10;
-  }
   if (remainder > 0) {
-    words += a[remainder] + ' ';
+    if (remainder < 20) {
+      words += ones[remainder];
+    } else {
+      words += tens[Math.floor(remainder / 10)];
+      if (remainder % 10 > 0) words += ' ' + ones[remainder % 10];
+    }
   }
 
   return words.trim();
@@ -48,15 +485,23 @@ function numberToWords(num) {
 function amountInWords(amount) {
   const rupees = Math.floor(amount);
   const paise = Math.round((amount - rupees) * 100);
-  let words = numberToWords(rupees) + ' Rupees';
-  if (paise > 0) {
-    words += ' and ' + numberToWords(paise) + ' Paise';
-  }
-  words += ' Only';
-  return words;
+  let words = 'Rupees ' + numberToWords(rupees);
+  if (paise > 0) words += ' and ' + numberToWords(paise) + ' Paise';
+  return words + ' Only';
 }
 
-function BillPDF({
+function formatAmount(amount) {
+  return  amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
+const BillPDF = ({
   billNumber,
   customer,
   items,
@@ -70,428 +515,265 @@ function BillPDF({
   salesman_address = "",
   note = "",
   isShippedDifferent = false,
-  shippedTo = { name: '', contact: '', address: '', gstin: '' }
-}) {
-  const [companyInfo, setCompanyInfo] = useState(null);
-  const [logoDataUrl, setLogoDataUrl] = useState(null);
+  shippedTo = { name: '', contact: '', address: '', gstin: '' },
+  companyInfo = null,
+  logoDataUrl = null,
+  qrCodeDataUrl = null
+}) => {
+  const today = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
 
-  useEffect(() => {
-    loadCompanyInfo();
-  }, []);
-
-  const loadCompanyInfo = async () => {
-    try {
-      const result = await window.electronAPI.getCompanyInfo();
-      console.log('Company Info Result:', result);
-      if (result.success && result.data) {
-        setCompanyInfo(result.data);
-
-        // Load logo if exists
-        if (result.data.logo_path) {
-          const logoResult = await window.electronAPI.getLogoAsBase64(result.data.logo_path);
-          if (logoResult.success) {
-            setLogoDataUrl(logoResult.dataUrl);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error loading company info:', error);
-    }
-  };
-
-  console.log(salesman_contact);
-
-  // Split items into pages
-  const pages = [];
-  for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
-    pages.push(items.slice(i, i + ITEMS_PER_PAGE));
-  }
-
-  const Header = () => (
-    <div className="border-b border-[hsl(0,0%,0%)] pb-2 mb-2">
-      <div className="flex justify-center">
-        <h2 className="text-xl font-bold text-[hsl(0,0%,0%)]">INVOICE</h2>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-3">
-          {logoDataUrl ? (
-            <img
-              src={logoDataUrl}
-              alt="Company Logo"
-              className="w-20 h-20 object-contain"
-            />
-          ) : (
-            <div className="w-20 h-20 flex items-center justify-center border border-gray-300">
-              <Building2 className="w-12 h-12 text-gray-400" />
-            </div>
-          )}
-        </div>
-        <div className="text-left ml-6 flex-[2] space-y-0.5">
-          <h2 className="text-xl font-bold text-[hsl(0,0%,0%)]">
-            {companyInfo?.company_name || 'Company Name'}
-          </h2>
-          <div className="text-[11px] text-[hsl(0,0%,0%)] space-y-0.5 mt-0.5">
-            {companyInfo?.address_line1 && <p>{companyInfo.address_line1}</p>}
-            {companyInfo?.address_line2 && <p>{companyInfo.address_line2}</p>}
-            {(companyInfo?.city || companyInfo?.state || companyInfo?.pincode) && (
-              <p>
-                {[companyInfo?.city, companyInfo?.state, companyInfo?.pincode]
-                  .filter(Boolean)
-                  .join(', ')}
-              </p>
-            )}
-            {(companyInfo?.phone || companyInfo?.mobile) && (
-              <span>Contact: {companyInfo?.phone || companyInfo?.mobile}</span>
-            )}
-            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-[hsl(0,0%,0%)] mt-1">
-              {companyInfo?.email && <span>Email: {companyInfo.email}</span>}
-              {companyInfo?.email && companyInfo.website && <span>|</span>}
-              {companyInfo?.website && <span>Website: {companyInfo.website}</span>}
-            </div>
-          </div>
-        </div>
-        <div className="text-right ml-0 flex-1 min-w-[140px]">
-          <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
-            Bill Details
-          </h3>
-          <div className="space-y-0.5 text-xs">
-            <div className="text-right">
-              <span className="font-medium text-[hsl(0,0%,0%)]">{billNumber}</span>
-            </div>
-            <div className="text-right">
-              <span className="font-medium text-[hsl(0,0%,0%)]">
-                {new Date().toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Determine what to show based on sale_type
-  const getBilledToInfo = () => {
-    if (sale_type === "customer") {
+  const getBilledTo = () => {
+    if (sale_type === "customer" || sale_type === "others") {
       return {
-        name: customer.name,
-        address: customer.address || "",
-        contact: customer.contact || "",
-        gstin: customer.gstin || ""
+        name: customer?.name || '',
+        address: customer?.address || '',
+        contact: customer?.contact || '',
+        gstin: customer?.gstin || ''
       };
     } else if (sale_type === "salesman") {
       return {
-        name: salesman_name,
-        address: salesman_address,
-        contact: salesman_contact,
-        gstin: ""
-      };
-    } else if (sale_type === "others") {
-      return {
-        name: customer.name || "",
-        address: customer.address || "",
-        contact: customer.contact || "",
-        gstin: customer.gstin || ""
+        name: salesman_name || '',
+        address: salesman_address || '',
+        contact: salesman_contact || '',
+        gstin: ''
       };
     }
-    return { name: "", address: "", contact: "", gstin: "" };
+    return { name: '', address: '', contact: '', gstin: '' };
   };
 
-  const billedTo = getBilledToInfo();
-  // const showSalesmanDetails = sale_type === "customer";
-
-
-  const BillDetails = () => (
-    <div className="grid grid-cols-2 gap-4 mb-4">
-      <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
-          Billed To
-        </h3>
-        <div className="bg-[hsl(0,0%,100%)] border border-[hsl(0,0%,0%)] p-1 rounded-lg space-y-0.5">
-          <p className="font-semibold text-[hsl(0,0%,0%)] text-[13px]">{billedTo.name}</p>
-          {billedTo.address && (
-            <p className="text-[11px] text-[hsl(0,0%,0%)]">{billedTo.address}</p>
-          )}
-          {billedTo.gstin && (
-            <p className="text-[11px] text-[hsl(0,0%,0%)]">GSTIN: {billedTo.gstin}</p>
-          )}
-          {billedTo.contact && (
-            <p className="text-[11px] text-[hsl(0,0%,0%)]">Contact: {billedTo.contact}</p>
-          )}
-        </div>
-      </div>
-      {isShippedDifferent ? (
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
-            Shipped To
-          </h3>
-          <div className="bg-[hsl(0,0%,100%)] border border-[hsl(0,0%,0%)] p-1 rounded-lg space-y-0.5">
-            <p className="font-semibold text-[hsl(0,0%,0%)] text-[13px]">{shippedTo.name}</p>
-            {shippedTo.address && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">{shippedTo.address}</p>
-            )}
-            {shippedTo.gstin && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">GSTIN: {shippedTo.gstin}</p>
-            )}
-            {shippedTo.contact && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">Contact: {shippedTo.contact}</p>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
-            SHIPPED TO
-          </h3>
-          <div className="bg-[hsl(0,0%,100%)] border border-[hsl(0,0%,0%)] p-1 rounded-lg space-y-0.5">
-            <p className="font-semibold text-[hsl(0,0%,0%)] text-[13px]">{billedTo.name}</p>
-            {billedTo.address && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">{billedTo.address}</p>
-            )}
-            {billedTo.gstin && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">GSTIN: {billedTo.gstin}</p>
-            )}
-            {billedTo.contact && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">Contact: {billedTo.contact}</p>
-            )}
-          </div>
-        </div>
-      )}
-      {/* outstanding will go here */}
-      <div className="text-xs">Outstanding</div>
- 
-      <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-[hsl(0,0%,0%)] uppercase tracking-wider mb-1">
-            Salesman Details
-          </h3>
-          <div className="bg-[hsl(0,0%,100%)] border border-[hsl(0,0%,0%)] p-1 rounded-lg space-y-0.5">
-            <p className="font-semibold text-[hsl(0,0%,0%)] text-[13px]">{salesman_name}</p>
-            {salesman_address && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">{salesman_address}</p>
-            )}
-           
-            {salesman_contact && (
-              <p className="text-[11px] text-[hsl(0,0%,0%)]">Contact: {salesman_contact}</p>
-            )}
-          </div>
-        </div>
-    </div>
-  );
-
-  const ItemsTable = ({ pageItems, isLastPage }) => (
-    <div className={`${!isLastPage ? 'mb-2' : 'mb-2'}`}>
-      <div className="overflow-hidden rounded-lg border border-[hsl(0,0%,0%)]">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-[hsl(0,0%,100%)] border-b border-[hsl(0,0%,0%)] text-black">
-              <th className="text-left py-2 px-2 font-semibold text-xs w-[40px]">Sr No</th>
-              <th className="text-left py-2 px-2 font-semibold text-xs w-[40%]">Item</th>
-              <th className="text-center py-2 px-2 font-semibold text-xs w-[12%]">Quantity</th>
-              <th className="text-center py-2 px-2 font-semibold text-xs w-[14%]">Rate</th>
-              <th className="text-center py-2 px-2 font-semibold text-xs w-[14%]">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageItems.map((item, idx) => {
-              const globalIndex = pages.flat().findIndex(i => i === item);
-              return (
-                <tr
-                  key={idx}
-                  className={`border-b border-[hsl(0,0%,0%)]`}
-                >
-                  <td className="py-2 px-2 text-xs text-left text-[hsl(0,0%,0%)]">{globalIndex + 1}</td>
-                  <td className="py-2 px-2 text-xs text-[hsl(0,0%,0%)] font-medium w-[40%]">{item.name}</td>
-                  <td className="py-2 px-2 text-xs text-center text-[hsl(0,0%,0%)] w-[12%]">{item.quantity}</td>
-                  <td className="py-2 px-2 text-xs text-center text-[hsl(0,0%,0%)] w-[14%]">₹{item.unit_price}</td>
-                  <td className="py-2 px-2 text-xs text-center text-[hsl(0,0%,0%)] w-[14%]">₹{(item.unit_price * item.quantity).toFixed(2)}</td>
-                </tr>
-              );
-            })}
-            {/* Fill empty rows to maintain consistent height */}
-            {Array.from({ length: ITEMS_PER_PAGE - pageItems.length }, (_, idx) => (
-              <tr key={`empty-${idx}`} className="border-b border-[hsl(220_13%_91%)]">
-                <td className="py-2 px-2 text-xs">&nbsp;</td>
-                <td className="py-2 px-2 text-xs" colSpan={4}>&nbsp;</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-  const Totals = () => (
-    <div className="flex justify-between mb-4"> 
-      {/* Bank Details */}
-      <div className="text-sm">Amount in Words: {amountInWords(total)} </div>
-      {/* Totals */}
-      <div className="space-y-1 text-right">
-        <div>
-          <span className="font-semibold text-xs">Subtotal:</span>
-          <span className="ml-2 text-xs">₹{subtotal.toFixed(2)}</span>
-        </div>
-         <div>
-            <span className="font-semibold text-black text-xs">CGST (9%) :</span>
-            <span className="ml-2 text-black text-xs">₹12.33</span>
-          </div>
-         <div>
-            <span className="font-semibold text-black text-xs">SGST (9%) :</span>
-            <span className="ml-2 text-black text-xs">₹12.33</span>
-          </div>
-          
-        {discount > 0 && (
-          <div>
-            <span className="font-semibold text-black text-xs">Discount ({discount}%):</span>
-            <span className="ml-2 text-black text-xs">-₹{(subtotal * discount / 100).toFixed(2)}</span>
-          </div>
-        )}
-        {roundingOff !== 0 && (
-          <div>
-            <span className="font-semibold text-xs">Rounding Off:</span>
-            <span className="ml-2 text-xs">{roundingOff >= 0 ? '+' : ''}₹{roundingOff.toFixed(2)}</span>
-          </div>
-        )}
-        <div className="border-t border-[hsl(0,0%,0%)] pt-1">
-          <span className="font-bold text-sm">Total:</span>
-          <span className="ml-2 font-bold text-sm">₹{total.toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
-  );
-  const UpiPaymentQr = ({ totalAmount, billId, merchantVpa, merchantName }) => {
-  
-  // Wrap the note in encodeURIComponent to handle spaces and special chars safely
-  const note = encodeURIComponent(`Bill-${billId}`);
-  const name = encodeURIComponent(merchantName);
-  
-  const upiString = `upi://pay?pa=${merchantVpa}&pn=${name}&am=${totalAmount}&cu=INR`;
-
-  return (  
-    <QRCode 
-      value={upiString} 
-      size={128} 
-      level="H" 
-    />
-  );
-}
-
-
-  const Footer = () => (
-    <div>
-      <div className="flex justify-between items-start mt-6 border-t border-black pt-3 px-8 mb-3">
-           {companyInfo?.upi_id && companyInfo.upi_id.trim() !== '' &&
-          <div className="flex flex-col items-center">
-            {/* <img
-              src={UPI}
-              alt="UPI"
-              className="w-28 h-28 object-contain"
-            /> */}
-            <UpiPaymentQr 
-              totalAmount={total} 
-              billId={billNumber} 
-              merchantVpa={companyInfo.upi_id}
-              merchantName={companyInfo.company_name} 
-            />
-            <span className="text-xs text-gray-500">Scan & Pay</span>
-          </div>
-        }
-        
-        {/* Bank Details */}
-        <div className="text-left space-y-1 border border-black rounded-lg px-4 py-2 min-w-[220px] bg-white">
-          <div className="font-semibold text-xs mb-1">Bank Details</div>
-          {companyInfo?.bank_name && (
-            <div className="text-xs">
-              <span className="font-medium">Bank Name:</span> {companyInfo.bank_name}
-            </div>
-          )}
-          {companyInfo?.bank_account_number && (
-            <div className="text-xs">
-              <span className="font-medium">A/C No:</span> {companyInfo.bank_account_number}
-            </div>
-          )}
-          {companyInfo?.bank_ifsc && (
-            <div className="text-xs">
-              <span className="font-medium">IFSC:</span> {companyInfo.bank_ifsc}
-            </div>
-          )}
-          {companyInfo?.bank_branch && (
-            <div className="text-xs">
-              <span className="font-medium">Branch:</span> {companyInfo.bank_branch}
-            </div>
-          )}
-        </div>
-        {/* Terms & Conditions from companyInfo */}
-        <div className="w-60">
-          <div className="font-semibold text-xs mb-2">Terms & Conditions</div>
-          <ul className="list-disc pl-5 text-xs space-y-1 text-gray-700">
-            {Array.from({ length: 5 }).map((_, i) => {
-              const term = companyInfo?.[`terms_${i + 1}`];
-              return term ? <li key={i}>{term}</li> : null;
-            })}
-          </ul>
-        </div>
-      </div>
-      {/* start of the below part of the banking details  */}
-      {note && note.trim().length > 0 && (
-        <div className="mb-2 text-xs border border-black p-1 rounded-md text-[hsl(0,0%,0%)]">
-          <strong>Remark: </strong>
-          {note}
-        </div>
-      )}
-      <div className="border-t border-[hsl(0,0%,0%)] pt-1">
-        <div className="text-center space-y-0.5">
-          <p className="text-[hsl(0,0%,0%)] font-semibold text-xs">
-            {companyInfo?.footer_text}
-          </p>
-          <p className="text-[hsl(0,0%,0%)] font-semibold text-[10px]">
-            This is a computer-generated invoice and does not require a physical signature.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  const billedTo = getBilledTo();
+  const shipTo = isShippedDifferent ? shippedTo : billedTo;
+  const discountAmt = subtotal * (discount / 100);
 
   return (
-    <div id="bill-pdf">
-      {pages.map((pageItems, pageIndex) => (
-        <div
-          key={pageIndex}
-          className="bg-white p-8 w-[210mm] h-[297mm] mx-auto shadow-lg border border-[hsl(220_13%_91%)] flex flex-col justify-between"
-          style={{
-            width: '210mm',
-            height: '297mm',
-            minHeight: '297mm',
-            maxHeight: '297mm',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          {/* <div className="float-right">
-         <h2 className="text-2xl font-bold text-[hsl(0,0%,0%)]">INVOICE</h2>
-       </div> */}
-          <div className="flex-1">
-            <Header />
-            {pageIndex === 0 && <BillDetails />}
-            <ItemsTable
-              pageItems={pageItems}
-              isLastPage={pageIndex === pages.length - 1}
-            />
-            {pageIndex === pages.length - 1 && <Totals />}
-          </div>
-          <Footer />
-          {/* Page number */}
-          {pages.length > 1 && (
-            <div className="text-center text-sm text-[hsl(0,0%,0%)] mt-2">
-              Page {pageIndex + 1} of {pages.length}
-            </div>
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {/* Top Color Bar */}
+        <View style={styles.topBanner} />
+
+        <View style={styles.content}>
+          {/* ========== HEADER ========== */}
+          <View style={styles.headerSection}>
+            <View style={styles.brandArea}>
+              {logoDataUrl ? (
+                <View style={styles.logoBox}>
+                  <Image src={logoDataUrl} style={styles.logo} />
+                </View>
+              ) : (
+                <View style={styles.logoBox}>
+                  <Text style={{ fontSize: 8, color: '#bdc3c7' }}>LOGO</Text>
+                </View>
+              )}
+              <View style={styles.brandInfo}>
+                <Text style={styles.brandName}>
+                  {companyInfo?.company_name || 'Your Company Name'}
+                </Text>
+                <View style={styles.brandContact}>
+                  {companyInfo?.address_line1 && <Text>{companyInfo.address_line1}</Text>}
+                  {companyInfo?.address_line2 && <Text>{companyInfo.address_line2}</Text>}
+                  {(companyInfo?.city || companyInfo?.state || companyInfo?.pincode) && (
+                    <Text>{[companyInfo?.city, companyInfo?.state, companyInfo?.pincode].filter(Boolean).join(', ')}</Text>
+                  )}
+                  {(companyInfo?.phone || companyInfo?.mobile) && (
+                    <Text>Phone: {companyInfo?.phone || companyInfo?.mobile}</Text>
+                  )}
+                  {companyInfo?.email && <Text>Email: {companyInfo.email}</Text>}
+                  {companyInfo?.gstin && (
+                    <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 2 }}>GSTIN: {companyInfo.gstin}</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.invoiceTitleArea}>
+              <Text style={styles.invoiceTitle}>INVOICE</Text>
+              <View style={styles.invoiceInfoGrid}>
+                <View style={styles.invoiceInfoRow}>
+                  <Text style={styles.invoiceInfoLabel}>Invoice No.</Text>
+                  <Text style={styles.invoiceInfoValue}>{billNumber}</Text>
+                </View>
+                <View style={styles.invoiceInfoRow}>
+                  <Text style={styles.invoiceInfoLabel}>Date</Text>
+                  <Text style={styles.invoiceInfoValue}>{today}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* ========== PARTIES ========== */}
+          <View style={styles.partiesRow}>
+            <View style={styles.partyCard}>
+              <Text style={styles.partyLabel}>Billed To</Text>
+              <Text style={styles.partyName}>{billedTo.name || '—'}</Text>
+              {billedTo.address && <Text style={styles.partyText}>{billedTo.address}</Text>}
+              {billedTo.contact && <Text style={styles.partyText}>Ph: {billedTo.contact}</Text>}
+              {billedTo.gstin && <Text style={styles.partyGstin}>GSTIN: {billedTo.gstin}</Text>}
+            </View>
+
+            <View style={styles.partyCardAlt}>
+              <Text style={styles.partyLabel}>Shipped To</Text>
+              <Text style={styles.partyName}>{shipTo.name || '—'}</Text>
+              {shipTo.address && <Text style={styles.partyText}>{shipTo.address}</Text>}
+              {shipTo.contact && <Text style={styles.partyText}>Ph: {shipTo.contact}</Text>}
+              {shipTo.gstin && <Text style={styles.partyGstin}>GSTIN: {shipTo.gstin}</Text>}
+            </View>
+
+            <View style={styles.partyCardSalesman}>
+              <Text style={styles.partyLabel}>Salesman</Text>
+              <Text style={styles.partyName}>{salesman_name || '—'}</Text>
+              {salesman_address && <Text style={styles.partyText}>{salesman_address}</Text>}
+              {salesman_contact && <Text style={styles.partyText}>Ph: {salesman_contact}</Text>}
+            </View>
+          </View>
+
+          {/* ========== TABLE ========== */}
+          <View style={styles.tableSection}>
+            <View style={styles.tableHead}>
+              <Text style={[styles.tableHeadCell, styles.colNum]}>#</Text>
+              <Text style={[styles.tableHeadCell, styles.colItem]}>Item Description</Text>
+              <Text style={[styles.tableHeadCell, styles.colQty]}>Qty</Text>
+              <Text style={[styles.tableHeadCell, styles.colRate]}>Rate</Text>
+              <Text style={[styles.tableHeadCell, styles.colTotal]}>Amount</Text>
+            </View>
+
+            <View style={styles.tableBody}>
+              {items.map((item, i) => {
+                const isLast = i === items.length - 1;
+                const rowStyle = i % 2 === 1 ? styles.tableRowAlt : (isLast ? styles.tableRowLast : styles.tableRow);
+                return (
+                  <View key={i} style={rowStyle}>
+                    <Text style={[styles.tableCell, styles.colNum]}>{i + 1}</Text>
+                    <Text style={[styles.tableCell, styles.colItem]}>{item.name}</Text>
+                    <Text style={[styles.tableCell, styles.colQty]}>{item.quantity}</Text>
+                    <Text style={[styles.tableCell, styles.colRate]}>{formatAmount(item.unit_price)}</Text>
+                    <Text style={[styles.tableCellBold, styles.colTotal]}>
+                      {formatAmount(item.unit_price * item.quantity)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ========== SUMMARY ========== */}
+          <View style={styles.summarySection}>
+            <View style={styles.amountWords}>
+              <Text style={styles.amountWordsTitle}>Amount in Words</Text>
+              <Text style={styles.amountWordsText}>{amountInWords(total)}</Text>
+            </View>
+
+            <View style={styles.totalsCard}>
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>Subtotal</Text>
+                <Text style={styles.totalsValue}>{formatAmount(subtotal)}</Text>
+              </View>
+              {discount > 0 && (
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLabel}>Discount ({discount}%)</Text>
+                  <Text style={styles.totalsValue}>- {formatAmount(discountAmt)}</Text>
+                </View>
+              )}
+              {roundingOff !== 0 && (
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLabel}>Round Off</Text>
+                  <Text style={styles.totalsValue}>
+                    {roundingOff >= 0 ? '+' : ''}{formatAmount(Math.abs(roundingOff))}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.totalsFinal}>
+                <Text style={styles.totalsFinalLabel}>Total Due</Text>
+                <Text style={styles.totalsFinalValue}>{formatAmount(total)}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* ========== REMARKS ========== */}
+          {note && note.trim() && (
+            <View style={styles.remarksBox}>
+              <Text style={styles.remarksLabel}>Remarks / Notes</Text>
+              <Text style={styles.remarksText}>{note}</Text>
+            </View>
           )}
-        </div>
-      ))}
-    </div>
+
+          {/* ========== FOOTER ========== */}
+          <View style={styles.footerSection}>
+            <View style={styles.footerGrid}>
+              {qrCodeDataUrl && (
+                <View style={styles.qrArea}>
+                  <Image src={qrCodeDataUrl} style={styles.qrImage} />
+                  <Text style={styles.qrText}>Scan to Pay</Text>
+                </View>
+              )}
+
+              <View style={styles.bankArea}>
+                <Text style={styles.bankTitle}>Bank Details</Text>
+                {companyInfo?.bank_name && (
+                  <View style={styles.bankLine}>
+                    <Text style={styles.bankLabel}>Bank</Text>
+                    <Text style={styles.bankValue}>{companyInfo.bank_name}</Text>
+                  </View>
+                )}
+                {companyInfo?.bank_account_number && (
+                  <View style={styles.bankLine}>
+                    <Text style={styles.bankLabel}>Account</Text>
+                    <Text style={styles.bankValue}>{companyInfo.bank_account_number}</Text>
+                  </View>
+                )}
+                {companyInfo?.bank_ifsc && (
+                  <View style={styles.bankLine}>
+                    <Text style={styles.bankLabel}>IFSC</Text>
+                    <Text style={styles.bankValue}>{companyInfo.bank_ifsc}</Text>
+                  </View>
+                )}
+                {companyInfo?.bank_branch && (
+                  <View style={styles.bankLine}>
+                    <Text style={styles.bankLabel}>Branch</Text>
+                    <Text style={styles.bankValue}>{companyInfo.bank_branch}</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.termsArea}>
+                <Text style={styles.termsTitle}>Terms & Conditions</Text>
+                {[1, 2, 3, 4, 5].map(i => {
+                  const term = companyInfo?.[`terms_${i}`];
+                  return term ? (
+                    <Text key={i} style={styles.termLine}>• {term}</Text>
+                  ) : null;
+                })}
+              </View>
+            </View>
+
+            {/* Signature */}
+            <View style={styles.signatureArea}>
+              <View style={styles.signatureBlock}>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureLabel}>Authorized Signature</Text>
+              </View>
+            </View>
+
+            {/* Footer Note */}
+            <View style={styles.footerNote}>
+              {companyInfo?.footer_text && (
+                <Text style={styles.footerNoteMain}>{companyInfo.footer_text}</Text>
+              )}
+              <Text style={styles.footerNoteSub}>
+                Computer generated invoice • No signature required
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Bottom Color Bar */}
+        <View style={styles.bottomBanner} />
+      </Page>
+    </Document>
   );
-}
+};
 
 export default BillPDF;

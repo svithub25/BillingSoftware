@@ -3,10 +3,10 @@ import { useHotkeys } from "react-hotkeys-hook";
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import BillPDF from './BillPDF';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import CustomerFormModal from './admin/modals/CustomerFormModal'; // Add this import
-import BatchSelectModal from './BatchSelectModal'; // <-- Add this import
+import { pdf } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
+import CustomerFormModal from './admin/modals/CustomerFormModal';
+import BatchSelectModal from './BatchSelectModal';
 
 const Billing = () => { 
   // Load saved state from sessionStorage or use defaults
@@ -486,19 +486,34 @@ const Billing = () => {
       // --- PDF/PRINT GENERATION ---
       if (action === 'pdf' || action === 'print') {
         try {
-          const pdfContainer = document.createElement('div');
-          pdfContainer.style.position = 'fixed';
-          pdfContainer.style.left = '-9999px';
-          pdfContainer.style.top = '0';
-          pdfContainer.style.width = '210mm';
-          pdfContainer.style.zIndex = '-1';
-          document.body.appendChild(pdfContainer);
+          // Load company info and logo
+          const companyResult = await window.electronAPI.getCompanyInfo();
+          const companyInfo = companyResult.success ? companyResult.data : null;
 
-          const { createRoot } = await import('react-dom/client');
-          const root = createRoot(pdfContainer);
+          let logoDataUrl = null;
+          if (companyInfo?.logo_path) {
+            const logoResult = await window.electronAPI.getLogoAsBase64(companyInfo.logo_path);
+            if (logoResult.success) {
+              logoDataUrl = logoResult.dataUrl;
+            }
+          }
 
-          // Inside completeSale function, where BillPDF is rendered:
-          root.render(
+          // Generate QR code for UPI payment if UPI ID exists
+          let qrCodeDataUrl = null;
+          if (companyInfo?.upi_id && companyInfo.upi_id.trim() !== '') {
+            const upiString = `upi://pay?pa=${companyInfo.upi_id}&pn=${encodeURIComponent(companyInfo.company_name)}&am=${getFinalTotal()}&cu=INR`;
+            qrCodeDataUrl = await QRCode.toDataURL(upiString, {
+              width: 256,
+              margin: 1,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              }
+            });
+          }
+
+          // Generate PDF using @react-pdf/renderer
+          const pdfDoc = pdf(
             <BillPDF
               billNumber={billNumber}
               customer={customerInfo}
@@ -520,56 +535,37 @@ const Billing = () => {
               note={billNarration}
               isShippedDifferent={isShippedDifferent}
               shippedTo={shippedToInfo}
+              companyInfo={companyInfo}
+              logoDataUrl={logoDataUrl}
+              qrCodeDataUrl={qrCodeDataUrl}
             />
           );
 
-          setTimeout(async () => {
-            const pdf = new jsPDF({
-              orientation: 'portrait',
-              unit: 'mm',
-              format: 'a4'
-            });
+          if (action === 'print') {
+            // Convert to array buffer for printing
+            const blob = await pdfDoc.toBlob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const result = await window.electronAPI.printPdf(arrayBuffer);
 
-            const pageElements = pdfContainer.querySelectorAll('#bill-pdf > div');
-
-            for (let i = 0; i < pageElements.length; i++) {
-              if (i > 0) pdf.addPage();
-
-              const canvas = await html2canvas(pageElements[i], {
-                scale: 1.5,
-                useCORS: true,
-                allowTaint: true,
-                width: 794,
-                height: 1123,
-                backgroundColor: '#ffffff'
-              });
-
-              const imgData = canvas.toDataURL('image/png');
-              const pageWidth = pdf.internal.pageSize.getWidth();
-              const pageHeight = pdf.internal.pageSize.getHeight();
-              pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
-            }
-
-            if (action === 'print') {
-              const pdfOutput = pdf.output('arraybuffer');
-              const result = await window.electronAPI.printPdf(pdfOutput);
-
-              if (result.success) {
-                toast.success('Invoice sent to printer!');
-              } else {
-                toast.error('Failed to print: ' + result.error);
-              }
+            if (result.success) {
+              toast.success('Invoice sent to printer!');
             } else {
-              pdf.save(`Invoice_${billNumber}.pdf`);
-              toast.success('PDF generated and downloaded!');
+              toast.error('Failed to print: ' + result.error);
             }
-
-            root.unmount();
-            document.body.removeChild(pdfContainer);
-          }, 1000);
+          } else {
+            // Download PDF
+            const blob = await pdfDoc.toBlob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Invoice_${billNumber}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+            toast.success('PDF generated and downloaded!');
+          }
         } catch (err) {
           console.error('PDF/Print error:', err);
-          toast.error('Error generating PDF/Print');
+          toast.error('Error generating PDF/Print: ' + err.message);
         }
       }
 
@@ -1173,30 +1169,6 @@ const Billing = () => {
 
 
 
-
-      <BillPDF
-        billNumber={billNumber}
-        customer={customerInfo}
-        items={cart.map(item => ({
-          hsn_code: item.hsn_code,
-          sku: item.sku,
-          name: item.name,
-          quantity: parseInt(item.quantity) || 0,
-          unit_price: item.unit_price
-        }))}
-        discount={discount}
-        subtotal={getSubtotal()}
-        roundingOff={getRoundingOff()}
-        total={getFinalTotal()}
-        sale_type={isOthers ? 'others' : (isSalesmanCustomer ? 'salesman' : 'customer')}
-        salesman_name={salesmen.find(s => String(s.id) === String(selectedSalesman))?.name || ""}
-        salesman_contact={salesmen.find(s => String(s.id) === String(selectedSalesman))?.contact_info || ""}
-        salesman_address={salesmen.find(s => String(s.id) === String(selectedSalesman))?.address || ""}
-        note={billNarration}
-        isShippedDifferent={isShippedDifferent}
-        shippedTo={shippedToInfo}
-      />
- 
       {/* Customer Add Modal */}
       <CustomerFormModal
         isOpen={showCustomerForm}
