@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { pdf } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
 import BillPDF from './BillPDF';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -260,97 +262,108 @@ const SalesHistory = () => {
 
   const handleReprintBill = async (saleId) => {
     try {
+      // Fetch sale details
       const saleDetails = await window.electronAPI.getSaleDetails(saleId);
-      console.log('Generating PDF for sale:', saleDetails);
+      if (!saleDetails) {
+        toast.error('Sale details not found');
+        return;
+      }
 
-      const pdfContainer = document.createElement('div');
-      pdfContainer.style.position = 'fixed';
-      pdfContainer.style.left = '-9999px';
-      pdfContainer.style.top = '0';
-      pdfContainer.style.width = '210mm';
-      pdfContainer.style.zIndex = '-1';
-      document.body.appendChild(pdfContainer);
+      // Load company info and logo
+      const companyResult = await window.electronAPI.getCompanyInfo();
+      const companyInfo = companyResult.success ? companyResult.data : null;
 
-      import('react-dom/client').then(({ createRoot }) => {
-        const root = createRoot(pdfContainer);
+      let logoDataUrl = null;
+      if (companyInfo?.logo_path) {
+        const logoResult = await window.electronAPI.getLogoAsBase64(companyInfo.logo_path);
+        if (logoResult.success) {
+          logoDataUrl = logoResult.dataUrl;
+        }
+      }
 
-        root.render(
-          <BillPDF
-            billNumber={saleDetails.bill_number}
-            customer={{
-              name: saleDetails.customer_name,
-              contact: saleDetails.customer_contact,
-              address: saleDetails.customer_address,
-              gstin: saleDetails.customer_gstin
-            }}
-            items={saleDetails.items.map(item => ({
-              hsn_code: item.hsn_code,
-              sku: item.sku,
-              name: item.item_name,
-              quantity: item.quantity,
-              unit_price: item.unit_price
-            }))}
-            discount={saleDetails.discount}
-            subtotal={saleDetails.items.reduce(
-              (sum, item) => sum + item.unit_price * item.quantity,
-              0
-            )}
-            roundingOff={saleDetails.rounding_off}
-            total={saleDetails.total_amount}
-            sale_type={saleDetails.sale_type}
-            salesman_name={saleDetails.salesman || ""}
-            salesman_contact={saleDetails.salesman_contact_info || ""}
-            salesman_address={saleDetails.salesman_address || ""}
-            note={saleDetails.narration || ""}
-            isShippedDifferent={saleDetails.is_shipped_different}
-            shippedTo={{
-              name: saleDetails.shipped_to_name || '',
-              contact: saleDetails.shipped_to_contact || '',
-              address: saleDetails.shipped_to_address || '',
-              gstin: saleDetails.shipped_to_gstin || ''
-            }}
-          />
-        );
+      // Calculate totals from sale details
+      const subtotal = saleDetails.items.reduce((sum, item) => 
+        sum + (item.quantity * item.unit_price), 0
+      );
+      const discount = saleDetails.discount || 0;
+      const roundingOff = saleDetails.rounding_off || 0;
+      const total = saleDetails.total_amount || 0;
 
-        setTimeout(async () => {
-          const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-          });
-
-          const pageElements = pdfContainer.querySelectorAll('#bill-pdf > div');
-
-          for (let i = 0; i < pageElements.length; i++) {
-            if (i > 0) {
-              pdf.addPage();
-            }
-
-            const canvas = await html2canvas(pageElements[i], {
-              scale: 1.5,
-              useCORS: true,
-              allowTaint: true,
-              width: 794,
-              height: 1123,
-              backgroundColor: '#ffffff'
-            });
-
-            const imgData = canvas.toDataURL('image/png');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-
-            pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+      // Generate QR code for UPI payment if UPI ID exists
+      let qrCodeDataUrl = null;
+      if (companyInfo?.upi_id && companyInfo.upi_id.trim() !== '') {
+        const upiString = `upi://pay?pa=${companyInfo.upi_id}&pn=${encodeURIComponent(companyInfo.company_name)}&am=${total}&cu=INR`;
+        qrCodeDataUrl = await QRCode.toDataURL(upiString, {
+          width: 256,
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
           }
+        });
+      }
 
-          pdf.save(`Invoice_${saleDetails.bill_number}.pdf`);
-          root.unmount();
-          document.body.removeChild(pdfContainer);
-          toast.success('PDF generated!');
-        }, 1000);
-      });
+      // Prepare customer info
+      const customer = {
+        name: saleDetails.customer_name,
+        contact: saleDetails.customer_contact,
+        address: saleDetails.customer_address,
+        gstin: saleDetails.customer_gstin
+      };
+
+      // Prepare shipped to info
+      const shippedTo = {
+        name: saleDetails.shipped_to_name || '',
+        contact: saleDetails.shipped_to_contact || '',
+        address: saleDetails.shipped_to_address || '',
+        gstin: saleDetails.shipped_to_gstin || ''
+      };
+
+      // Prepare items
+      const billItems = saleDetails.items.map(item => ({
+        hsn_code: item.hsn_code,
+        sku: item.sku,
+        name: item.item_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price
+      }));
+
+      // Generate PDF using @react-pdf/renderer
+      const pdfDoc = pdf(
+        <BillPDF
+          billNumber={saleDetails.bill_number}
+          customer={customer}
+          items={billItems}
+          discount={discount}
+          subtotal={subtotal}
+          roundingOff={roundingOff}
+          total={total}
+          sale_type={saleDetails.sale_type || 'customer'}
+          salesman_name={saleDetails.salesman || ''}
+          salesman_contact={saleDetails.salesman_contact_info || ''}
+          salesman_address={saleDetails.salesman_address || ''}
+          note={saleDetails.narration || ''}
+          isShippedDifferent={saleDetails.is_shipped_different === 1}
+          shippedTo={shippedTo}
+          companyInfo={companyInfo}
+          logoDataUrl={logoDataUrl}
+          qrCodeDataUrl={qrCodeDataUrl}
+        />
+      );
+
+      // Convert to array buffer for printing
+      const blob = await pdfDoc.toBlob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const result = await window.electronAPI.printPdf(arrayBuffer);
+
+      if (result.success) {
+        toast.success('Invoice sent to printer!');
+      } else {
+        toast.error('Failed to print: ' + result.error);
+      }
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Error generating PDF');
+      console.error('Error reprinting bill:', error);
+      toast.error('Error reprinting bill: ' + error.message);
     }
   };
 
@@ -1142,7 +1155,7 @@ const SalesHistory = () => {
           </div>
         </div>
       )}
-
+ 
       {/* Approval History Modal */}
       {showApprovalHistoryModal && approvalHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 
 // --- PIN Modal (same as in Backup.jsx) ---
 import PinProtected from './reusables/PinProtected';
+import BatchSelectModal from './BatchSelectModal';
 
 // --- End PIN Modal ---
 
@@ -67,6 +68,10 @@ const SaleEdit = () => {
     gstin: ''
   });
 
+  // --- Batch modal state ---
+  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+  const [selectedBatches, setSelectedBatches] = useState({}); // { [itemId]: [{batch, qty}] }
+
   useEffect(() => {
     loadSaleDetails();
     window.electronAPI.getInventory().then(setItems);
@@ -75,6 +80,7 @@ const SaleEdit = () => {
     // eslint-disable-next-line
   }, [id]);
 
+  // Update the loadSaleDetails function to ensure all items have batch structure
   const loadSaleDetails = async () => { 
     setLoading(true);
     try {
@@ -96,7 +102,19 @@ const SaleEdit = () => {
           quantity: item.quantity,
           unit_price: item.unit_price,
           total_price: item.total_price,
-          saved_unit_price: item.unit_price
+          saved_unit_price: item.unit_price,
+          // If no batches from DB, create a "No Batch" structure for consistency
+          batches: (item.batches && item.batches.length > 0) 
+            ? item.batches 
+            : [{
+                batch_id: null,
+                batch_number: 'No Batch',
+                qty: item.quantity,
+                mfg_date: null,
+                exp_date: null,
+                purchase_rate: item.unit_price,
+                mrp: item.unit_price
+              }]
         }))
       });
       setSelectedSalesman(result.salesman_id || '');
@@ -138,58 +156,164 @@ const SaleEdit = () => {
     }
   };
 
-  const addItemToSale = (item) => {
+  // Fetch item batches
+  const fetchItemBatches = async (itemId) => {
+    return await window.electronAPI.getItemBatches(itemId);
+  };
+
+  // Update the addItemToSale function to always open batch modal
+  const addItemToSale = async (item) => {
     if (!item) return;
-    if (form.items.some(i => i.id === item.id)) {
-      toast.warn('Item already in sale');
+
+    // Check if item already exists in cart
+    const existingCartItem = form.items.find(i => i.id === item.id);
+    if (existingCartItem) {
+      reopenBatchModal(existingCartItem);
       setShowItemList(false);
       setItemSearch('');
       return;
     }
-    const rate = item.mrp || 0;
-    setForm(f => ({
-      ...f,
-      items: [
-        ...f.items,
-        {
-          id: item.id,
-          name: item.name,
-          hsn_code: item.hsn_code,
-          quantity: '',
-          unit_price: rate,
-          total_price: 0
-        }
-      ]
-    }));
+
+    const batches = await fetchItemBatches(item.id);
+    
+    // Always open batch modal - with batches or with "No Batch" option
+    setBatchModal({ 
+      open: true, 
+      item, 
+      batches: batches || [], 
+      cartIdx: form.items.length, 
+      existingSelections: null 
+    });
     setShowItemList(false);
     setItemSearch('');
-    setItemDropdownIndex(0);
-    setTimeout(() => {
-      document.getElementById(`qty-input-${form.items.length}`)?.focus();
-    }, 0);
   };
 
+  // Handle batch selection and add to cart or update existing cart item
+  const handleBatchSelection = (cartIdx, item, batchSelections) => {
+    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+
+    // Calculate total qty and use weighted average MRP
+    const totalQty = batchSelections.reduce((sum, b) => sum + Number(b.qty), 0);
+
+    // Calculate weighted average MRP
+    const avgMRP = totalQty > 0
+      ? batchSelections.reduce((sum, b) => {
+          const mrp = b.batch ? Number(b.batch.mrp) : Number(item.mrp);
+          return sum + mrp * Number(b.qty);
+        }, 0) / totalQty
+      : item.mrp;
+
+    const cartItem = {
+      id: item.id,
+      name: item.name,
+      hsn_code: item.hsn_code,
+      quantity: totalQty,
+      unit_price: avgMRP,
+      total_price: totalQty * avgMRP,
+      saved_unit_price: avgMRP,
+      batches: batchSelections.map(b => ({
+        batch_id: b.batch ? b.batch.id : null,
+        batch_number: b.batch ? b.batch.batch_number : 'No Batch',
+        qty: b.qty,
+        mfg_date: b.batch ? b.batch.mfg_date : null,
+        exp_date: b.batch ? b.batch.exp_date : null,
+        purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
+        mrp: b.batch ? b.batch.mrp : item.mrp
+      }))
+    };
+
+    // Check if we're updating an existing cart item
+    const existingCartItem = form.items.find(i => i.id === item.id);
+    if (existingCartItem) {
+      // Update existing item
+      setForm(f => ({
+        ...f,
+        items: f.items.map(i => i.id === item.id ? cartItem : i)
+      }));
+    } else {
+      // Add new item
+      setForm(f => ({
+        ...f,
+        items: [...f.items, cartItem]
+      }));
+    }
+
+    // Store batch selections for reopening
+    setSelectedBatches(prev => ({ ...prev, [item.id]: batchSelections }));
+  };
+
+  // Reopen batch modal to edit selections
+  const reopenBatchModal = async (cartItem) => {
+    const batches = await fetchItemBatches(cartItem.id);
+    
+    // Find the full item object from inventory to get current_stock, mrp, etc.
+    const fullItem = items.find(i => i.id === cartItem.id);
+    
+    if (!fullItem) {
+      toast.error('Item not found in inventory');
+      return;
+    }
+    
+    // Convert cart item batches back to selection format
+    const existingSelections = cartItem.batches?.map(b => ({
+      batch_id: b.batch_id,
+      qty: b.qty
+    })) || [];
+
+    // Always open modal - even if no batches exist
+    // Pass the full item object that has all necessary properties
+    setBatchModal({
+      open: true,
+      item: {
+        ...fullItem,
+        name: cartItem.name,
+        hsn_code: cartItem.hsn_code
+      },
+      batches: batches || [],  // Pass empty array if no batches
+      cartIdx: null,
+      existingSelections
+    });
+  };
+ 
+  // Update the updateSaleItem function to always prevent direct editing
   const updateSaleItem = (idx, field, value) => {
     setForm(f => {
       const items = [...f.items];
+      const item = items[idx];
+
+      // Prevent direct quantity editing - always use batch modal
+      if (field === 'quantity') {
+        toast.info('Click on quantity to edit batch selection');
+        return f;
+      }
+
       items[idx][field] = value;
-      
-      // Recalculate total_price when quantity or unit_price changes
-      if (field === 'quantity' || field === 'unit_price') {
+
+      // Recalculate total_price when unit_price changes
+      if (field === 'unit_price') {
         const qty = parseFloat(items[idx].quantity) || 0;
         const rate = parseFloat(items[idx].unit_price) || 0;
         items[idx].total_price = qty * rate;
       }
-      
+
       return { ...f, items };
     });
   };
 
   const removeSaleItem = (idx) => {
+    const itemToRemove = form.items[idx];
     setForm(f => ({
       ...f,
       items: f.items.filter((_, i) => i !== idx)
     }));
+    // Clean up batch selections
+    if (itemToRemove) {
+      setSelectedBatches(prev => {
+        const updated = { ...prev };
+        delete updated[itemToRemove.id];
+        return updated;
+      });
+    }
   };
 
   // Reset price to saved price
@@ -264,9 +388,19 @@ const SaleEdit = () => {
     // --- END STOCK VALIDATION ---
 
     try {
+      // Prepare items with batch information
+      const itemsToSave = form.items.map(item => ({
+        id: item.id,
+        quantity: parseInt(item.quantity),
+        unit_price: item.unit_price,
+        gst_percentage: item.gst_percentage,
+        total_price: item.total_price,
+        batches: item.batches || [] // Include batch data
+      }));
+
       await window.electronAPI.updateSale(parseInt(id), {
-        ...form, 
-        items: form.items,
+        ...form,
+        items: itemsToSave,
         total_amount: getFinalAmount(),
         rounding_off: getRoundingOff(),
         salesman_id: selectedSalesman || null,
@@ -504,15 +638,14 @@ const SaleEdit = () => {
                       <td className="px-4 py-2">{item.name}</td>
                       <td className="px-4 py-2">{item.hsn_code || 'N/A'}</td>
                       <td className="px-4 py-2">
-                        <input
-                          id={`qty-input-${idx}`}
-                          type="number"
-                          onWheel={e => e.target.blur()}
-                          value={item.quantity}
-                          min={1}
-                          onChange={e => updateSaleItem(idx, 'quantity', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded"
-                        />
+                        {/* Always show clickable quantity box */}
+                        <div
+                          onClick={() => reopenBatchModal(item)}
+                          className="w-20 px-2 py-1 border border-blue-300 bg-blue-50 rounded text-sm text-center cursor-pointer hover:bg-blue-100 transition-colors font-medium text-blue-700"
+                          title="Click to edit batch/quantity selection"
+                        >
+                          {item.quantity}
+                        </div>
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
@@ -593,11 +726,22 @@ const SaleEdit = () => {
             </button>
           </div>
 
-        
+
         </div>
+
+        {/* Batch Select Modal */}
+        {batchModal.open && (
+          <BatchSelectModal
+            item={batchModal.item}
+            batches={batchModal.batches}
+            existingSelections={batchModal.existingSelections}
+            onClose={() => setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null })}
+            onSelect={(batchSelections) => handleBatchSelection(batchModal.cartIdx, batchModal.item, batchSelections)}
+          />
+        )}
       </div>
     // </PinProtected>
-  ); 
+  );
 };
 
 export default SaleEdit;

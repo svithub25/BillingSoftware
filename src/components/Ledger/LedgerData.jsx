@@ -102,7 +102,7 @@ const LedgerData = () => {
   return (
     <div className="space-y-6">
       {/* Summary Cards - Using Pre-calculated Data */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-sm border border-green-200 p-4">
           <div className="flex items-center">
             <div className="bg-green-500 p-3 rounded-lg">
@@ -139,7 +139,7 @@ const LedgerData = () => {
           </div>
         </div>
 
-        <div className={`bg-gradient-to-br rounded-lg shadow-sm border p-4 ${
+        {/* <div className={`bg-gradient-to-br rounded-lg shadow-sm border p-4 ${
           summary.totalProfit >= 0 
             ? 'from-blue-50 to-blue-100 border-blue-200' 
             : 'from-red-50 to-red-100 border-red-200'
@@ -157,7 +157,7 @@ const LedgerData = () => {
               </p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Filters */}

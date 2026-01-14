@@ -763,7 +763,7 @@ const BillPDF = ({
                 <Text style={styles.footerNoteMain}>{companyInfo.footer_text}</Text>
               )}
               <Text style={styles.footerNoteSub}>
-                Computer generated invoice • No signature required
+                Computer generated invoice 
               </Text>
             </View>
           </View>
