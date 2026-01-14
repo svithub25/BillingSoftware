@@ -28,6 +28,12 @@ npm run lint
 npm preview
 ```
 
+## Prerequisites
+
+- **Node.js 22.x** required (NODE_MODULE_VERSION 136 for Electron 37)
+- Use NVM to manage Node versions if needed: `nvm use 22`
+- After switching Node versions, rebuild native modules: `npx electron-rebuild -f`
+
 ## Architecture Overview
 
 ### Tech Stack
@@ -118,6 +124,23 @@ ipcMain.handle('get-items', async () => {
 - Handles adjustments to purchases/sales
 - Recent addition to codebase
 
+**Batch Selection** (`src/components/BatchSelectModal.jsx`):
+- Recent enhancement for manual batch selection during sales
+- Allows selecting specific batches with different MRP/rates
+- Improves inventory accuracy and FIFO/LIFO management
+
+**Printing Handler** (`electron/handlers/printing.js`):
+- Opens external PDFs in default system viewer
+- Uses Electron shell to open files
+
+**Dynamic Reports** (`electron/handlers/dynamicreports.js`):
+- Custom report generation with flexible filters
+- Supports date ranges and custom grouping
+
+**Stock Movements** (`electron/handlers/stockmovements.js`):
+- Track inventory transfers between locations
+- Maintains audit trail for stock adjustments
+
 ### Database Schema Highlights
 
 - **items**: Products with SKU, HSN, GST%, rates, stock tracking
@@ -130,9 +153,13 @@ ipcMain.handle('get-items', async () => {
 - **customers**: Customer master with GSTIN
 - **godown_branches**: Multi-location inventory support
 
-## Context
-- Database: See @context-light.md (Do NOT read schema.sql)
-- Styling: See @context-light.md (Do NOT read project-styling.md)
+## Context Files
+
+- **context-light.md**: Complete database schema reference and UI styling guide
+  - Contains all table structures with column details and relationships
+  - Includes Tailwind CSS component patterns used throughout the app
+  - Defines standard color schemes, spacing, and UI element styles
+  - DO NOT read schema.sql or project-stylingg.md directly - use context-light.md instead
 
 ### React Routing Structure
 
@@ -248,6 +275,12 @@ src/
 ```
 
 ## Common Issues
+
+**NODE_MODULE_VERSION mismatch**: If you see errors about module version compatibility:
+- Ensure you're using Node.js 22.x: `node --version`
+- Switch to correct version: `nvm use 22`
+- Rebuild native modules: `npx electron-rebuild -f`
+- For persistent issues: `rm -rf node_modules && npm install && npx electron-rebuild -f`
 
 **Database locked errors**: Ensure database is properly closed before backup/restore operations.
 

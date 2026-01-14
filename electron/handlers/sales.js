@@ -1,8 +1,19 @@
 export function registerSalesHandlers({ ipcMain, getDb }) {
   ipcMain.handle('generate-bill-number', async () => {
-    const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
-    const yearSuffix = `${currentYear.toString().slice(-2)}-${nextYear.toString().slice(-2)}`;
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-indexed (January=0, April=3)
+
+    let fyStartYear, fyEndYear;
+    if (month >= 3) { // April onwards (month 3 = April in 0-indexed)
+      fyStartYear = year;
+      fyEndYear = year + 1;
+    } else { // January-March
+      fyStartYear = year - 1;
+      fyEndYear = year;
+    }
+
+    const yearSuffix = `${fyStartYear.toString().slice(-2)}-${fyEndYear.toString().slice(-2)}`;
 
     const lastBill = getDb().prepare(`
       SELECT bill_number FROM sales

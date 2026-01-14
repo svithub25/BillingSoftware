@@ -2,9 +2,20 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
   // Generate Note Number
   ipcMain.handle('generate-note-number', async (event, noteType) => {
     const db = getDb();
-    const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
-    const yearSuffix = `${currentYear.toString().slice(-2)}-${nextYear.toString().slice(-2)}`;
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-indexed
+
+    let fyStartYear, fyEndYear;
+    if (month >= 3) { // April onwards
+      fyStartYear = year;
+      fyEndYear = year + 1;
+    } else { // January-March
+      fyStartYear = year - 1;
+      fyEndYear = year;
+    }
+
+    const yearSuffix = `${fyStartYear.toString().slice(-2)}-${fyEndYear.toString().slice(-2)}`;
     const prefix = noteType === 'credit' ? 'CN' : 'DN';
 
     const lastNote = db.prepare(`
