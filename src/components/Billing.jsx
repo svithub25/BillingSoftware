@@ -316,6 +316,8 @@ const Billing = () => {
       }))
     };
 
+
+    console.log('cartt is ' , cartItem)
     // Check if we're updating an existing cart item
     const existingCartItem = cart.find(c => c.id === item.id);
     if (existingCartItem) {

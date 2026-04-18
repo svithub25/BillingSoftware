@@ -9,7 +9,8 @@ import {
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from 'react-router-dom';
-import ReactDOM from 'react-dom';
+import PinProtected from './reusables/PinProtected';
+import ReactDOM from 'react-dom'; 
 
 const DropdownPortal = ({ children, anchorRef, show }) => {
   const [style, setStyle] = useState({});
@@ -504,7 +505,7 @@ console.log('Purchase saved successfully',purchaseForm);
   }
 
   return (
-    //  <PinProtected message="This module is protected and requires PIN verification to access." modulename='Purchase'>
+     <PinProtected message="This module is protected and requires PIN verification to access." modulename='Purchase'>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -1329,7 +1330,7 @@ console.log('Purchase saved successfully',purchaseForm);
       {/* <ToastContainer position="top-right" autoClose={3000} /> */}
     </div>
 
-    // </PinProtected>
+    </PinProtected>
   );
 };
 
