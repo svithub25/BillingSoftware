@@ -56,7 +56,7 @@ const initialSupplierForm = {
   credit_days: ''
 };
 
-const calculateItemSummary = (item, catalogItems) => {
+const calculateItemSummary = (item, catalogItems, applyGst) => {
   const selectedItem = catalogItems.find(i => i.id == item.id);
   const quantity = Number(item.quantity) || 0;
   const unitPrice = Number(item.unit_price) || 0;
@@ -64,7 +64,7 @@ const calculateItemSummary = (item, catalogItems) => {
   const baseAmount = quantity * unitPrice;
   const discountAmount = discountRate ? (baseAmount * discountRate) / 100 : 0;
   const discountedAmount = baseAmount - discountAmount;
-  const gstRate = selectedItem?.gst_percentage || 0;
+  const gstRate = applyGst ? (selectedItem?.gst_percentage || 0) : 0;
   const cgstAmount = (discountedAmount * gstRate) / 200;
   const sgstAmount = (discountedAmount * gstRate) / 200;
   const totalWithGst = discountedAmount + cgstAmount + sgstAmount;
@@ -88,6 +88,7 @@ const Purchase = () => {
   const [loading, setLoading] = useState(false);
   const [showNewSupplierForm, setShowNewSupplierForm] = useState(false);
   const [overallDiscount, setOverallDiscount] = useState(0);
+  const [gstOnPurchase, setGstOnPurchase] = useState(false);
 
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
@@ -116,8 +117,8 @@ const Purchase = () => {
   const itemInputRefs = useRef({});
 
   const itemSummaries = useMemo(
-    () => purchaseForm.items.map(item => calculateItemSummary(item, items)),
-    [purchaseForm.items, items]
+    () => purchaseForm.items.map(item => calculateItemSummary(item, items, gstOnPurchase)),
+    [purchaseForm.items, items, gstOnPurchase]
   );
 
   // New states and functions for product form
@@ -244,12 +245,13 @@ const Purchase = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [suppliersData, itemsData, categoriesData, unitsData, gstData] = await Promise.all([
+      const [suppliersData, itemsData, categoriesData, unitsData, gstData, appSettings] = await Promise.all([
         window.electronAPI.getSuppliers(),
         window.electronAPI.getInventory(),
         window.electronAPI.getCategories ? window.electronAPI.getCategories() : Promise.resolve([]),
         window.electronAPI.getUnits ? window.electronAPI.getUnits() : Promise.resolve([]),
-        window.electronAPI.getGstRates ? window.electronAPI.getGstRates() : Promise.resolve([])
+        window.electronAPI.getGstRates ? window.electronAPI.getGstRates() : Promise.resolve([]),
+        window.electronAPI.getSettings ? window.electronAPI.getSettings() : Promise.resolve([])
       ]);
 
       setSuppliers(suppliersData);
@@ -257,6 +259,8 @@ const Purchase = () => {
       setCategories(categoriesData);
       setUnits(unitsData);
       setGstRates(gstData);
+      const gstSaleSetting = (appSettings || []).find(s => s.key === 'gst_on_purchase');
+      setGstOnPurchase(String(gstSaleSetting?.value || '0') === '1');
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error loading purchase data');
@@ -729,7 +733,7 @@ console.log('Purchase saved successfully',purchaseForm);
                   {purchaseForm.items.map((item, index) => {
                     const selectedItem = items.find(i => i.id == item.id);
                     const MRP = selectedItem?.mrp || 0;
-                    const gstRate = selectedItem?.gst_percentage || 0;
+                    const gstRate = gstOnPurchase ? (selectedItem?.gst_percentage || 0) : 0;
                     const baseAmount = item.quantity * item.unit_price;
                     const itemDiscount = item.discount ? (baseAmount * item.discount) / 100 : 0;
                     const discountedAmount = baseAmount - itemDiscount;

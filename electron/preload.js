@@ -213,6 +213,10 @@ const channelGroups = {
   },
   printing: {
     printPdf: 'print-pdf'
+  },
+  settings: {
+    getSettings: 'get-settings',
+    updateSetting: 'update-setting'
   }
 };
 

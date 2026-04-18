@@ -23,6 +23,7 @@ import {
   Download, 
   Building2, 
   ShieldCheck, // Better for "Admin" (permissions) than Settings
+  Settings,
   Database, 
   Headphones
 } from 'lucide-react';
@@ -70,6 +71,7 @@ const navigation = [
     // --- System & Administration ---
     { name: 'Company Profile', href: '/company', icon: Building2 },
     { name: 'Admin Controls', href: '/admin', icon: ShieldCheck }, // Shield implies security/access
+    { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Data Backup', href: '/backup', icon: Database },
     { name: 'Contact Support', href: '/contact', icon: Headphones },
 ];

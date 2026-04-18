@@ -298,6 +298,14 @@ CREATE TABLE IF NOT EXISTS sale_item_cost_allocation (
     "bill_counter",
     "0"
   );
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
+    "gst_on_sale",
+    "0"
+  );
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
+    "gst_on_purchase",
+    "0"
+  );
   // Add to your database initialization:
   db.exec(`
   -- Bank Accounts Master

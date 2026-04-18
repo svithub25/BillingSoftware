@@ -20,6 +20,7 @@ import { registerCompanyHandlers } from './company.js';
 import { registerNotesHandlers } from './notes.js';
 import { registerDynamicReportsHandlers } from './dynamicreports.js';
 import { registerStockMovementHandlers } from './stockmovements.js';
+import { registerSettingsHandlers } from './settings.js';
 
 export function registerAllHandlers(context) {
   const {
@@ -66,6 +67,7 @@ export function registerAllHandlers(context) {
   registerNotesHandlers({ ipcMain, getDb });
   registerDynamicReportsHandlers({ ipcMain, getDb });
   registerStockMovementHandlers({ ipcMain, getDb });
+  registerSettingsHandlers({ ipcMain, getDb });
 
   if (backupManager) {
     // backup handlers registered via manager during creation

@@ -39,6 +39,7 @@ import CreditDebitNoteDetails from "./components/CreditDebitNoteDetails";
 import CreditDebitNoteEdit from "./components/CreditDebitNoteEdit";
 import BranchGoDown from "./components/BranchGoDown";
 import DynamicReports from "./components/DynamicReports";
+import Settings from "./components/Settings";
  
 
 const App = () => {
@@ -136,6 +137,7 @@ const App = () => {
                 <Route path="/branch-godown" element={<BranchGoDown />} />
                 <Route path="/coming-soon2" element={<ComingSoon />} />
                 <Route path="/contact" element={<Contactus />} />
+                <Route path="/settings" element={<Settings />} />
               </Routes> 
             </Layout>
 

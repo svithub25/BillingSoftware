@@ -48,6 +48,8 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       items,
       discount,
       total_amount,
+      cgst_total,
+      sgst_total,
       rounding_off,
       salesman_id,
       sale_type
@@ -58,8 +60,8 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       INSERT INTO sales (
         bill_number, customer_name, customer_contact, customer_address, customer_gstin,
         shipped_to_name, shipped_to_contact, shipped_to_address, shipped_to_gstin, is_shipped_different,
-        sale_date, discount, total_amount, rounding_off, salesman_id, sale_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sale_date, discount, total_amount, cgst_total, sgst_total, rounding_off, salesman_id, sale_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const saleResult = saleStmt.run(
@@ -76,6 +78,8 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       sale_date,
       discount,
       total_amount,
+      cgst_total || 0,
+      sgst_total || 0,
       rounding_off,
       salesman_id,
       sale_type || 'customer'
@@ -92,7 +96,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     }
 
     const saleItemStmt = db.prepare(
-      'INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, total_price, sale_type) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, gst_percentage, cgst_amount, sgst_amount, total_price, sale_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     const updateStockStmt = db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?');
 
@@ -121,6 +125,9 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         item.id,
         item.quantity,
         item.unit_price,
+        item.gst_percentage || 0,
+        item.cgst_amount || 0,
+        item.sgst_amount || 0,
         item.total_price,
         sale_type || 'customer'
       );

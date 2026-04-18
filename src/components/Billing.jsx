@@ -40,6 +40,7 @@ const Billing = () => {
   const [customers, setCustomers] = useState([]);
   const [customerDropdown, setCustomerDropdown] = useState(false);
   const [customerDropdownIndex, setCustomerDropdownIndex] = useState(0);
+  const [gstOnSale, setGstOnSale] = useState(false);
 
   const [shippedDropdown, setShippedDropdown] = useState(false);
   const [shippedDropdownIndex, setShippedDropdownIndex] = useState(0);
@@ -102,7 +103,18 @@ const Billing = () => {
     generateBillNumber();
     fetchSalesmen();
     fetchCustomers();
+    loadTaxSettings();
   }, []);
+
+  const loadTaxSettings = async () => {
+    try {
+      const rows = await window.electronAPI.getSettings();
+      const saleSetting = (rows || []).find((s) => s.key === 'gst_on_sale');
+      setGstOnSale(String(saleSetting?.value || '0') === '1');
+    } catch (error) {
+      console.error('Error loading tax settings:', error);
+    }
+  };
 
   // Save state to sessionStorage whenever it changes
   useEffect(() => {
@@ -401,22 +413,40 @@ const Billing = () => {
   // --- Totals ---
   const calculateItemTotal = (item) => {
     const baseAmount = item.unit_price * item.quantity;
-    return { baseAmount, totalAmount: baseAmount };
+    const gstRate = gstOnSale ? (item.gst_percentage || 0) : 0;
+    const gstAmount = (baseAmount * gstRate) / 100;
+    return { baseAmount, gstAmount, totalAmount: baseAmount + gstAmount };
   };
 
   const getSubtotal = () => cart.reduce((sum, item) => sum + calculateItemTotal(item).baseAmount, 0);
 
-  const getRoundingOff = () => {
+  const getDiscountedSubtotal = () => {
     const total = getSubtotal();
     const discountAmount = (total * discount) / 100;
-    const net = total - discountAmount;
+    return total - discountAmount;
+  };
+
+  const getGstTotal = () => {
+    if (!gstOnSale) return 0;
+    const discountFactor = 1 - (discount || 0) / 100;
+    return cart.reduce((sum, item) => {
+      const baseAmount = (item.unit_price || 0) * (parseInt(item.quantity, 10) || 0);
+      const discountedBase = baseAmount * discountFactor;
+      const gstRate = item.gst_percentage || 0;
+      return sum + (discountedBase * gstRate) / 100;
+    }, 0);
+  };
+
+  const getCgstTotal = () => getGstTotal() / 2;
+  const getSgstTotal = () => getGstTotal() / 2;
+
+  const getRoundingOff = () => {
+    const net = getDiscountedSubtotal() + getGstTotal();
     return +(Math.round(net) - net).toFixed(2);
   };
 
   const getFinalTotal = () => {
-    const total = getSubtotal();
-    const discountAmount = (total * discount) / 100;
-    const net = total - discountAmount;
+    const net = getDiscountedSubtotal() + getGstTotal();
     return Math.round(net);
   };
 
@@ -450,13 +480,22 @@ const Billing = () => {
         });
       }
 
+      const discountFactor = 1 - (discount || 0) / 100;
       const saleItems = filteredCart.map(item => {
-        const { totalAmount } = calculateItemTotal({ ...item, quantity: parseInt(item.quantity) });
+        const quantity = parseInt(item.quantity, 10) || 0;
+        const baseAmount = (item.unit_price || 0) * quantity;
+        const discountedBase = baseAmount * discountFactor;
+        const gstRate = gstOnSale ? (item.gst_percentage || 0) : 0;
+        const cgstAmount = (discountedBase * gstRate) / 200;
+        const sgstAmount = (discountedBase * gstRate) / 200;
+        const totalAmount = discountedBase + cgstAmount + sgstAmount;
         return {
           id: item.id,
-          quantity: parseInt(item.quantity),
+          quantity,
           unit_price: item.unit_price,
-          gst_percentage: item.gst_percentage,
+          gst_percentage: gstRate,
+          cgst_amount: cgstAmount,
+          sgst_amount: sgstAmount,
           total_price: totalAmount,
           batches: item.batches || [] // <-- include batches here
         };
@@ -477,6 +516,8 @@ const Billing = () => {
         items: saleItems,
         discount,
         total_amount: getFinalTotal(),
+        cgst_total: gstOnSale ? getCgstTotal() : 0,
+        sgst_total: gstOnSale ? getSgstTotal() : 0,
         rounding_off: getRoundingOff(),
         salesman_id: selectedSalesman || null,
         sale_type: isOthers ? 'others' : (isSalesmanCustomer ? 'salesman' : 'customer'),
@@ -1116,6 +1157,12 @@ const Billing = () => {
                     <div className="flex justify-between text-green-600">
                       <span>Discount ({discount}%):</span>
                       <span>-₹{(getSubtotal() * discount / 100).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {gstOnSale && (
+                    <div className="flex justify-between">
+                      <span>Total GST:</span>
+                      <span>₹{getGstTotal().toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
