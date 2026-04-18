@@ -11,6 +11,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from 'react-router-dom';
 import PinProtected from './reusables/PinProtected';
 import ReactDOM from 'react-dom'; 
+import SupplierFormModal from './admin/modals/SupplierFormModal';
+import ProductFormModal from './admin/modals/ProductFormModal';
 
 const DropdownPortal = ({ children, anchorRef, show }) => {
   const [style, setStyle] = useState({});
@@ -39,6 +41,19 @@ const initialPurchaseForm = {
   purchase_date: new Date().toISOString().split('T')[0],
   discount: 0,
   items: []
+};
+
+const initialSupplierForm = {
+  name: '',
+  contact: '',
+  email: '',
+  gstin: '',
+  address: '',
+  city: '',
+  state: '',
+  country: 'India',
+  pincode: '',
+  credit_days: ''
 };
 
 const calculateItemSummary = (item, catalogItems) => {
@@ -80,17 +95,15 @@ const Purchase = () => {
 
   const [purchaseForm, setPurchaseForm] = useState(initialPurchaseForm);
 
-  const [newSupplier, setNewSupplier] = useState({
-    name: '',
-    contact: '',
-    address: ''
-  });
+  const [supplierForm, setSupplierForm] = useState(initialSupplierForm);
+  const [supplierErrors, setSupplierErrors] = useState({});
 
   const [showItemHistory, setShowItemHistory] = useState(null);
   const [itemHistory, setItemHistory] = useState([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [showSupplierList, setShowSupplierList] = useState(false);
   const [supplierDropdownIndex, setSupplierDropdownIndex] = useState(0);
+  const [isSavingPurchase, setIsSavingPurchase] = useState(false);
   const supplierInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -125,6 +138,23 @@ const Purchase = () => {
   };
   const [productForm, setProductForm] = useState(initialProductForm);
   const [productErrors, setProductErrors] = useState({});
+
+  const validateSupplierForm = (form) => {
+    const errors = {};
+    const isEmpty = (v) => v === '' || v === null || v === undefined;
+
+    if (isEmpty(form.name) || String(form.name).trim().length < 2) {
+      errors.name = 'Name is required';
+    }
+    if (isEmpty(form.contact) || String(form.contact).trim().length < 5) {
+      errors.contact = 'Contact is required';
+    }
+    if (isEmpty(form.gstin) || String(form.gstin).trim().length < 3) {
+      errors.gstin = 'GSTIN is required';
+    }
+
+    return errors;
+  };
 
   const validateProductForm = (form) => {
     const errors = {};
@@ -186,6 +216,24 @@ const Purchase = () => {
     }
   };
 
+  const handleGenerateSku = async () => {
+    if (!window.electronAPI?.getNextSku) return;
+    try {
+      const nextSku = await window.electronAPI.getNextSku();
+      setProductForm(prev => ({ ...prev, sku: nextSku }));
+      setProductErrors(prev => ({ ...prev, sku: undefined }));
+    } catch (error) {
+      console.error('Error generating SKU:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (showProductForm) {
+      handleGenerateSku();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showProductForm]);
+
   useEffect(() => {
 
     loadData();
@@ -196,13 +244,19 @@ const Purchase = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [suppliersData, itemsData] = await Promise.all([
+      const [suppliersData, itemsData, categoriesData, unitsData, gstData] = await Promise.all([
         window.electronAPI.getSuppliers(),
-        window.electronAPI.getInventory()
+        window.electronAPI.getInventory(),
+        window.electronAPI.getCategories ? window.electronAPI.getCategories() : Promise.resolve([]),
+        window.electronAPI.getUnits ? window.electronAPI.getUnits() : Promise.resolve([]),
+        window.electronAPI.getGstRates ? window.electronAPI.getGstRates() : Promise.resolve([])
       ]);
 
       setSuppliers(suppliersData);
       setItems(itemsData);
+      setCategories(categoriesData);
+      setUnits(unitsData);
+      setGstRates(gstData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error loading purchase data');
@@ -273,22 +327,38 @@ const Purchase = () => {
   };
 
   const addNewSupplier = async () => {
+    const errors = validateSupplierForm(supplierForm);
+    if (Object.keys(errors).length) {
+      setSupplierErrors(errors);
+      toast.error('Please fill all required fields');
+      return;
+    }
+
     try {
-      const supplier = await window.electronAPI.addSupplier(newSupplier);
+      const supplier = await window.electronAPI.addSupplier(supplierForm);
       setSuppliers([...suppliers, supplier]);
-      setNewSupplier({ name: '', contact: '', address: '' });
+      setSupplierForm(initialSupplierForm);
+      setSupplierErrors({});
       setShowNewSupplierForm(false);
+      toast.success('Supplier added successfully');
     } catch (error) {
       console.error('Error adding supplier:', error);
+      toast.error('Error adding supplier');
     }
   };
 
   const savePurchase = async () => {
 
+    if (isSavingPurchase) {
+      return;
+    }
+    setIsSavingPurchase(true);
+
 
     const supplierValid = suppliers.some(s => s.id === purchaseForm.supplier_id);
     if (!supplierValid) {
       toast.error('Please select a valid supplier from the dropdown.');
+      setIsSavingPurchase(false);
       return;
     }
 
@@ -299,11 +369,13 @@ const Purchase = () => {
     });
     if (invalidItemIndex !== -1) {
       toast.error(`Please select a valid item for row ${invalidItemIndex + 1} from the dropdown.`);
+      setIsSavingPurchase(false);
       return;
     }
 
     if (!purchaseForm.supplier_id || purchaseForm.items.length === 0) {
       toast.error('Please fill all required fields');
+      setIsSavingPurchase(false);
       return;
     }
 
@@ -319,6 +391,7 @@ const Purchase = () => {
 
     if (validRows.length === 0) {
       toast.error('Please enter at least one valid item (with name, quantity, and unit price)');
+      setIsSavingPurchase(false);
       return;
     }
 
@@ -361,6 +434,8 @@ console.log('Purchase saved successfully',purchaseForm);
     } catch (error) {
       console.error('Error saving purchase:', error);
       toast.error('Error saving purchase');
+    } finally {
+      setIsSavingPurchase(false);
     }
   };
 
@@ -457,10 +532,6 @@ console.log('Purchase saved successfully',purchaseForm);
     if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
       const itemId = purchaseForm.items[rowIdx]?.id;
       if (itemId) showPurchaseHistory(itemId);
-    }
-    // Save purchase on Ctrl+C
-    if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
-      savePurchase();
     }
   };
 
@@ -798,9 +869,6 @@ console.log('Purchase saved successfully',purchaseForm);
                               if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
                                 if (item.id) showPurchaseHistory(item.id);
                               }
-                              if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
-                                savePurchase();
-                              }
                             }}
                           />
                         </td>
@@ -822,9 +890,6 @@ console.log('Purchase saved successfully',purchaseForm);
                               if (e.key === 'Tab' && !e.shiftKey) {
                                 // On Tab after unit price, add new item
                                 addItemToPurchase();
-                              }
-                              if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
-                                savePurchase();
                               }
                             }}
                           />
@@ -965,62 +1030,20 @@ console.log('Purchase saved successfully',purchaseForm);
       </div>
 
 
-      {/* New Supplier Modal */}
-      {showNewSupplierForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Add New Supplier</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <input
-                  type="text"
-                  value={newSupplier.name}
-                  tabIndex={-1}
-                  onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
-                <input
-                  type="text"
-                  value={newSupplier.contact}
-                  onChange={(e) => setNewSupplier({ ...newSupplier, contact: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                <textarea
-                  value={newSupplier.address}
-                  onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  rows="3"
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={addNewSupplier}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Add Supplier
-              </button>
-              <button
-                onClick={() => setShowNewSupplierForm(false)}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SupplierFormModal
+        isOpen={showNewSupplierForm}
+        isEditing={false}
+        supplierForm={supplierForm}
+        supplierErrors={supplierErrors}
+        setSupplierForm={setSupplierForm}
+        setSupplierErrors={setSupplierErrors}
+        onSubmit={addNewSupplier}
+        onClose={() => {
+          setShowNewSupplierForm(false);
+          setSupplierForm(initialSupplierForm);
+          setSupplierErrors({});
+        }}
+      />
 
       {/* Item History Modal */}
       {showItemHistory && (
@@ -1148,184 +1171,24 @@ console.log('Purchase saved successfully',purchaseForm);
         </div>
       )}
 
-      {/* Items form */}
-      {showProductForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <input
-                  type="text"
-                  value={productForm.name}
-                  onChange={e => setProductForm({ ...productForm, name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.name ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {productErrors.name && <p className="text-red-600 text-xs mt-1">{productErrors.name}</p>}
-              </div>
-              {/* SKU */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
-                <input
-                  type="text"
-                  value={productForm.sku}
-                  onChange={e => setProductForm({ ...productForm, sku: e.target.value.toUpperCase() })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.sku ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {productErrors.sku && <p className="text-red-600 text-xs mt-1">{productErrors.sku}</p>}
-              </div>
-              {/* HSN */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">HSN Code</label>
-                <input
-                  type="text"
-                  value={productForm.hsn_code}
-                  onChange={e => setProductForm({ ...productForm, hsn_code: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., 48025610"
-                />
-              </div>
-              {/* Unit */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
-                <select
-                  value={productForm.unit}
-                  onChange={e => setProductForm({ ...productForm, unit: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.unit ? 'border-red-500' : 'border-gray-300'}`}
-                >
-                  <option value="">Select Unit</option>
-                  {units.map(unit => (
-                    <option key={unit.id} value={unit.name}>{unit.name}</option>
-                  ))}
-                </select>
-                {productErrors.unit && <p className="text-red-600 text-xs mt-1">{productErrors.unit}</p>}
-              </div>
-              {/* Category */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <select
-                  value={productForm.category_id}
-                  onChange={e => setProductForm({ ...productForm, category_id: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.category_id ? 'border-red-500' : 'border-gray-300'}`}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-                {productErrors.category_id && <p className="text-red-600 text-xs mt-1">{productErrors.category_id}</p>}
-              </div>
-              {/* Description */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={productForm.description}
-                  onChange={e => setProductForm({ ...productForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  rows="2"
-                />
-              </div>
-              {/* MRP */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">MRP</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={productForm.mrp}
-                  onChange={e => setProductForm({ ...productForm, mrp: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.mrp ? 'border-red-500' : 'border-gray-300'}`}
-                  min={0}
-                />
-                {productErrors.mrp && <p className="text-red-600 text-xs mt-1">{productErrors.mrp}</p>}
-              </div>
-              {/* Purchase Rate */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Purchase Rate</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={productForm.purchase_rate}
-                  onChange={e => setProductForm({ ...productForm, purchase_rate: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.purchase_rate ? 'border-red-500' : 'border-gray-300'}`}
-                  min={0}
-                />
-                {productErrors.purchase_rate && <p className="text-red-600 text-xs mt-1">{productErrors.purchase_rate}</p>}
-              </div>
-              {/* Sale Rate */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sale Rate</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={productForm.sale_rate}
-                  onChange={e => setProductForm({ ...productForm, sale_rate: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.sale_rate ? 'border-red-500' : 'border-gray-300'}`}
-                  min={0}
-                />
-                {productErrors.sale_rate && <p className="text-red-600 text-xs mt-1">{productErrors.sale_rate}</p>}
-              </div>
-              {/* GST % */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">GST %</label>
-                <select
-                  value={productForm.gst_percentage}
-                  onChange={e => setProductForm({ ...productForm, gst_percentage: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${productErrors.gst_percentage ? 'border-red-500' : 'border-gray-300'}`}
-                >
-                  <option value="">Select GST %</option>
-                  {gstRates.map(gst => (
-                    <option key={gst.id} value={gst.rate}>{gst.rate}%</option>
-                  ))}
-                </select>
-                {productErrors.gst_percentage && <p className="text-red-600 text-xs mt-1">{productErrors.gst_percentage}</p>}
-              </div>
-              {/* Current Stock */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Stock</label>
-                <input
-                  type="number"
-                  value={productForm.current_stock}
-                  onChange={e => setProductForm({ ...productForm, current_stock: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  min={0}
-                  placeholder="Defaults to 0"
-                />
-              </div>
-              {/* Minimum Stock */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Stock</label>
-                <input
-                  type="number"
-                  value={productForm.minimum_stock}
-                  onChange={e => setProductForm({ ...productForm, minimum_stock: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  min={0}
-                />
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleAddProduct}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-              >
-                Add Product
-              </button>
-              <button
-                onClick={() => {
-                  setShowProductForm(false);
-                  setProductForm(initialProductForm);
-                  setProductErrors({});
-                }}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ProductFormModal
+        isOpen={showProductForm}
+        isEditing={false}
+        productForm={productForm}
+        productErrors={productErrors}
+        units={units}
+        categories={categories}
+        gstRates={gstRates}
+        setProductForm={setProductForm}
+        setProductErrors={setProductErrors}
+        onGenerateSku={handleGenerateSku}
+        onSubmit={handleAddProduct}
+        onClose={() => {
+          setShowProductForm(false);
+          setProductForm(initialProductForm);
+          setProductErrors({});
+        }}
+      />
 
       {/* <ToastContainer position="top-right" autoClose={3000} /> */}
     </div>

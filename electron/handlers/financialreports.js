@@ -10,9 +10,12 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
           COALESCE(SUM(s.total_amount), 0) as total_revenue,
           COALESCE(SUM(s.cgst_total + s.sgst_total), 0) as total_gst
         FROM sales s
-        WHERE s.sale_date BETWEEN ? AND ?
-        AND (s.status_code = 0 OR s.status_code IS NULL)
-      `).get(startDate, endDate);
+        WHERE --s.sale_date BETWEEN ? AND ? AND 
+        (s.status_code = 0 OR s.status_code IS NULL)
+      `).get(
+// startDate, endDate
+
+      );
 
       const revenue = salesData.total_revenue || 0;
 
@@ -23,9 +26,12 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
         FROM sale_item_cost_allocation sica
         JOIN sale_items si ON sica.sale_item_id = si.id
         JOIN sales s ON si.sale_id = s.id
-        WHERE s.sale_date BETWEEN ? AND ?
-        AND (s.status_code = 0 OR s.status_code IS NULL)
-      `).get(startDate, endDate);
+        WHERE --s.sale_date BETWEEN ? AND ? AND
+         (s.status_code = 0 OR s.status_code IS NULL)
+      `).get(
+
+        // startDate, endDate
+      );
 
       let finalCOGS = totalCOGS.total_cost || 0;
 
@@ -34,15 +40,21 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
         const openingStockValue = db.prepare(`
           SELECT COALESCE(SUM(opening_amount), 0) as total
           FROM opening_stock
-          WHERE opening_date BETWEEN ? AND ?
-        `).get(startDate, endDate);
+         -- WHERE opening_date BETWEEN ? AND ?
+        `).get(
+
+          //startDate, endDate
+        );
 
         const purchasesValue = db.prepare(`
-          SELECT COALESCE(SUM(total_amount), 0) as total
+          SELECT COALESCE(SUM(total_amount), 0) - COALESCE(SUM(cgst_total + sgst_total), 0) as total
           FROM purchases
-          WHERE purchase_date BETWEEN ? AND ?
-          AND (status_code = 0 OR status_code IS NULL)
-        `).get(startDate, endDate);
+          WHERE -- purchase_date BETWEEN ? AND ? AND
+           (status_code = 0 OR status_code IS NULL)
+        `).get(
+
+          //startDate, endDate
+        );
 
         const closingStockValue = db.prepare(`
           SELECT COALESCE(SUM(current_stock * purchase_rate), 0) as total
@@ -57,15 +69,19 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
       const openingStockValue = db.prepare(`
         SELECT COALESCE(SUM(opening_amount), 0) as total
         FROM opening_stock
-         WHERE opening_date BETWEEN ? AND ? 
-        `).get(startDate, endDate);
+         --WHERE opening_date BETWEEN ? AND ? 
+        `).get(
+          //startDate, endDate
+        );
 
       const purchasesValue = db.prepare(`
-        SELECT COALESCE(SUM(total_amount), 0) as total
+        SELECT COALESCE(SUM(total_amount), 0)  - COALESCE(SUM(cgst_total + sgst_total), 0) as total
         FROM purchases
-        WHERE purchase_date BETWEEN ? AND ?
-        AND (status_code = 0 OR status_code IS NULL)
-      `).get(startDate, endDate);
+        WHERE -- purchase_date BETWEEN ? AND ? AND 
+         (status_code = 0 OR status_code IS NULL)
+      `).get(
+        //startDate, endDate
+      );
 
       const closingStockValue = db.prepare(`
         SELECT COALESCE(SUM(current_stock * purchase_rate), 0) as total
@@ -84,12 +100,14 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
         FROM bank_transactions bt
         LEFT JOIN transaction_categories tc ON bt.party_name = tc.category_name
         WHERE bt.voucher_type = 'Payment'
-        AND bt.transaction_date BETWEEN ? AND ?
+        --AND bt.transaction_date BETWEEN ? AND ?
         AND (bt.status_code = 0 OR bt.status_code IS NULL)
         GROUP BY name
         HAVING amount > 0
         ORDER BY amount DESC
-      `).all(startDate, endDate);
+      `).all(
+        //startDate, endDate
+      );
 
       const totalExpenses = expenseCategories.reduce((sum, cat) => sum + (cat.amount || 0), 0);
 
@@ -98,9 +116,11 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
         SELECT COALESCE(SUM(amount), 0) as total
         FROM bank_transactions
         WHERE voucher_type = 'Receipt'
-        AND transaction_date BETWEEN ? AND ?
+       -- AND transaction_date BETWEEN ? AND ?
         AND (status_code = 0 OR status_code IS NULL)
-      `).get(startDate, endDate);
+      `).get(
+        //startDate, endDate
+      );
 
       // 7. NET PROFIT
       const netProfit = grossProfit - totalExpenses + (otherIncome.total || 0);

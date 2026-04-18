@@ -4,19 +4,19 @@ import { Calendar, Download, TrendingUp, TrendingDown, DollarSign, RefreshCw } f
 const ProfitAndLoss = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
- const [filters, setFilters] = useState({
-  startDate: (() => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); // 0-indexed
-    
-    // If current month is Jan-Mar (0-2), financial year started last year
-    // If current month is Apr-Dec (3-11), financial year started this year
-    const fyStartYear = currentMonth < 3 ? currentYear - 1 : currentYear;
-    return `${fyStartYear}-04-01`; // April 1st in YYYY-MM-DD format
-  })(),
-  endDate: new Date().toISOString().split('T')[0]
-});
+  const [filters, setFilters] = useState({
+    startDate: (() => {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth(); // 0-indexed
+
+      // If current month is Jan-Mar (0-2), financial year started last year
+      // If current month is Apr-Dec (3-11), financial year started this year
+      const fyStartYear = currentMonth < 3 ? currentYear - 1 : currentYear;
+      return `${fyStartYear}-04-01`; // April 1st in YYYY-MM-DD format
+    })(),
+    endDate: new Date().toISOString().split('T')[0]
+  });
   useEffect(() => {
     loadProfitAndLoss();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,7 +68,7 @@ const ProfitAndLoss = () => {
   return (
     <div className="space-y-6">
       {/* Header with Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
@@ -88,16 +88,13 @@ const ProfitAndLoss = () => {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
-        </div>
-        
-        {/* <button
+        </div>  <button
           onClick={exportToPDF}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Download className="w-4 h-4 mr-2" />
           Export PDF
-        </button> */}
-      </div>
+        </button>  </div> */}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -114,11 +111,10 @@ const ProfitAndLoss = () => {
           </div>
         </div>
 
-        <div className={`bg-gradient-to-br rounded-lg shadow-sm border p-4 ${
-          netProfit >= 0 
-            ? 'from-blue-50 to-blue-100 border-blue-200' 
+        <div className={`bg-gradient-to-br rounded-lg shadow-sm border p-4 ${netProfit >= 0
+            ? 'from-blue-50 to-blue-100 border-blue-200'
             : 'from-red-50 to-red-100 border-red-200'
-        }`}>
+          }`}>
           <div className="flex items-center justify-between">
             <div>
               <p className={`text-sm font-medium ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
@@ -157,9 +153,9 @@ const ProfitAndLoss = () => {
           <h3 className="text-lg font-semibold text-gray-900">
             Profit & Loss Statement
           </h3>
-          <p className="text-sm text-gray-600">
+          {/* <p className="text-sm text-gray-600">
             {new Date(filters.startDate).toLocaleDateString('en-IN')} to {new Date(filters.endDate).toLocaleDateString('en-IN')}
-          </p>
+          </p> */}
         </div>
 
         <div className="p-6">
@@ -176,7 +172,7 @@ const ProfitAndLoss = () => {
             <div className="py-2 mb-2">
               <span className="font-semibold text-gray-700">Cost of Goods Sold (COGS)</span>
             </div>
-            
+
             <div className="pl-4 space-y-2">
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-600">Opening Stock</span>
@@ -191,12 +187,12 @@ const ProfitAndLoss = () => {
                 <span className="text-gray-900">(₹{(data?.closingStock || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })})</span>
               </div>
             </div>
-            
+
             <div className="flex justify-between items-center py-2 border-t border-gray-300 mt-2">
               <span className="font-semibold text-gray-700">Total COGS</span>
               <span className="font-semibold text-red-600">₹{cogs.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
             </div>
-            
+
             <div className="flex justify-between items-center py-3 border-b border-gray-300 bg-green-50 px-4 rounded mt-2">
               <span className="font-bold text-gray-900">GROSS PROFIT</span>
               <span className="font-bold text-green-600">₹{grossProfit.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
@@ -208,7 +204,7 @@ const ProfitAndLoss = () => {
             <div className="py-2 mb-2">
               <span className="font-semibold text-gray-700">Operating Expenses</span>
             </div>
-            
+
             {data?.expenseCategories && data.expenseCategories.length > 0 ? (
               data.expenseCategories.map((category, idx) => (
                 <div key={idx} className="flex justify-between items-center py-2 pl-4">
@@ -219,7 +215,7 @@ const ProfitAndLoss = () => {
             ) : (
               <div className="py-2 pl-4 text-gray-500 text-sm">No expenses recorded</div>
             )}
-            
+
             <div className="flex justify-between items-center py-2 border-t border-gray-300 mt-2">
               <span className="font-semibold text-gray-700">Total Operating Expenses</span>
               <span className="font-semibold text-red-600">₹{expenses.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
@@ -237,9 +233,8 @@ const ProfitAndLoss = () => {
           )}
 
           {/* Net Profit */}
-          <div className={`flex justify-between items-center py-4 px-4 rounded ${
-            netProfit >= 0 ? 'bg-blue-50 border-2 border-blue-600' : 'bg-red-50 border-2 border-red-600'
-          }`}>
+          <div className={`flex justify-between items-center py-4 px-4 rounded ${netProfit >= 0 ? 'bg-blue-50 border-2 border-blue-600' : 'bg-red-50 border-2 border-red-600'
+            }`}>
             <span className="text-xl font-bold text-gray-900">NET PROFIT</span>
             <span className={`text-xl font-bold ${netProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
               ₹{netProfit.toLocaleString('en-IN', { maximumFractionDigits: 2 })}

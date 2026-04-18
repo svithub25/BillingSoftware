@@ -1,4 +1,16 @@
 export function registerPurchaseHandlers({ ipcMain, getDb }) {
+  const getBatchByPurchaseItemId = (db, purchaseItemId) =>
+    db
+      .prepare('SELECT * FROM item_batches WHERE purchase_item_id = ?')
+      .get(purchaseItemId);
+
+  const getSoldQtyForBatch = (batchRow) => {
+    if (!batchRow) return 0;
+    const received = parseFloat(batchRow.qty_received) || 0;
+    const available = parseFloat(batchRow.qty_available) || 0;
+    return Math.max(0, received - available);
+  };
+
   ipcMain.handle(
     'save-purchase',
     async (event, { supplier_id, invoice_number, purchase_date, items, total_amount, cgst_total, sgst_total, rounding_off, discount }) => {
@@ -186,12 +198,24 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
   ipcMain.handle('delete-purchase', async (event, purchaseId) => {
     const db = getDb();
     const purchaseItems = db.prepare(
-      'SELECT item_id, quantity FROM purchase_items WHERE purchase_id = ? AND (status_code = 0 OR status_code IS NULL)'
+      'SELECT id, item_id, quantity FROM purchase_items WHERE purchase_id = ? AND (status_code = 0 OR status_code IS NULL)'
     ).all(purchaseId);
 
     // Get default godown ID
     const defaultGodown = db.prepare('SELECT id FROM godowns WHERE is_default = 1 LIMIT 1').get();
     const defaultGodownId = defaultGodown?.id;
+
+    // Do not allow deleting purchases whose batches were already consumed by sales.
+    for (const item of purchaseItems) {
+      const batchRow = getBatchByPurchaseItemId(db, item.id);
+      const soldQty = getSoldQtyForBatch(batchRow);
+      if (soldQty > 0) {
+        return {
+          success: false,
+          message: `Cannot delete purchase: batch stock for item ID ${item.item_id} is already used in sales.`
+        };
+      }
+    }
 
     for (const item of purchaseItems) {
       const stock = db
@@ -202,13 +226,15 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
       }
     }
 
-    purchaseItems.forEach((item) => {
-      // Update global stock
-      db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?').run(item.quantity, item.item_id);
+    db.prepare('BEGIN TRANSACTION').run();
+    try {
+      purchaseItems.forEach((item) => {
+        // Update global stock
+        db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?').run(item.quantity, item.item_id);
 
-      // Update location stock if default godown exists
-      if (defaultGodownId) {
-        db.prepare(`
+        // Update location stock if default godown exists
+        if (defaultGodownId) {
+          db.prepare(`
           INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           ON CONFLICT(item_id, godown_id) DO UPDATE SET
@@ -217,11 +243,24 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
             last_movement_date = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
         `).run(item.item_id, defaultGodownId, -item.quantity, -item.quantity);
-      }
-    });
+        }
 
-    db.prepare('UPDATE purchases SET status_code = 1 WHERE id = ?').run(purchaseId);
-    db.prepare('UPDATE purchase_items SET status_code = 1 WHERE purchase_id = ?').run(purchaseId);
+        // Keep batch table in sync for deleted purchase rows.
+        db.prepare('UPDATE item_batches SET qty_received = 0, qty_available = 0 WHERE purchase_item_id = ?').run(item.id);
+      });
+
+      db.prepare('UPDATE purchases SET status_code = 1 WHERE id = ?').run(purchaseId);
+      db.prepare('UPDATE purchase_items SET status_code = 1 WHERE purchase_id = ?').run(purchaseId);
+
+      db.prepare('COMMIT').run();
+    } catch (error) {
+      try {
+        db.prepare('ROLLBACK').run();
+      } catch (rollbackError) {
+        console.error('Rollback error:', rollbackError);
+      }
+      throw error;
+    }
 
     return { success: true };
   });
@@ -233,7 +272,11 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
       db.prepare('BEGIN TRANSACTION').run();
 
       // Get old purchase items
-      const oldItems = db.prepare('SELECT * FROM purchase_items WHERE purchase_id = ?').all(purchaseId);
+      const oldItems = db
+        .prepare(
+          'SELECT * FROM purchase_items WHERE purchase_id = ? AND (status_code = 0 OR status_code IS NULL)'
+        )
+        .all(purchaseId);
       const oldPurchaseItemIds = oldItems.map(item => item.id);
       
       // Get the purchase date to know which sales to recalculate
@@ -355,6 +398,33 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
+      const insertBatchStmt = db.prepare(`
+        INSERT INTO item_batches (
+          item_id,
+          purchase_item_id,
+          batch_number,
+          mfg_date,
+          exp_date,
+          qty_received,
+          qty_available,
+          purchase_rate,
+          mrp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const updateBatchStmt = db.prepare(`
+        UPDATE item_batches
+        SET
+          batch_number = ?,
+          mfg_date = ?,
+          exp_date = ?,
+          qty_received = ?,
+          qty_available = ?,
+          purchase_rate = ?,
+          mrp = ?
+        WHERE purchase_item_id = ?
+      `);
+
       // Update last_supplier and last_purchase_date
       const updateLastPurchaseInfoStmt = db.prepare(`
         UPDATE items 
@@ -372,11 +442,14 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
 
       updatedPurchase.items.forEach((item) => {
         const oldItem = oldMap.get(item.id);
+        const nextQty = parseFloat(item.quantity) || 0;
+        const nextRate = parseFloat(item.unit_price) || 0;
+        const nextMrp = parseFloat(item.mrp) || 0;
         
         if (oldItem) {
           updateStmt.run(
-            item.quantity,
-            item.unit_price,
+            nextQty,
+            nextRate,
             item.gst_percentage || 0,
             item.cgst_amount || 0,
             item.sgst_amount || 0,
@@ -385,17 +458,61 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
             purchaseId,
             item.id
           );
+
+          // Keep corresponding batch row aligned with edited purchase item.
+          const batchRow = getBatchByPurchaseItemId(db, oldItem.id);
+          const soldQty = getSoldQtyForBatch(batchRow);
+          if (nextQty < soldQty) {
+            throw new Error(`Cannot reduce quantity below already sold qty (${soldQty}) for item ID ${item.id}`);
+          }
+
+          if (batchRow) {
+            updateBatchStmt.run(
+              item.batch_number || batchRow.batch_number || '',
+              item.mfg_date || batchRow.mfg_date || null,
+              item.exp_date || batchRow.exp_date || null,
+              nextQty,
+              nextQty - soldQty,
+              nextRate,
+              nextMrp || batchRow.mrp || 0,
+              oldItem.id
+            );
+          } else {
+            insertBatchStmt.run(
+              item.id,
+              oldItem.id,
+              item.batch_number || '',
+              item.mfg_date || null,
+              item.exp_date || null,
+              nextQty,
+              nextQty,
+              nextRate,
+              nextMrp
+            );
+          }
         } else {
-          insertStmt.run(
+          const purchaseItemInsert = insertStmt.run(
             purchaseId,
             item.id,
-            item.quantity,
-            item.unit_price,
+            nextQty,
+            nextRate,
             item.gst_percentage || 0,
             item.cgst_amount || 0,
             item.sgst_amount || 0,
             item.total_price,
             item.discount || 0
+          );
+
+          insertBatchStmt.run(
+            item.id,
+            purchaseItemInsert.lastInsertRowid,
+            item.batch_number || '',
+            item.mfg_date || null,
+            item.exp_date || null,
+            nextQty,
+            nextQty,
+            nextRate,
+            nextMrp
           );
         }
         
@@ -408,7 +525,7 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
 
         // Only update purchase_rate if this is the latest or equal purchase date
         updatePurchaseRateStmt.run(
-          item.unit_price, 
+          nextRate,
           item.id, 
           updatedPurchase.purchase_date
         );
@@ -417,7 +534,14 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
       // STEP 8: Soft delete removed items
       for (const oldItem of oldItems) {
         if (!newMap.has(oldItem.item_id)) {
+          const batchRow = getBatchByPurchaseItemId(db, oldItem.id);
+          const soldQty = getSoldQtyForBatch(batchRow);
+          if (soldQty > 0) {
+            throw new Error(`Cannot remove item ID ${oldItem.item_id}: batch already used in sales.`);
+          }
+
           db.prepare('UPDATE purchase_items SET status_code = 1 WHERE id = ?').run(oldItem.id);
+          db.prepare('UPDATE item_batches SET qty_received = 0, qty_available = 0 WHERE purchase_item_id = ?').run(oldItem.id);
         }
       }
 
@@ -441,7 +565,11 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
 
   ipcMain.handle('check-purchase-edit-stock', async (event, purchaseId, updatedItems) => {
     const db = getDb();
-    const oldItems = db.prepare('SELECT * FROM purchase_items WHERE purchase_id = ?').all(purchaseId);
+    const oldItems = db
+      .prepare(
+        'SELECT * FROM purchase_items WHERE purchase_id = ? AND (status_code = 0 OR status_code IS NULL)'
+      )
+      .all(purchaseId);
     const oldMap = {};
     oldItems.forEach((item) => {
       oldMap[item.item_id] = item;
@@ -483,15 +611,46 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         }
       }
     }
+
+    // Batch-level safety: edited quantity cannot be lower than already sold qty from its batch.
+    for (const oldItem of oldItems) {
+      const nextItem = newMap[oldItem.item_id];
+      const batchRow = getBatchByPurchaseItemId(db, oldItem.id);
+      const soldQty = getSoldQtyForBatch(batchRow);
+
+      if (!nextItem && soldQty > 0) {
+        return {
+          ok: false,
+          message: `Cannot remove item ID ${oldItem.item_id}: quantity already consumed from its batch.`
+        };
+      }
+
+      if (nextItem && (parseFloat(nextItem.quantity) || 0) < soldQty) {
+        return {
+          ok: false,
+          message: `Cannot reduce item ID ${oldItem.item_id} below sold batch qty (${soldQty}).`
+        };
+      }
+    }
+
     return { ok: true };
   });
 
   ipcMain.handle('check-purchase-delete-stock', async (event, purchaseId) => {
     const db = getDb();
     const items = db.prepare(
-      'SELECT item_id, quantity,items.name FROM purchase_items inner join items on items.id = purchase_items.item_id WHERE purchase_id = ? AND (purchase_items.status_code = 0 OR purchase_items.status_code IS NULL) '
+      'SELECT purchase_items.id, item_id, quantity,items.name FROM purchase_items inner join items on items.id = purchase_items.item_id WHERE purchase_id = ? AND (purchase_items.status_code = 0 OR purchase_items.status_code IS NULL) '
     ).all(purchaseId);
     for (const item of items) {
+      const batchRow = getBatchByPurchaseItemId(db, item.id);
+      const soldQty = getSoldQtyForBatch(batchRow);
+      if (soldQty > 0) {
+        return {
+          ok: false,
+          message: `Cannot delete purchase: batch for item ${item.name} is already used in sales.`
+        };
+      }
+
       const stock = db
         .prepare('SELECT current_stock FROM items WHERE id = ?')
         .get(item.item_id)?.current_stock || 0;
