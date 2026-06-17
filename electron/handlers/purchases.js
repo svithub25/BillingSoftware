@@ -150,7 +150,11 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
     `).get(purchaseId);
 
     const items = db.prepare(`
-      SELECT pi.*, i.name as item_name, i.sku, i.hsn_code, i.unit
+      SELECT pi.*, i.name as item_name, i.sku, i.hsn_code, i.unit, i.current_stock,
+             (SELECT COALESCE(SUM(return_quantity), 0) 
+              FROM credit_debit_note_items cdni 
+              JOIN credit_debit_notes cdn ON cdn.id = cdni.note_id
+              WHERE cdni.original_purchase_item_id = pi.id AND cdn.status_code = 0) as already_returned
       FROM purchase_items pi
       LEFT JOIN items i ON pi.item_id = i.id
       WHERE pi.purchase_id = ?

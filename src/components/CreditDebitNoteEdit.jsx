@@ -177,7 +177,11 @@ const CreditDebitNoteEdit = () => {
       if (note) {
         setFormData({
           ...note,
-          items: note.items || []
+          items: note.items?.map(item => ({
+            ...item,
+            saved_return_quantity: item.return_quantity || 0,
+            current_stock: item.current_stock || 0
+          })) || []
         });
       } else {
         toast.error('Note not found');
@@ -267,25 +271,29 @@ const CreditDebitNoteEdit = () => {
           party_state: saleDetails.customer_state || '',
           party_city: saleDetails.customer_city || '',
           salesman_id: saleDetails.salesman_id || '',
-          items: saleDetails.items?.map(item => ({
-            item_id: item.item_id || item.id,
-            item_name: item.item_name,
-            hsn_code: item.hsn_code || '',
-            original_quantity: item.quantity || 0,
-            return_quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            discount: item.discount || 0,
-            taxable_amount: item.total_price || 0,
-            gst_percentage: item.gst_percentage || 0,
-            cgst_amount: item.cgst_amount || 0,
-            sgst_amount: item.sgst_amount || 0,
-            igst_amount: item.igst_amount || 0,
-            total_amount: item.total_price || 0,
-            item_condition: '',
-            remarks: '',
-            status_code: 0,
-            original_sale_item_id: item.id || null,
-          })) || [],
+          items: saleDetails.items?.map(item => {
+            const maxReturnable = Math.max(0, (item.quantity || 0) - (item.already_returned || 0));
+            return {
+              item_id: item.item_id || item.id,
+              item_name: item.item_name,
+              hsn_code: item.hsn_code || '',
+              original_quantity: item.quantity || 0,
+              return_quantity: 0,
+              already_returned: item.already_returned || 0,
+              unit_price: item.unit_price || 0,
+              discount: item.discount || 0,
+              taxable_amount: item.total_price || 0,
+              gst_percentage: item.gst_percentage || 0,
+              cgst_amount: item.cgst_amount || 0,
+              sgst_amount: item.sgst_amount || 0,
+              igst_amount: item.igst_amount || 0,
+              total_amount: item.total_price || 0,
+              item_condition: '',
+              remarks: '',
+              status_code: 0,
+              original_sale_item_id: item.id || null,
+            };
+          }) || [],
         }));
       }
     } else if (formData.reference_type === 'purchase' && value) {
@@ -301,25 +309,34 @@ const CreditDebitNoteEdit = () => {
           party_gstin: p.supplier_gstin || '',
           party_state: p.supplier_state || '',
           party_city: p.supplier_city || '',
-          items: purchaseDetails.items?.map(item => ({
-            item_id: item.item_id || item.id,
-            item_name: item.item_name,
-            hsn_code: item.hsn_code || '',
-            original_quantity: item.quantity || 0,
-            return_quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            discount: item.discount || 0,
-            taxable_amount: item.total_price || 0,
-            gst_percentage: item.gst_percentage || 0,
-            cgst_amount: item.cgst_amount || 0,
-            sgst_amount: item.sgst_amount || 0,
-            igst_amount: item.igst_amount || 0,
-            total_amount: item.total_price || 0,
-            item_condition: '',
-            remarks: '',
-            status_code: 0,
-            original_purchase_item_id: item.id || null,
-          })) || [],
+          items: purchaseDetails.items?.map(item => {
+            const maxFromPurchase = Math.max(0, (item.quantity || 0) - (item.already_returned || 0));
+            // Since this is a new debit note, the max we can return is also constrained by current stock
+            const maxReturnable = Math.min(maxFromPurchase, item.current_stock || 0);
+            
+            return {
+              item_id: item.item_id || item.id,
+              item_name: item.item_name,
+              hsn_code: item.hsn_code || '',
+              original_quantity: item.quantity || 0,
+              return_quantity: 0,
+              already_returned: item.already_returned || 0,
+              current_stock: item.current_stock || 0,
+              saved_return_quantity: 0,
+              unit_price: item.unit_price || 0,
+              discount: item.discount || 0,
+              taxable_amount: item.total_price || 0,
+              gst_percentage: item.gst_percentage || 0,
+              cgst_amount: item.cgst_amount || 0,
+              sgst_amount: item.sgst_amount || 0,
+              igst_amount: item.igst_amount || 0,
+              total_amount: item.total_price || 0,
+              item_condition: '',
+              remarks: '',
+              status_code: 0,
+              original_purchase_item_id: item.id || null,
+            };
+          }) || [],
         }));
       }
     }
@@ -368,9 +385,30 @@ const CreditDebitNoteEdit = () => {
   };
 
   const handleItemChange = (idx, e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
     setFormData(prev => {
       const items = [...prev.items];
+      if (name === 'return_quantity') {
+        const valNum = Number(value);
+        if (items[idx].original_sale_item_id || items[idx].original_purchase_item_id) {
+          const maxFromInvoice = Number(items[idx].original_quantity || 0) - Number(items[idx].already_returned || 0);
+          let maxAllowed = maxFromInvoice;
+          
+          if (prev.note_type === 'debit') {
+            const physicalMax = Number(items[idx].current_stock || 0) + Number(items[idx].saved_return_quantity || 0);
+            maxAllowed = Math.min(maxFromInvoice, physicalMax);
+          }
+          
+          if (valNum > maxAllowed) {
+            toast.warning(`Maximum allowed return quantity is ${maxAllowed}`);
+            value = maxAllowed;
+          } else if (valNum < 0) {
+            value = 0;
+          }
+        } else {
+          if (valNum < 0) value = 0;
+        }
+      }
       items[idx][name] = value;
       return { ...prev, items };
     });

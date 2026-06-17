@@ -217,7 +217,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       }
 
       const items = db.prepare(`
-        SELECT si.*, i.name as item_name, i.hsn_code, i.sku, i.current_stock
+        SELECT si.*, i.name as item_name, i.hsn_code, i.sku, i.current_stock,
+               (SELECT COALESCE(SUM(return_quantity), 0) 
+                FROM credit_debit_note_items cdni 
+                JOIN credit_debit_notes cdn ON cdn.id = cdni.note_id
+                WHERE cdni.original_sale_item_id = si.id AND cdn.status_code = 0) as already_returned
         FROM sale_items si
         LEFT JOIN items i ON si.item_id = i.id
         WHERE si.sale_id = ?
