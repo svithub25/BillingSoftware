@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlusCircle, Edit, Trash2, Warehouse, MapPin, Phone, Mail } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -38,6 +38,23 @@ const GodownsTab = () => {
     setEditingGodown(godown);
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        handleAdd();
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (isModalOpen) {
+          e.preventDefault();
+          setIsModalOpen(false);
+          setEditingGodown(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isModalOpen]);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this godown/branch?')) {
@@ -207,6 +224,13 @@ const GodownFormModal = ({ godown, onClose, onSuccess }) => {
     remarks: ''
   });
   const [error, setError] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
 
   useEffect(() => {
     if (godown) {
@@ -293,6 +317,7 @@ const GodownFormModal = ({ godown, onClose, onSuccess }) => {
                 Name *
               </label>
               <input
+                ref={inputRef}
                 type="text"
                 id="name"
                 name="name"

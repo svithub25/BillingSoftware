@@ -40,6 +40,23 @@ const GstTab = () => {
     setGstErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setGstForm({ rate: 0, description: '' });
+        setShowGstForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showGstForm) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showGstForm]);
+
   const handleAddGstRate = async () => {
     if (gstForm.rate === '' || gstForm.rate === null || isNaN(gstForm.rate)) {
       setGstErrors({ rate: 'GST rate is required' });

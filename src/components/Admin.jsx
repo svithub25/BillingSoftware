@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, Users, Tag, Percent, Menu, Warehouse } from 'lucide-react';
 import PinProtected from './reusables/PinProtected';
 import ProductsTab from './admin/tabs/ProductsTab';
@@ -24,6 +24,30 @@ const TAB_CONFIG = [
 const Admin = () => {
   const [activeTab, setActiveTab] = useState(TAB_CONFIG[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't navigate tabs if a modal (z-50) is currently open
+      const isModalOpen = document.querySelector('.fixed.inset-0.z-50') !== null;
+
+      if (e.ctrlKey && !isModalOpen) {
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const currentIndex = TAB_CONFIG.findIndex(t => t.id === activeTab);
+          const nextIndex = (currentIndex + 1) % TAB_CONFIG.length;
+          setActiveTab(TAB_CONFIG[nextIndex].id);
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const currentIndex = TAB_CONFIG.findIndex(t => t.id === activeTab);
+          const prevIndex = (currentIndex - 1 + TAB_CONFIG.length) % TAB_CONFIG.length;
+          setActiveTab(TAB_CONFIG[prevIndex].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab]);
 
   const ActiveTabComponent =
     TAB_CONFIG.find((tab) => tab.id === activeTab)?.component ?? TAB_CONFIG[0].component;
@@ -61,15 +85,15 @@ const Admin = () => {
                   {TAB_CONFIG.map((tab) => (
                     <button
                       key={tab.id}
+                      tabIndex={-1}
                       onClick={() => {
                         setActiveTab(tab.id);
                         setMenuOpen(false);
                       }}
-                      className={`w-full flex items-center py-3 px-6 border-b font-medium text-sm ${
-                        activeTab === tab.id
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
+                      className={`w-full flex items-center py-3 px-6 border-b font-medium text-sm ${activeTab === tab.id
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
                     >
                       <tab.icon className="w-4 h-4 mr-2" />
                       {tab.name}
@@ -82,12 +106,12 @@ const Admin = () => {
                 {TAB_CONFIG.map((tab) => (
                   <button
                     key={tab.id}
+                    tabIndex={-1}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
                   >
                     <tab.icon className="w-4 h-4 mr-2" />
                     {tab.name}
@@ -106,5 +130,5 @@ const Admin = () => {
   );
 };
 
-export default Admin; 
+export default Admin;
 

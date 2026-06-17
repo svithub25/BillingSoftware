@@ -123,6 +123,27 @@ const ProductsTab = () => {
     setProductErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Ctrl + + to open Add Product form
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setProductForm(initialProductForm);
+        setShowProductForm(true);
+      }
+      // Ctrl + Delete or Ctrl + Backspace to close form
+      else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showProductForm || editingItem) {
+          e.preventDefault();
+          handleCloseProductModal();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showProductForm, editingItem]);
+
   const handleAddProduct = async () => {
     const errors = validateProductForm(productForm);
     if (Object.keys(errors).length) {
@@ -377,6 +398,7 @@ const ProductsTab = () => {
         units={units}
         categories={categories}
         gstRates={gstRates}
+        products={products}
         setProductForm={setProductForm}
         setProductErrors={setProductErrors}
         onGenerateSku={handleGenerateSku}

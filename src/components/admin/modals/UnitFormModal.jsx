@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const UnitFormModal = ({
   isOpen,
@@ -9,6 +9,14 @@ const UnitFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -19,6 +27,7 @@ const UnitFormModal = ({
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Unit Name</label>
           <input
+            ref={inputRef}
             type="text"
             value={unitForm.name}
             onChange={(e) => {

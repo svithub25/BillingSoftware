@@ -59,6 +59,23 @@ const SuppliersTab = () => {
     setSupplierErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setSupplierForm(initialSupplierForm);
+        setShowSupplierForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showSupplierForm || editingSupplier) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showSupplierForm, editingSupplier]);
+
   const handleAddSupplier = async () => {
     const errors = validateSupplierForm(supplierForm);
     if (Object.keys(errors).length) {

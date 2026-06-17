@@ -9,6 +9,12 @@ lerna-debug.log*
   
 node_modules/
   
+*.md
+
+*.sql
+
+
+
 backups/ 
 database.db
 dist-electron/

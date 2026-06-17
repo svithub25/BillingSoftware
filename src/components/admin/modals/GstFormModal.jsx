@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const GstFormModal = ({
   isOpen,
@@ -9,6 +9,14 @@ const GstFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -20,6 +28,7 @@ const GstFormModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Rate (%)</label>
             <input
+              ref={inputRef}
               type="number"
               step="0.01"
               onWheel={(e) => e.target.blur()}

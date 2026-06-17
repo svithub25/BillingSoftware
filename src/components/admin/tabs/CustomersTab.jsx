@@ -52,6 +52,23 @@ const CustomersTab = () => {
     setCustomerErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setCustomerForm({ name: '', contact: '', address: '' });
+        setShowCustomerForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showCustomerForm || editingCustomer) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showCustomerForm, editingCustomer]);
+
   const handleAddCustomer = async () => {
     const errors = validateCustomerForm(customerForm);
     if (Object.keys(errors).length) {

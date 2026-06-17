@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const CategoryFormModal = ({
   isOpen,
@@ -9,6 +9,14 @@ const CategoryFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -18,6 +26,7 @@ const CategoryFormModal = ({
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
           <input
+            ref={inputRef}
             type="text"
             value={categoryForm.name}
             onChange={(e) => {

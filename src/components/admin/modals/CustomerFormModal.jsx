@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const CustomerFormModal = ({
   isOpen,
@@ -10,6 +10,14 @@ const CustomerFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const getFieldClass = (error) =>
@@ -24,6 +32,7 @@ const CustomerFormModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <input
+              ref={inputRef}
               type="text"
               value={customerForm.name}
               onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
