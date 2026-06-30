@@ -264,6 +264,7 @@ const SalesHistory = () => {
     try {
       // Fetch sale details
       const saleDetails = await window.electronAPI.getSaleDetails(saleId);
+      console.log('sales details are', saleDetails)
       if (!saleDetails) {
         toast.error('Sale details not found');
         return;
@@ -282,7 +283,7 @@ const SalesHistory = () => {
       }
 
       // Calculate totals from sale details
-      const subtotal = saleDetails.items.reduce((sum, item) => 
+      const subtotal = saleDetails.items.reduce((sum, item) =>
         sum + (item.quantity * item.unit_price), 0
       );
       const discount = saleDetails.discount || 0;
@@ -348,6 +349,7 @@ const SalesHistory = () => {
           companyInfo={companyInfo}
           logoDataUrl={logoDataUrl}
           qrCodeDataUrl={qrCodeDataUrl}
+          billDate={saleDetails.sale_date}
         />
       );
 
@@ -912,8 +914,8 @@ const SalesHistory = () => {
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
                 className={`flex items-center px-3 py-2 rounded-lg mr-2 ${currentPage === 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
@@ -938,8 +940,8 @@ const SalesHistory = () => {
                     key={pageNum}
                     onClick={() => goToPage(pageNum)}
                     className={`px-3 py-2 rounded-lg ${currentPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200'
                       }`}
                   >
                     {pageNum}
@@ -963,8 +965,8 @@ const SalesHistory = () => {
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
                 className={`flex items-center px-3 py-2 rounded-lg ml-2 ${currentPage === totalPages
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
               >
                 Next
@@ -1155,7 +1157,7 @@ const SalesHistory = () => {
           </div>
         </div>
       )}
- 
+
       {/* Approval History Modal */}
       {showApprovalHistoryModal && approvalHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1168,8 +1170,8 @@ const SalesHistory = () => {
                 <div><strong>Total Amount:</strong> ₹{approvalHistory.totalAmount}</div>
                 <div><strong>Current Status:</strong>
                   <span className={`ml-2 px-2 py-1 rounded text-xs ${approvalHistory.currentStatus === 'Approved'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-yellow-100 text-yellow-800'
                     }`}>
                     {approvalHistory.currentStatus}
                   </span>

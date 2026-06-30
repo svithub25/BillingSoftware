@@ -9,7 +9,7 @@ const initialFilters = { name: '', contact: '' };
 const validateCustomerForm = (form) => {
   const errors = {};
   if (!form.name || form.name.trim().length < 2) errors.name = 'Name is required';
-  if (!form.contact || form.contact.trim().length < 5) errors.contact = 'Contact is required';
+  // if (!form.contact || form.contact.trim().length < 5) errors.contact = 'Contact is required';
   return errors;
 };
 

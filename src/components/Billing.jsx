@@ -3,7 +3,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import BillPDF from './BillPDF';
-import { pdf } from '@react-pdf/renderer';
+import { pdf, PDFViewer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import CustomerFormModal from './admin/modals/CustomerFormModal';
 import BatchSelectModal from './BatchSelectModal';
@@ -98,13 +98,46 @@ const Billing = () => {
   const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
   const [selectedBatches, setSelectedBatches] = useState({}); // { [itemId]: [{batch, qty}] }
 
+  const [previewCompanyInfo, setPreviewCompanyInfo] = useState(null);
+  const [previewLogoDataUrl, setPreviewLogoDataUrl] = useState(null);
+  const [previewQrCodeDataUrl, setPreviewQrCodeDataUrl] = useState(null);
+
   useEffect(() => {
     loadItems();
     generateBillNumber();
     fetchSalesmen();
     fetchCustomers();
     loadTaxSettings();
+    if (import.meta.env.DEV) {
+      loadPreviewCompanyInfo();
+    }
   }, []);
+
+  const loadPreviewCompanyInfo = async () => {
+    try {
+      const companyResult = await window.electronAPI.getCompanyInfo();
+      if (companyResult.success && companyResult.data) {
+        setPreviewCompanyInfo(companyResult.data);
+        if (companyResult.data.logo_path) {
+          const logoResult = await window.electronAPI.getLogoAsBase64(companyResult.data.logo_path);
+          if (logoResult.success) {
+            setPreviewLogoDataUrl(logoResult.dataUrl);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (import.meta.env.DEV && previewCompanyInfo?.upi_id && previewCompanyInfo.upi_id.trim() !== '') {
+      const upiString = `upi://pay?pa=${previewCompanyInfo.upi_id}&pn=${encodeURIComponent(previewCompanyInfo.company_name)}&am=${getFinalTotal()}&cu=INR`;
+      QRCode.toDataURL(upiString, { width: 256, margin: 1, color: { dark: '#000000', light: '#FFFFFF' } })
+        .then(url => setPreviewQrCodeDataUrl(url))
+        .catch(console.error);
+    }
+  }, [cart, discount, gstOnSale, previewCompanyInfo]);
 
   const loadTaxSettings = async () => {
     try {
@@ -581,6 +614,7 @@ const Billing = () => {
               companyInfo={companyInfo}
               logoDataUrl={logoDataUrl}
               qrCodeDataUrl={qrCodeDataUrl}
+              billDate={billDate}
             />
           );
 
@@ -1216,7 +1250,42 @@ const Billing = () => {
         </div>
       </div>
 
-
+      {/* Dev Mode PDF Preview */}
+      {import.meta.env.DEV && (
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Live PDF Preview (Dev Mode)</h2>
+          <div className="w-full h-[800px] border border-gray-300 rounded-lg overflow-hidden">
+            <PDFViewer width="100%" height="100%">
+              <BillPDF
+                billNumber={billNumber}
+                customer={customerInfo}
+                items={cart.map(item => ({
+                  hsn_code: item.hsn_code,
+                  sku: item.sku,
+                  name: item.name,
+                  quantity: parseInt(item.quantity) || 0,
+                  unit_price: item.unit_price
+                }))}
+                discount={discount}
+                subtotal={getSubtotal()}
+                roundingOff={getRoundingOff()}
+                total={getFinalTotal()}
+                sale_type={isOthers ? 'others' : (isSalesmanCustomer ? 'salesman' : 'customer')}
+                salesman_name={salesmen.find(s => String(s.id) === String(selectedSalesman))?.name || ""}
+                salesman_contact={salesmen.find(s => String(s.id) === String(selectedSalesman))?.contact_info || ""}
+                salesman_address={salesmen.find(s => String(s.id) === String(selectedSalesman))?.address || ""}
+                note={billNarration}
+                isShippedDifferent={isShippedDifferent}
+                shippedTo={shippedToInfo}
+                companyInfo={previewCompanyInfo}
+                logoDataUrl={previewLogoDataUrl}
+                qrCodeDataUrl={previewQrCodeDataUrl}
+                billDate={billDate}
+              />
+            </PDFViewer>
+          </div>
+        </div>
+      )}
 
       {/* Customer Add Modal */}
       <CustomerFormModal

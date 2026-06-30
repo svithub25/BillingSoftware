@@ -19,17 +19,17 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       SELECT bill_number FROM sales
       WHERE bill_number LIKE ?
       ORDER BY id DESC LIMIT 1
-    `).get(`SVBS/${yearSuffix}/%`);
+    `).get(`SVS/${yearSuffix}/%`);
 
     let nextNumber = 1;
     if (lastBill?.bill_number) {
-      const match = lastBill.bill_number.match(/SVBS\/\d{2}-\d{2}\/(\d+)/);
+      const match = lastBill.bill_number.match(/SVS\/\d{2}-\d{2}\/(\d+)/);
       if (match?.[1]) {
         nextNumber = parseInt(match[1], 10) + 1;
       }
     }
 
-    return `SVBS/${yearSuffix}/${nextNumber.toString().padStart(0, '0')}`;
+    return `SVS/${yearSuffix}/${nextNumber.toString().padStart(0, '0')}`;
   });
 
   ipcMain.handle('save-sale', async (event, saleData) => {

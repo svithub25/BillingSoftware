@@ -697,13 +697,20 @@ const BillPDF = ({
   shippedTo = { name: '', contact: '', address: '', gstin: '' },
   companyInfo = null,
   logoDataUrl = null,
-  qrCodeDataUrl = null
+  qrCodeDataUrl = null,
+  billDate = null
 }) => {
   const today = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric'
   });
+
+  const displayDate = billDate ? new Date(billDate).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }) : today;
 
   const getBilledTo = () => {
     if (sale_type === "customer" || sale_type === "others") {
@@ -751,7 +758,7 @@ const BillPDF = ({
               companyInfo={companyInfo}
               logoDataUrl={logoDataUrl}
               billNumber={billNumber}
-              today={today}
+              today={displayDate}
             />
 
             {/* Parties section only on first page */}

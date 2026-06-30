@@ -12,10 +12,10 @@ const validateSupplierForm = (form) => {
   const isEmpty = (v) => v === '' || v === null || v === undefined;
 
   if (isEmpty(form.name) || String(form.name).trim().length < 2) errors.name = 'Name is required';
-  if (isEmpty(form.contact) || String(form.contact).trim().length < 5)
-    errors.contact = 'Contact is required';
-  if (isEmpty(form.gstin) || String(form.gstin).trim().length < 3)
-    errors.gstin = 'GSTIN is required';
+  // if (isEmpty(form.contact) || String(form.contact).trim().length < 5)
+  //   errors.contact = 'Contact is required';
+  // if (isEmpty(form.gstin) || String(form.gstin).trim().length < 3)
+  //   errors.gstin = 'GSTIN is required';
 
   return errors;
 };
