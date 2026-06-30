@@ -17,14 +17,14 @@ const CustomersTab = () => {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [filters, setFilters] = useState(initialFilters);
-  const [customerForm, setCustomerForm] = useState({ name: '', contact: '', address: '' });
+  const [customerForm, setCustomerForm] = useState({ name: '', contact: null, address: null });
   const [customerErrors, setCustomerErrors] = useState({});
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [confirmState, setConfirmState] = useState({
     open: false,
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const fetchCustomers = useCallback(async () => {
@@ -125,7 +125,7 @@ const CustomersTab = () => {
           toast.error('Error deleting customer');
           console.error('Error deleting customer:', error);
         } finally {
-          setConfirmState({ open: false, message: '', onConfirm: () => {} });
+          setConfirmState({ open: false, message: '', onConfirm: () => { } });
         }
       }
     });
@@ -249,7 +249,7 @@ const CustomersTab = () => {
         open={confirmState.open}
         message={confirmState.message}
         onConfirm={confirmState.onConfirm}
-        onCancel={() => setConfirmState({ open: false, message: '', onConfirm: () => {} })}
+        onCancel={() => setConfirmState({ open: false, message: '', onConfirm: () => { } })}
       />
     </div>
   );
