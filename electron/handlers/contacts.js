@@ -247,7 +247,17 @@ export function registerContactHandlers({ ipcMain, getDb }) {
         customerData.city || null,
         customerData.email || null
       );
-      return { success: true, id: result.lastInsertRowid };
+      return {
+        id: result.lastInsertRowid,
+        name: customerData.name,
+        contact: customerData.contact || null,
+        address: customerData.address || null,
+        gstin: customerData.gstin || null,
+        state: customerData.state || 'Maharashtra',
+        city: customerData.city || null,
+        email: customerData.email || null,
+        status_code: 0
+      };
     } catch (error) {
       if (error.message.includes('UNIQUE constraint failed')) {
          throw new Error('A customer with this contact number already exists.');
@@ -366,7 +376,17 @@ export function registerContactHandlers({ ipcMain, getDb }) {
         supplierData.city || null,
         supplierData.email || null
       );
-      return { success: true, id: result.lastInsertRowid };
+      return {
+        id: result.lastInsertRowid,
+        name: supplierData.name,
+        contact: supplierData.contact || null,
+        address: supplierData.address || null,
+        gstin: supplierData.gstin || null,
+        state: supplierData.state || 'Maharashtra',
+        city: supplierData.city || null,
+        email: supplierData.email || null,
+        status_code: 0
+      };
     } catch (error) {
       throw error;
     }

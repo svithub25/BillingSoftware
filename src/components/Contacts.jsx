@@ -175,7 +175,7 @@ const Contacts = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                     <span className={contact.opening_balance < 0 ? 'text-red-600' : 'text-green-600'}>
-                      ₹{Math.abs(contact.opening_balance || 0).toFixed(2)} {contact.opening_balance < 0 ? 'Cr' : 'Dr'}
+                      ₹{Math.abs(contact.current_balance || 0).toFixed(2)} {contact.current_balance < 0 ? 'Cr' : 'Dr'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -215,7 +215,7 @@ const Contacts = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -225,7 +225,7 @@ const Contacts = () => {
                     required
                     className="w-full p-2 border rounded-md"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -234,7 +234,7 @@ const Contacts = () => {
                     required
                     className="w-full p-2 border rounded-md"
                     value={formData.account_group_id}
-                    onChange={(e) => setFormData({...formData, account_group_id: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, account_group_id: e.target.value })}
                   >
                     <option value="">Select Group</option>
                     {accountGroups.map(g => (
@@ -248,7 +248,7 @@ const Contacts = () => {
                     type="text"
                     className="w-full p-2 border rounded-md"
                     value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
                 <div>
@@ -257,7 +257,7 @@ const Contacts = () => {
                     type="email"
                     className="w-full p-2 border rounded-md"
                     value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
                 <div>
@@ -266,7 +266,7 @@ const Contacts = () => {
                     type="text"
                     className="w-full p-2 border rounded-md uppercase"
                     value={formData.gstin}
-                    onChange={(e) => setFormData({...formData, gstin: e.target.value.toUpperCase()})}
+                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
                   />
                 </div>
                 <div>
@@ -274,7 +274,7 @@ const Contacts = () => {
                   <select
                     className="w-full p-2 border rounded-md"
                     value={formData.gst_treatment}
-                    onChange={(e) => setFormData({...formData, gst_treatment: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, gst_treatment: e.target.value })}
                   >
                     <option value="Regular">Regular</option>
                     <option value="Composition">Composition</option>
@@ -289,7 +289,7 @@ const Contacts = () => {
                     className="w-full p-2 border rounded-md"
                     rows="2"
                     value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   ></textarea>
                 </div>
                 <div>
@@ -298,7 +298,7 @@ const Contacts = () => {
                     type="text"
                     className="w-full p-2 border rounded-md"
                     value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   />
                 </div>
                 <div>
@@ -307,7 +307,7 @@ const Contacts = () => {
                     type="text"
                     className="w-full p-2 border rounded-md"
                     value={formData.state}
-                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                   />
                 </div>
                 <div>
@@ -319,12 +319,12 @@ const Contacts = () => {
                       min="0"
                       className="flex-1 p-2 border rounded-md"
                       value={formData.opening_balance}
-                      onChange={(e) => setFormData({...formData, opening_balance: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })}
                     />
                     <select
                       className="w-24 p-2 border rounded-md bg-gray-50"
                       value={formData.opening_balance_type}
-                      onChange={(e) => setFormData({...formData, opening_balance_type: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, opening_balance_type: e.target.value })}
                     >
                       <option value="Dr">Dr (To Receive)</option>
                       <option value="Cr">Cr (To Pay)</option>
@@ -334,19 +334,19 @@ const Contacts = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Credit Limit / Period</label>
                   <div className="flex space-x-2">
-                     <input
+                    <input
                       type="number"
                       placeholder="Limit (₹)"
                       className="w-1/2 p-2 border rounded-md"
                       value={formData.credit_limit}
-                      onChange={(e) => setFormData({...formData, credit_limit: parseInt(e.target.value) || 0})}
+                      onChange={(e) => setFormData({ ...formData, credit_limit: parseInt(e.target.value) || 0 })}
                     />
                     <input
                       type="number"
                       placeholder="Days"
                       className="w-1/2 p-2 border rounded-md"
                       value={formData.credit_period}
-                      onChange={(e) => setFormData({...formData, credit_period: parseInt(e.target.value) || 0})}
+                      onChange={(e) => setFormData({ ...formData, credit_period: parseInt(e.target.value) || 0 })}
                     />
                   </div>
                 </div>

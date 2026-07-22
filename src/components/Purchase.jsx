@@ -416,6 +416,7 @@ const Purchase = () => {
     try {
       await window.electronAPI.savePurchase({
         ...purchaseForm,
+        contact_id: purchaseForm.supplier_id,
         items: itemsWithGST, // each item includes .discount
         total_amount,
         cgst_total,
@@ -458,7 +459,7 @@ console.log('Purchase saved successfully',purchaseForm);
 
   // Filter suppliers based on input
   const filteredSuppliers = suppliers.filter(s =>
-    s.name.toLowerCase().includes(supplierSearch.toLowerCase())
+    (s.name || '').toLowerCase().includes((supplierSearch || '').toLowerCase())
   );
 
   // Keyboard navigation for supplier dropdown

@@ -536,6 +536,7 @@ const Billing = () => {
 
       const saleData = {
         bill_number: billNumber,
+        contact_id: customerInfo.id || null,
         customer_name: customerInfo.name || null,
         customer_contact: customerInfo.contact || null,
         customer_address: customerInfo.address || null,
