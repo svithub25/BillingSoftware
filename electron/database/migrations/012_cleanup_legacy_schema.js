@@ -50,6 +50,11 @@ export const migration_012_cleanup_legacy_schema = {
           contact_id INTEGER DEFAULT NULL,
           salesman_id INTEGER DEFAULT NULL,
           sale_type TEXT DEFAULT 'customer',
+          shipped_to_name TEXT,
+          shipped_to_contact TEXT,
+          shipped_to_address TEXT,
+          shipped_to_gstin TEXT,
+          is_shipped_different INTEGER DEFAULT 0,
           sale_date DATE NOT NULL,
           discount REAL DEFAULT 0,
           total_amount REAL NOT NULL,
@@ -63,6 +68,14 @@ export const migration_012_cleanup_legacy_schema = {
       `);
 
       // 2. Copy data (selecting only remaining columns)
+      // Check if shipped_to columns exist in the old sales table
+      const salesColumns = db.prepare("PRAGMA table_info(sales)").all().map(c => c.name);
+      const hasShippedTo = salesColumns.includes("shipped_to_name");
+      
+      const shippedToSelect = hasShippedTo 
+        ? "shipped_to_name, shipped_to_contact, shipped_to_address, shipped_to_gstin, is_shipped_different"
+        : "NULL as shipped_to_name, NULL as shipped_to_contact, NULL as shipped_to_address, NULL as shipped_to_gstin, 0 as is_shipped_different";
+
       db.exec(`
         INSERT INTO new_items (id, name, sku, hsn_code, description, unit, mrp, purchase_rate, sale_rate, gst_percentage, category_id, current_stock, minimum_stock, last_contact_id, last_purchase_date, status_code, created_at)
         SELECT id, name, sku, hsn_code, description, unit, mrp, purchase_rate, sale_rate, gst_percentage, category_id, current_stock, minimum_stock, last_contact_id, last_purchase_date, status_code, created_at FROM items;
@@ -70,8 +83,8 @@ export const migration_012_cleanup_legacy_schema = {
         INSERT INTO new_purchases (id, contact_id, invoice_number, purchase_date, total_amount, cgst_total, sgst_total, discount, rounding_off, status_code, created_at)
         SELECT id, contact_id, invoice_number, purchase_date, total_amount, cgst_total, sgst_total, discount, rounding_off, status_code, created_at FROM purchases;
         
-        INSERT INTO new_sales (id, bill_number, contact_id, salesman_id, sale_type, sale_date, discount, total_amount, rounding_off, cgst_total, sgst_total, status_code, created_at)
-        SELECT id, bill_number, contact_id, salesman_id, sale_type, sale_date, discount, total_amount, rounding_off, cgst_total, sgst_total, status_code, created_at FROM sales;
+        INSERT INTO new_sales (id, bill_number, contact_id, salesman_id, sale_type, shipped_to_name, shipped_to_contact, shipped_to_address, shipped_to_gstin, is_shipped_different, sale_date, discount, total_amount, rounding_off, cgst_total, sgst_total, status_code, created_at)
+        SELECT id, bill_number, contact_id, salesman_id, sale_type, ${shippedToSelect}, sale_date, discount, total_amount, rounding_off, cgst_total, sgst_total, status_code, created_at FROM sales;
       `);
 
       // 3. Drop old tables
@@ -114,6 +127,30 @@ export const migration_012_cleanup_legacy_schema = {
       db.exec("DROP TABLE IF EXISTS bank_ledger_entries_old");
       db.exec("DROP TABLE IF EXISTS post_dated_cheques");
       db.exec("DROP TABLE IF EXISTS transaction_categories_old");
+
+      // Recreate post_dated_cheques with correct schema pointing to new transactions
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS post_dated_cheques (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          transaction_id INTEGER NOT NULL,
+          cheque_number TEXT NOT NULL,
+          cheque_date DATE NOT NULL,
+          amount REAL NOT NULL,
+          party_name TEXT NOT NULL,
+          bank_name TEXT,
+          status TEXT CHECK(status IN ('Pending', 'Deposited', 'Cleared', 'Bounced', 'Cancelled')) DEFAULT 'Pending',
+          deposit_date DATE,
+          cleared_date DATE,
+          notes TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (transaction_id) REFERENCES transactions (id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_pdc_transaction ON post_dated_cheques(transaction_id);
+        CREATE INDEX IF NOT EXISTS idx_pdc_party ON post_dated_cheques(party_name);
+        CREATE INDEX IF NOT EXISTS idx_pdc_cheque_number ON post_dated_cheques(cheque_number);
+        CREATE INDEX IF NOT EXISTS idx_pdc_status_date ON post_dated_cheques(status, cheque_date);
+      `);
 
       db.prepare("COMMIT").run();
     } catch (error) {
