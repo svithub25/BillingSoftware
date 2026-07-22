@@ -36,7 +36,6 @@ export function initDatabase(dbPath) {
     category_id INTEGER DEFAULT NULL,
     current_stock INTEGER DEFAULT 0,
     minimum_stock INTEGER DEFAULT 10,
-    last_supplier_id INTEGER DEFAULT NULL,
     last_contact_id INTEGER DEFAULT NULL,
     last_purchase_date DATETIME DEFAULT NULL,
     status_code INTEGER DEFAULT 0,
@@ -46,7 +45,6 @@ export function initDatabase(dbPath) {
 
   CREATE TABLE IF NOT EXISTS purchases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    supplier_id INTEGER DEFAULT NULL,
     contact_id INTEGER DEFAULT NULL,
     invoice_number TEXT,
     purchase_date DATE NOT NULL,
@@ -54,8 +52,6 @@ export function initDatabase(dbPath) {
     cgst_total REAL DEFAULT 0,
     sgst_total REAL DEFAULT 0,
     discount REAL DEFAULT 0,
-    is_paid INTEGER DEFAULT 0,
-    payment_method TEXT,
     rounding_off REAL DEFAULT 0,
     status_code INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -81,10 +77,6 @@ export function initDatabase(dbPath) {
   CREATE TABLE IF NOT EXISTS sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     bill_number TEXT UNIQUE NOT NULL,
-    customer_name TEXT,
-    customer_contact TEXT,
-    customer_address TEXT,
-    customer_gstin TEXT,
     contact_id INTEGER DEFAULT NULL,
     salesman_id INTEGER DEFAULT NULL,
     sale_type TEXT DEFAULT 'customer',
@@ -94,10 +86,6 @@ export function initDatabase(dbPath) {
     rounding_off REAL DEFAULT 0,
     cgst_total REAL DEFAULT 0,
     sgst_total REAL DEFAULT 0,
-    is_paid INTEGER DEFAULT 0,
-
-    is_approved INTEGER DEFAULT 0,
-    payment_method TEXT,
     status_code INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (contact_id) REFERENCES contacts (id)
@@ -488,7 +476,6 @@ CREATE TABLE IF NOT EXISTS sale_item_cost_allocation (
     CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(purchase_date);
     CREATE INDEX IF NOT EXISTS idx_purchases_invoice ON purchases(invoice_number);
     CREATE INDEX IF NOT EXISTS idx_purchases_status ON purchases(status_code);
-    CREATE INDEX IF NOT EXISTS idx_purchases_payment ON purchases(is_paid);
 
     -- Purchase Items table indexes
     CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items(purchase_id);
@@ -499,12 +486,9 @@ CREATE TABLE IF NOT EXISTS sale_item_cost_allocation (
     -- Sales table indexes (CRITICAL for billing and reports)
     CREATE INDEX IF NOT EXISTS idx_sales_bill_number ON sales(bill_number);
     CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date);
-    CREATE INDEX IF NOT EXISTS idx_sales_customer_name ON sales(customer_name);
     CREATE INDEX IF NOT EXISTS idx_sales_salesman_id ON sales(salesman_id);
     CREATE INDEX IF NOT EXISTS idx_sales_sale_type ON sales(sale_type);
     CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status_code);
-    CREATE INDEX IF NOT EXISTS idx_sales_payment ON sales(is_paid);
-    CREATE INDEX IF NOT EXISTS idx_sales_approval ON sales(is_approved);
     CREATE INDEX IF NOT EXISTS idx_sales_date_salesman ON sales(sale_date, salesman_id);
 
     -- Sale Items table indexes (CRITICAL for analytics)

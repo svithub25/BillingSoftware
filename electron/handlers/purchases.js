@@ -13,13 +13,13 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
 
   ipcMain.handle(
     'save-purchase',
-    async (event, { supplier_id, invoice_number, purchase_date, items, total_amount, cgst_total, sgst_total, rounding_off, discount }) => {
+    async (event, { contact_id, invoice_number, purchase_date, items, total_amount, cgst_total, sgst_total, rounding_off, discount }) => {
       const db = getDb();
       const purchaseStmt = db.prepare(
-        'INSERT INTO purchases (supplier_id, invoice_number, purchase_date, total_amount, cgst_total, sgst_total, rounding_off, discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO purchases (contact_id, invoice_number, purchase_date, total_amount, cgst_total, sgst_total, rounding_off, discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       );
       const purchaseResult = purchaseStmt.run(
-        supplier_id,
+        contact_id,
         invoice_number,
         purchase_date,
         total_amount,
@@ -34,7 +34,7 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         'INSERT INTO purchase_items (purchase_id, item_id, quantity, unit_price, gst_percentage, cgst_amount, sgst_amount, total_price, discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       );
       const updateItemStmt = db.prepare(
-        'UPDATE items SET current_stock = current_stock + ?, last_supplier_id = ?, last_purchase_date = ? WHERE id = ?'
+        'UPDATE items SET current_stock = current_stock + ?, last_contact_id = ?, last_purchase_date = ? WHERE id = ?'
       );
       // Only update purchase_rate if this is the latest purchase for this item
       const updatePurchaseRateStmt = db.prepare(`
@@ -79,7 +79,7 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         const purchaseItemId = purchaseItemResult.lastInsertRowid;
 
         // Update stock and last purchase info
-        updateItemStmt.run(item.quantity, supplier_id, purchase_date, item.id);
+        updateItemStmt.run(item.quantity, contact_id, purchase_date, item.id);
 
         // Only update purchase_rate if this purchase is the latest or newer
         updatePurchaseRateStmt.run(item.unit_price, item.id, purchase_date);
@@ -124,13 +124,10 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
 
   ipcMain.handle('get-purchase-history', async () => {
     return getDb().prepare(`
-      SELECT p.*, s.name as supplier_name,
-             COALESCE(p.is_paid, 0) as is_paid,
-             COALESCE(p.payment_method, '') as payment_method
+      SELECT p.*, c.name as supplier_name
       FROM purchases p
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      LEFT JOIN contacts c ON p.contact_id = c.id
       WHERE (p.status_code = 0 OR p.status_code IS NULL)
-      AND (s.status_code = 0 OR s.status_code IS NULL)
       ORDER BY p.purchase_date DESC
     `).all();
   });
@@ -140,12 +137,12 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
     const purchase = db.prepare(`
       SELECT
         p.*,
-        s.name as supplier_name,
-        s.contact as supplier_contact,
-        s.address as supplier_address,
-        s.gstin as supplier_gstin
+        c.name as supplier_name,
+        c.phone as supplier_contact,
+        c.address as supplier_address,
+        c.gstin as supplier_gstin
       FROM purchases p
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      LEFT JOIN contacts c ON p.contact_id = c.id
       WHERE p.id = ?
     `).get(purchaseId);
 
@@ -183,9 +180,9 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
   ipcMain.handle('get-purchase-full-details', async (event, purchaseId) => {
     const db = getDb();
     const purchase = db.prepare(`
-      SELECT p.*, s.name as supplier_name, s.contact as supplier_contact, s.address as supplier_address, s.gstin as supplier_gstin
+      SELECT p.*, c.name as supplier_name, c.phone as supplier_contact, c.address as supplier_address, c.gstin as supplier_gstin
       FROM purchases p
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      LEFT JOIN contacts c ON p.contact_id = c.id
       WHERE p.id = ?
     `).get(purchaseId);
 
@@ -362,7 +359,7 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
       // STEP 6: Update purchase header
       db.prepare(`
         UPDATE purchases SET
-          supplier_id = ?,
+          contact_id = ?,
           invoice_number = ?,
           purchase_date = ?,
           total_amount = ?,
@@ -372,7 +369,7 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
           discount = ?
         WHERE id = ?
       `).run(
-        updatedPurchase.supplier_id,
+        updatedPurchase.contact_id,
         updatedPurchase.invoice_number,
         updatedPurchase.purchase_date,
         updatedPurchase.total_amount,
@@ -429,10 +426,10 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         WHERE purchase_item_id = ?
       `);
 
-      // Update last_supplier and last_purchase_date
+      // Update last_contact and last_purchase_date
       const updateLastPurchaseInfoStmt = db.prepare(`
         UPDATE items 
-        SET last_supplier_id = ?, last_purchase_date = ? 
+        SET last_contact_id = ?, last_purchase_date = ? 
         WHERE id = ?
       `);
 
@@ -522,7 +519,7 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         
         // Update last purchase info
         updateLastPurchaseInfoStmt.run(
-          updatedPurchase.supplier_id, 
+          updatedPurchase.contact_id, 
           updatedPurchase.purchase_date, 
           item.id
         );

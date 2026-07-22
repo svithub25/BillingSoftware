@@ -35,10 +35,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
   ipcMain.handle('save-sale', async (event, saleData) => {
     const {
       bill_number,
-      customer_name,
-      customer_contact,
-      customer_address,
-      customer_gstin,
+      contact_id,
       shipped_to_name,
       shipped_to_contact,
       shipped_to_address,
@@ -58,18 +55,15 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     const db = getDb();
     const saleStmt = db.prepare(`
       INSERT INTO sales (
-        bill_number, customer_name, customer_contact, customer_address, customer_gstin,
+        bill_number, contact_id,
         shipped_to_name, shipped_to_contact, shipped_to_address, shipped_to_gstin, is_shipped_different,
         sale_date, discount, total_amount, cgst_total, sgst_total, rounding_off, salesman_id, sale_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const saleResult = saleStmt.run(
       bill_number,
-      customer_name,
-      customer_contact,
-      customer_address,
-      customer_gstin,
+      contact_id,
       shipped_to_name || null,
       shipped_to_contact || null,
       shipped_to_address || null,
@@ -222,8 +216,9 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     try {
       const db = getDb();
       const sale = db.prepare(`
-        SELECT s.*, sm.name as salesman_name, sm.contact_info as salesman_contact, sm.address as salesman_address
+        SELECT s.*, c.name as customer_name, c.phone as customer_contact, c.address as customer_address, c.gstin as customer_gstin, sm.name as salesman_name, sm.contact_info as salesman_contact, sm.address as salesman_address
         FROM sales s
+        LEFT JOIN contacts c ON s.contact_id = c.id
         LEFT JOIN salesman sm ON s.salesman_id = sm.id
         WHERE s.id = ?
       `).get(saleId);
@@ -350,10 +345,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       // Update the sale header
       db.prepare(`
         UPDATE sales SET
-          customer_name = ?,
-          customer_contact = ?,
-          customer_address = ?,
-          customer_gstin = ?,
+          contact_id = ?,
           shipped_to_name = ?,
           shipped_to_contact = ?,
           shipped_to_address = ?,
@@ -367,10 +359,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
           sale_type = ?
         WHERE id = ?
       `).run(
-        updatedSale.customer_name,
-        updatedSale.customer_contact,
-        updatedSale.customer_address,
-        updatedSale.customer_gstin,
+        updatedSale.contact_id,
         updatedSale.shipped_to_name || null,
         updatedSale.shipped_to_contact || null,
         updatedSale.shipped_to_address || null,
@@ -464,11 +453,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       SELECT s.*, COUNT(si.id) as item_count,
          COALESCE(s.cgst_total, 0) as cgst_total,
          COALESCE(s.sgst_total, 0) as sgst_total,
-         COALESCE(s.is_paid, 0) as is_paid,
-         COALESCE(s.is_approved, 0) as is_approved,
+         c.name as customer_name,
          salesman.name AS salesman
       FROM sales s
       LEFT JOIN sale_items si ON s.id = si.sale_id
+      LEFT JOIN contacts c ON s.contact_id = c.id
       LEFT JOIN salesman ON s.salesman_id = salesman.id
       WHERE (s.status_code = 0 OR s.status_code IS NULL)
       AND (si.status_code = 0 OR si.status_code IS NULL)
@@ -484,7 +473,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       params.push(endDate);
     }
     if (customer) {
-      query += ' AND s.customer_name LIKE ?';
+      query += ' AND c.name LIKE ?';
       params.push(`%${customer}%`);
     }
     if (item) {
@@ -510,12 +499,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       SELECT s.*, COUNT(si.id) as item_count,
           COALESCE(s.cgst_total, 0) as cgst_total,
           COALESCE(s.sgst_total, 0) as sgst_total,
-          COALESCE(s.is_paid, 0) as is_paid,
-          COALESCE(s.is_approved, 0) as is_approved,
-          COALESCE(s.payment_method, '') as payment_method,
+          c.name as customer_name,
           salesman.name AS salesman
       FROM sales s
       LEFT JOIN sale_items si ON s.id = si.sale_id
+      LEFT JOIN contacts c ON s.contact_id = c.id
       LEFT JOIN salesman ON s.salesman_id = salesman.id
       WHERE (s.status_code = 0 OR s.status_code IS NULL)
       AND (si.status_code = 0 OR si.status_code IS NULL)
@@ -524,94 +512,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     `).all();
   });
 
-  ipcMain.handle('update-sale-paid-status', async (event, saleId, isPaid) => {
-    const stmt = getDb().prepare('UPDATE sales SET is_paid = ? WHERE id = ?');
-    const result = stmt.run(isPaid ? 1 : 0, saleId);
-    return result.changes > 0;
-  });
 
-  ipcMain.handle('update-sale-approved-status', async (event, saleId, isApproved) => {
-    const stmt = getDb().prepare('UPDATE sales SET is_approved = ? WHERE id = ?');
-    const result = stmt.run(isApproved ? 1 : 0, saleId);
-    return result.changes > 0;
-  });
-
-  ipcMain.handle('get-sale-payment-for-approval', async (event, saleId) => {
-    const db = getDb();
-    const sale = db.prepare(`
-      SELECT s.*,
-             COALESCE(s.payment_method, '') as payment_method,
-             COALESCE(s.is_paid, 0) as is_paid
-      FROM sales s
-      WHERE s.id = ?
-    `).get(saleId);
-
-    if (!sale || !sale.is_paid) {
-      return { sale, hasPayment: false, paymentDetails: null };
-    }
-
-    const paymentVerification = db.prepare(`
-      SELECT * FROM payment_verification
-      WHERE sale_id = ?
-      ORDER BY created_at DESC
-      LIMIT 1
-    `).get(saleId);
-
-    if (!paymentVerification) {
-      return { sale, hasPayment: false, paymentDetails: null };
-    }
-
-    let paymentMethodDetails = {};
-    switch (paymentVerification.payment_method) {
-      case 'upi':
-        paymentMethodDetails = db.prepare(
-          'SELECT * FROM payment_upi WHERE payment_verification_id = ?'
-        ).get(paymentVerification.id) || {};
-        break;
-      case 'cash':
-        paymentMethodDetails = db.prepare(
-          'SELECT * FROM payment_cash WHERE payment_verification_id = ?'
-        ).get(paymentVerification.id) || {};
-        if (paymentMethodDetails.denomination_notes) {
-          paymentMethodDetails.denomination_notes = JSON.parse(paymentMethodDetails.denomination_notes);
-        }
-        break;
-      case 'neft_rtgs':
-        paymentMethodDetails = db.prepare(
-          'SELECT * FROM payment_neft_rtgs WHERE payment_verification_id = ?'
-        ).get(paymentVerification.id) || {};
-        break;
-      case 'cheque':
-        paymentMethodDetails = db.prepare(
-          'SELECT * FROM payment_cheque WHERE payment_verification_id = ?'
-        ).get(paymentVerification.id) || {};
-        break;
-    }
-
-    return {
-      sale,
-      hasPayment: true,
-      paymentDetails: {
-        ...paymentVerification,
-        methodDetails: paymentMethodDetails
-      }
-    };
-  });
-
-  ipcMain.handle('get-approval-history', async (event, saleId) => {
-    const sale = getDb().prepare(`
-      SELECT s.is_approved, s.bill_number, s.total_amount
-      FROM sales s
-      WHERE s.id = ?
-    `).get(saleId);
-
-    return {
-      saleId,
-      currentStatus: sale?.is_approved === 1 ? 'Approved' : 'Not Approved',
-      billNumber: sale?.bill_number,
-      totalAmount: sale?.total_amount
-    };
-  });
 
 }
 

@@ -1,10 +1,10 @@
 function getItemPurchaseHistory(getDb, itemId) {
   return getDb()
     .prepare(`
-      SELECT pi.*, p.purchase_date, s.name as supplier_name, s.gstin as supplier_gstin
+      SELECT pi.*, p.purchase_date, c_supp.name as supplier_name, c_supp.gstin as supplier_gstin
       FROM purchase_items pi
       LEFT JOIN purchases p ON pi.purchase_id = p.id
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      LEFT JOIN contacts c_supp ON p.contact_id = c_supp.id
       WHERE pi.item_id = ?
       ORDER BY p.purchase_date DESC
     `)
@@ -49,10 +49,10 @@ export function registerInventoryHandlers({ ipcMain, getDb }) {
   ipcMain.handle('get-inventory', async () => {
     try {
       return getDb().prepare(`
-        SELECT i.*, c.name as category_name, s.name as supplier_name, s.gstin as supplier_gstin
+        SELECT i.*, c.name as category_name, c_supp.name as supplier_name, c_supp.gstin as supplier_gstin
         FROM items i
         LEFT JOIN categories c ON i.category_id = c.id
-        LEFT JOIN suppliers s ON i.last_supplier_id = s.id
+        LEFT JOIN contacts c_supp ON i.last_contact_id = c_supp.id
         WHERE (i.status_code = 0 OR i.status_code IS NULL)
         ORDER BY i.name
       `).all();
@@ -179,10 +179,10 @@ ipcMain.handle('get-item-batches', async (event, itemId) => {
   ipcMain.handle('get-item-details', async (event, itemId) => {
     const item = getDb()
       .prepare(`
-        SELECT i.*, c.name as category_name, s.name as supplier_name, s.gstin as supplier_gstin
+        SELECT i.*, c.name as category_name, c_supp.name as supplier_name, c_supp.gstin as supplier_gstin
         FROM items i
         LEFT JOIN categories c ON i.category_id = c.id
-        LEFT JOIN suppliers s ON i.last_supplier_id = s.id
+        LEFT JOIN contacts c_supp ON i.last_contact_id = c_supp.id
         WHERE i.id = ? and (i.status_code = 0 OR i.status_code IS NULL)
       `)
       .get(itemId);
