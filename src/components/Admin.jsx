@@ -2,22 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Package, Users, Tag, Percent, Menu, Warehouse } from 'lucide-react';
 import PinProtected from './reusables/PinProtected';
 import ProductsTab from './admin/tabs/ProductsTab';
-import SuppliersTab from './admin/tabs/SuppliersTab';
 import UnitsTab from './admin/tabs/UnitsTab';
 import GstTab from './admin/tabs/GstTab';
 import CategoriesTab from './admin/tabs/CategoriesTab';
 import SalesmanTab from './admin/tabs/SalesmanTab';
-import CustomersTab from './admin/tabs/CustomersTab';
 import GodownsTab from './admin/tabs/GodownsTab';
 
 const TAB_CONFIG = [
   { id: 'products', name: 'Products', icon: Package, component: ProductsTab },
-  { id: 'suppliers', name: 'Suppliers', icon: Users, component: SuppliersTab },
   { id: 'categories', name: 'Categories', icon: Tag, component: CategoriesTab },
   { id: 'units', name: 'Units', icon: Tag, component: UnitsTab },
   { id: 'gst', name: 'GST Rates', icon: Percent, component: GstTab },
   { id: 'salesman', name: 'Salesmen', icon: Users, component: SalesmanTab },
-  { id: 'customers', name: 'Customers', icon: Users, component: CustomersTab },
   { id: 'godowns', name: 'Godowns/Branches', icon: Warehouse, component: GodownsTab }
 ];
 

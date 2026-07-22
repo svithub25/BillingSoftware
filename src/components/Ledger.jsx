@@ -11,7 +11,7 @@ const Ledger = () => {
   const tabs = [
     { id: 'ledger', name: 'Ledger', icon: BookOpen },
     { id: 'profitLoss', name: 'Profit & Loss', icon: TrendingUp },
-    // { id: 'balanceSheet', name: 'Balance Sheet', icon: BarChart3 }
+    { id: 'balanceSheet', name: 'Balance Sheet', icon: BarChart3 }
   ];
 
   return (
@@ -55,7 +55,7 @@ const Ledger = () => {
           <div className="p-6">
             {activeTab === 'ledger' && <LedgerData />}
             {activeTab === 'profitLoss' && <ProfitAndLoss />}
-            {/* {activeTab === 'balanceSheet' && <BalanceSheet />} */}
+            {activeTab === 'balanceSheet' && <BalanceSheet />}
           </div> 
         </div>
       </div>

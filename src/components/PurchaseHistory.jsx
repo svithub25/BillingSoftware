@@ -34,12 +34,6 @@ const PurchaseHistory = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  const [showPurchasePaymentModal, setShowPurchasePaymentModal] = useState(false);
-  const [showPurchasePaymentHistoryModal, setShowPurchasePaymentHistoryModal] = useState(false);
-  const [pendingPurchasePayment, setPendingPurchasePayment] = useState(null);
-  const [purchasePaymentHistory, setPurchasePaymentHistory] = useState(null);
-  const [purchasePaymentForm, setPurchasePaymentForm] = useState(defaultPaymentForm);
-
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
 
@@ -75,7 +69,7 @@ const PurchaseHistory = () => {
           : true;
         const dateMatch = historyFilters.date
           ? new Date(purchase.purchase_date).toLocaleDateString() ===
-            new Date(historyFilters.date).toLocaleDateString()
+          new Date(historyFilters.date).toLocaleDateString()
           : true;
         return supplierMatch && invoiceMatch && dateMatch;
       })
@@ -93,59 +87,7 @@ const PurchaseHistory = () => {
   const indexOfLastItem = currentPage * itemsPerPage;
   const currentPurchases = filteredHistory.slice(indexOfLastItem - itemsPerPage, indexOfLastItem);
 
-  const handlePurchasePaidChange = async (purchaseId, isPaid) => {
-    if (isPaid) {
-      const purchase = purchaseHistory.find(p => p.id === purchaseId);
-      if (!purchase) {
-        toast.error('Purchase not found');
-        return;
-      }
-      setPendingPurchasePayment(purchase);
-      setPurchasePaymentForm({
-        ...defaultPaymentForm(),
-        amount: purchase.total_amount
-      });
-      setShowPurchasePaymentModal(true);
-    } else {
-      try {
-        const history = await window.electronAPI.getPurchasePaymentDetails(purchaseId);
-        setPurchasePaymentHistory(history);
-        setShowPurchasePaymentHistoryModal(true);
-      } catch (error) {
-        toast.error('Error loading payment history');
-      }
-    }
-  };
-
-  const handlePurchasePaymentSubmit = async () => {
-    if (!pendingPurchasePayment) return;
-    try {
-      const result = await window.electronAPI.savePurchasePayment({
-        purchaseId: pendingPurchasePayment.id,
-        paymentMethod: purchasePaymentForm.paymentMethod,
-        amount: purchasePaymentForm.amount,
-        paymentDate: purchasePaymentForm.paymentDate,
-        paymentDetails: purchasePaymentForm.paymentDetails
-      });
-
-      if (result.success) {
-        setPurchaseHistory(prev =>
-          prev.map(purchase =>
-            purchase.id === pendingPurchasePayment.id
-              ? { ...purchase, is_paid: 1, payment_method: purchasePaymentForm.paymentMethod }
-              : purchase
-          )
-        );
-        setShowPurchasePaymentModal(false);
-        setPendingPurchasePayment(null);
-        setPurchasePaymentForm(defaultPaymentForm());
-        toast.success('Payment recorded successfully');
-      }
-    } catch (error) {
-      console.error('Error recording payment:', error);
-      toast.error('Error recording payment');
-    }
-  };
+  // Removed payment handlers
 
   const handleDeletePurchase = async (purchaseId) => {
     try {
@@ -257,167 +199,7 @@ const PurchaseHistory = () => {
     }
   };
 
-  const renderPaymentMethodFields = () => {
-    const updateDetails = (updates) => {
-      setPurchasePaymentForm(prev => ({
-        ...prev,
-        paymentDetails: { ...prev.paymentDetails, ...updates }
-      }));
-    };
-
-    switch (purchasePaymentForm.paymentMethod) {
-      case 'upi':
-        return (
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Transaction ID</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.transactionId || ''}
-                onChange={(e) => updateDetails({ transactionId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">UPI ID</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.upiId || ''}
-                onChange={(e) => updateDetails({ upiId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">App Name</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.appName || ''}
-                onChange={(e) => updateDetails({ appName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reference Number</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.referenceNumber || ''}
-                onChange={(e) => updateDetails({ referenceNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        );
-      case 'cash':
-        return (
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Paid By</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.receivedBy || ''}
-                onChange={(e) => updateDetails({ receivedBy: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Receipt Number</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.receiptNumber || ''}
-                onChange={(e) => updateDetails({ receiptNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        );
-      case 'neft_rtgs':
-        return (
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Reference</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.transactionReference || ''}
-                onChange={(e) => updateDetails({ transactionReference: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Transfer Type</label>
-              <select
-                value={purchasePaymentForm.paymentDetails.transferType || 'neft'}
-                onChange={(e) => updateDetails({ transferType: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="neft">NEFT</option>
-                <option value="rtgs">RTGS</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Our Bank</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.senderBank || ''}
-                onChange={(e) => updateDetails({ senderBank: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Supplier Bank</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.receiverBank || ''}
-                onChange={(e) => updateDetails({ receiverBank: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        );
-      case 'cheque':
-        return (
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Number</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.chequeNumber || ''}
-                onChange={(e) => updateDetails({ chequeNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.bankName || ''}
-                onChange={(e) => updateDetails({ bankName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date</label>
-              <input
-                type="date"
-                value={purchasePaymentForm.paymentDetails.chequeDate || ''}
-                onChange={(e) => updateDetails({ chequeDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Issued By</label>
-              <input
-                type="text"
-                value={purchasePaymentForm.paymentDetails.drawerName || ''}
-                onChange={(e) => updateDetails({ drawerName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  // Removed renderPaymentMethodFields
 
   const getPageNumbers = () => {
     const pages = [];
@@ -493,8 +275,7 @@ const PurchaseHistory = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
@@ -512,23 +293,7 @@ const PurchaseHistory = () => {
                     {purchase.supplier_name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ₹{purchase.total_amount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={purchase.is_paid === 1}
-                        onChange={(e) => handlePurchasePaidChange(purchase.id, e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      {purchase.is_paid === 1 && purchase.payment_method && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {purchase.payment_method.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  </td> 
+                    ₹{purchase.total_amount.toLocaleString()}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
                     <button
                       className="text-blue-600 hover:text-blue-800"
@@ -581,11 +346,10 @@ const PurchaseHistory = () => {
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className={`flex items-center px-3 py-2 rounded-lg mr-2 ${
-                  currentPage === 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                className={`flex items-center px-3 py-2 rounded-lg mr-2 ${currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Previous
@@ -608,11 +372,10 @@ const PurchaseHistory = () => {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`px-3 py-2 rounded-lg ${
-                      currentPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
+                    className={`px-3 py-2 rounded-lg ${currentPage === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -634,11 +397,10 @@ const PurchaseHistory = () => {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className={`flex items-center px-3 py-2 rounded-lg ml-2 ${
-                  currentPage === totalPages
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                className={`flex items-center px-3 py-2 rounded-lg ml-2 ${currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
               >
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -686,157 +448,7 @@ const PurchaseHistory = () => {
         </div>
       )}
 
-      {showPurchasePaymentModal && pendingPurchasePayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Record Purchase Payment</h2>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-              <select
-                value={purchasePaymentForm.paymentMethod}
-                onChange={(e) =>
-                  setPurchasePaymentForm({
-                    ...purchasePaymentForm,
-                    paymentMethod: e.target.value,
-                    paymentDetails: {}
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="cash">Cash</option>
-                <option value="upi">UPI</option>
-                <option value="neft_rtgs">NEFT/RTGS</option>
-                <option value="cheque">Cheque</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
-                <input
-                  type="number"
-                  value={purchasePaymentForm.amount}
-                  onChange={(e) =>
-                    setPurchasePaymentForm({
-                      ...purchasePaymentForm,
-                      amount: parseFloat(e.target.value)
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
-                <input
-                  type="date"
-                  value={purchasePaymentForm.paymentDate}
-                  onChange={(e) =>
-                    setPurchasePaymentForm({
-                      ...purchasePaymentForm,
-                      paymentDate: e.target.value
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {renderPaymentMethodFields()}
-
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800"
-                onClick={() => {
-                  setShowPurchasePaymentModal(false);
-                  setPendingPurchasePayment(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={handlePurchasePaymentSubmit}
-              >
-                Record Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPurchasePaymentHistoryModal && purchasePaymentHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-96 overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Purchase Payment History</h2>
-
-            {purchasePaymentHistory.length > 0 ? (
-              <div className="space-y-4">
-                {purchasePaymentHistory.map((payment, index) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded">
-                    <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                      <div><strong>Payment Method:</strong> {payment.payment_method?.toUpperCase()}</div>
-                      <div><strong>Amount:</strong> ₹{payment.amount}</div>
-                      <div><strong>Payment Date:</strong> {payment.payment_date}</div>
-                      <div><strong>Status:</strong> {payment.status}</div>
-                    </div>
-
-                    {payment.payment_method === 'upi' && payment.details && (
-                      <div className="mt-3 grid grid-cols-2 gap-4 text-sm border-t pt-3">
-                        <div><strong>Transaction ID:</strong> {payment.details.transaction_id || 'N/A'}</div>
-                        <div><strong>UPI ID:</strong> {payment.details.upi_id || 'N/A'}</div>
-                        <div><strong>App Name:</strong> {payment.details.app_name || 'N/A'}</div>
-                        <div><strong>Reference:</strong> {payment.details.reference_number || 'N/A'}</div>
-                      </div>
-                    )}
-
-                    {payment.payment_method === 'cash' && payment.details && (
-                      <div className="mt-3 grid grid-cols-2 gap-4 text-sm border-t pt-3">
-                        <div><strong>Paid By:</strong> {payment.details.received_by || 'N/A'}</div>
-                        <div><strong>Receipt Number:</strong> {payment.details.receipt_number || 'N/A'}</div>
-                      </div>
-                    )}
-
-                    {payment.payment_method === 'neft_rtgs' && payment.details && (
-                      <div className="mt-3 grid grid-cols-2 gap-4 text-sm border-t pt-3">
-                        <div><strong>Transaction Ref:</strong> {payment.details.transaction_reference || 'N/A'}</div>
-                        <div><strong>Transfer Type:</strong> {payment.details.transfer_type?.toUpperCase() || 'N/A'}</div>
-                        <div><strong>Our Bank:</strong> {payment.details.sender_bank || 'N/A'}</div>
-                        <div><strong>Supplier Bank:</strong> {payment.details.receiver_bank || 'N/A'}</div>
-                      </div>
-                    )}
-
-                    {payment.payment_method === 'cheque' && payment.details && (
-                      <div className="mt-3 grid grid-cols-2 gap-4 text-sm border-t pt-3">
-                        <div><strong>Cheque Number:</strong> {payment.details.cheque_number || 'N/A'}</div>
-                        <div><strong>Bank Name:</strong> {payment.details.bank_name || 'N/A'}</div>
-                        <div><strong>Cheque Date:</strong> {payment.details.cheque_date || 'N/A'}</div>
-                        <div><strong>Issued By:</strong> {payment.details.drawer_name || 'N/A'}</div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                No payment history found
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800"
-                onClick={() => {
-                  setShowPurchasePaymentHistoryModal(false);
-                  setPurchasePaymentHistory(null);
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Removed Purchase Payment Modals */}
     </div>
   );
 };

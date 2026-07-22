@@ -12,6 +12,26 @@ const channelGroups = {
   dashboard: {
     getDashboardData: 'get-dashboard-data'
   },
+  contacts: {
+    getContacts: 'get-contacts',
+    addContact: 'add-contact',
+    updateContact: 'update-contact',
+    deleteContact: 'delete-contact',
+    getMasterAccounts: 'get-master-accounts',
+    getAccountGroups: 'get-account-groups',
+    addAccountGroup: 'add-account-group',
+    updateAccountGroup: 'update-account-group',
+    deleteAccountGroup: 'delete-account-group'
+  },
+  accounting: {
+    createAccountingTransaction: 'create-accounting-transaction',
+    getAccountingTransactions: 'get-accounting-transactions',
+    getAccountingTransactionDetails: 'get-accounting-transaction-details',
+    getContactOutstanding: 'get-contact-outstanding',
+    getContactLedger: 'get-contact-ledger',
+    getTrialBalance: 'get-trial-balance',
+    getAccountGroupBalance: 'get-account-group-balance'
+  },
   inventory: {
     getInventory: 'get-inventory',
     addItem: 'add-item',
@@ -165,13 +185,6 @@ const channelGroups = {
     getSalesmen: 'get-salesmen',
     updateSalesman: 'update-salesman',
     deleteSalesman: 'delete-salesman'
-  },
-  payments: {
-    savePayment: 'save-payment',
-    getPaymentDetails: 'get-payment-details',
-    updatePaymentStatus: 'update-payment-status',
-    savePurchasePayment: 'save-purchase-payment',
-    getPurchasePaymentDetails: 'get-purchase-payment-details'
   },
   exports: {
     getExportInventoryData: 'get-export-inventory-data',

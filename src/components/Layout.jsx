@@ -15,7 +15,8 @@ import {
   ArrowRightLeft,
   BookOpen,
   User,
-
+  Users,
+  FolderTree,
   LogOut,
   Landmark, // Better for "Banking" than a currency symbol
   BarChart3,
@@ -60,6 +61,8 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Credit & Debit Note', href: '/credit-debit-note', icon: ArrowRightLeft },
 
     // --- Finance & Accounts ---
+    { name: 'Contacts', href: '/contacts', icon: Users },
+    { name: 'Account Groups', href: '/account-groups', icon: FolderTree },
     { name: 'Ledger', href: '/ledger', icon: BookOpen },
     { name: 'Banking', href: '/banking', icon: Landmark }, // Changed to Landmark (Bank building)
 

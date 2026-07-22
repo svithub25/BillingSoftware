@@ -2,13 +2,12 @@ import { registerAuthHandlers } from './auth.js';
 import { registerDashboardHandlers } from './dashboard.js';
 import { registerInventoryHandlers } from './inventory.js';
 import { registerCatalogHandlers } from './catalog.js';
-import { registerSupplierHandlers } from './suppliers.js';
+import { registerContactHandlers } from './contacts.js';
+import { registerAccountingHandlers } from './accounting.js';
 import { registerPurchaseHandlers } from './purchases.js';
 import { registerSalesHandlers } from './sales.js';
 import { registerTransactionHandlers, registerAnalyticsHandlers } from './reports.js';
-import { registerCustomerHandlers } from './customers.js';
 import { registerSalesmanHandlers } from './salesmen.js';
-import { registerPaymentHandlers } from './payments.js';
 import { registerBankingHandlers } from './banking.js';
 import { registerFinancialReportsHandlers } from './financialreports.js';
 import { registerExportHandlers } from './exports.js';
@@ -41,11 +40,11 @@ export function registerAllHandlers(context) {
   registerDashboardHandlers({ ipcMain, getDb });
   registerInventoryHandlers({ ipcMain, getDb });
   registerCatalogHandlers({ ipcMain, getDb });
-  registerSupplierHandlers({ ipcMain, getDb });
-  registerCustomerHandlers({ ipcMain, getDb });
+  registerContactHandlers({ ipcMain, getDb });
+  registerAccountingHandlers({ ipcMain, getDb });
   registerSalesmanHandlers({ ipcMain, getDb });
 
-   registerCompanyHandlers({ ipcMain, getDb, dialog });
+  registerCompanyHandlers({ ipcMain, getDb, dialog });
   // const reduceClosingStock = createClosingStockReducer(getDb);
   // registerClosingStockHandlers({ ipcMain, getDb });
   registerOpeningStockHandlers({ ipcMain, getDb });
@@ -54,7 +53,6 @@ export function registerAllHandlers(context) {
   registerBankingHandlers({ ipcMain, getDb });
   registerSalesHandlers({ ipcMain, getDb });
   registerFinancialReportsHandlers(context);
-  registerPaymentHandlers({ ipcMain, getDb });
 
   registerTransactionHandlers({ ipcMain, getDb });
   registerAnalyticsHandlers({ ipcMain, getDb });

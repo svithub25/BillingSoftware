@@ -80,8 +80,7 @@ const CreditDebitNoteEdit = () => {
   const [purchaseList, setPurchaseList] = useState([]);
   const [itemsList, setItemsList] = useState([]);
   const [parties, setParties] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [salesmen, setSalesmen] = useState([]);
 
   // Item search states
@@ -139,13 +138,12 @@ const CreditDebitNoteEdit = () => {
 
   const loadInitialData = async () => {
     try {
-      const [salesRes, purchaseRes, itemsRes, partiesRes, customersRes, suppliersRes, salesmenRes] = await Promise.all([
+      const [salesRes, purchaseRes, itemsRes, partiesRes, contactsRes, salesmenRes] = await Promise.all([
         window.electronAPI.getSalesHistory?.() || Promise.resolve([]),
         window.electronAPI.getPurchaseHistory?.() || Promise.resolve([]),
         window.electronAPI.getInventory?.() || Promise.resolve([]),
         window.electronAPI.getAllParties?.() || Promise.resolve([]),
-        window.electronAPI.getCustomers?.() || Promise.resolve([]),
-        window.electronAPI.getSuppliers?.() || Promise.resolve([]),
+        window.electronAPI.getContacts?.() || Promise.resolve([]),
         window.electronAPI.getSalesmen?.() || Promise.resolve([])
       ]);
 
@@ -153,8 +151,7 @@ const CreditDebitNoteEdit = () => {
       setPurchaseList(purchaseRes);
       setItemsList(itemsRes);
       setParties(partiesRes);
-      setCustomers(customersRes);
-      setSuppliers(suppliersRes);
+      setContacts(contactsRes);
       setSalesmen(salesmenRes);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -563,11 +560,11 @@ const CreditDebitNoteEdit = () => {
                     name="party_name"
                     value={formData.party_name}
                     onChange={(e) => {
-                      const selected = customers.find(c => c.name === e.target.value);
+                      const selected = contacts.find(c => c.name === e.target.value);
                       setFormData(prev => ({
                         ...prev,
                         party_name: e.target.value,
-                        party_contact: selected?.contact || '',
+                        party_contact: selected?.phone || '',
                         party_address: selected?.address || '',
                         party_gstin: selected?.gstin || '',
                         party_state: selected?.state || '',
@@ -577,8 +574,8 @@ const CreditDebitNoteEdit = () => {
                     className={inputClass}
                   >
                     <option value="">-- Select Customer --</option>
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.name}>{customer.name}</option>
+                    {contacts.filter(c => c.account_group_id === 13).map(contact => (
+                      <option key={contact.id} value={contact.name}>{contact.name}</option>
                     ))}
                   </select>
                 </div>
@@ -604,11 +601,11 @@ const CreditDebitNoteEdit = () => {
                   name="party_name"
                   value={formData.party_name}
                   onChange={(e) => {
-                    const selected = suppliers.find(s => s.name === e.target.value);
+                    const selected = contacts.find(c => c.name === e.target.value);
                     setFormData(prev => ({
                       ...prev,
                       party_name: e.target.value,
-                      party_contact: selected?.contact || '',
+                      party_contact: selected?.phone || '',
                       party_address: selected?.address || '',
                       party_gstin: selected?.gstin || '',
                       party_state: selected?.state || '',
@@ -618,8 +615,8 @@ const CreditDebitNoteEdit = () => {
                   className={inputClass}
                 >
                   <option value="">-- Select Supplier --</option>
-                  {suppliers.map(supplier => (
-                    <option key={supplier.id} value={supplier.name}>{supplier.name}</option>
+                  {contacts.filter(c => c.account_group_id === 5).map(contact => (
+                    <option key={contact.id} value={contact.name}>{contact.name}</option>
                   ))}
                 </select>
               </div>

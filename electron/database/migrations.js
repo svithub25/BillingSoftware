@@ -3,6 +3,7 @@ import { migration_007_add_supplier_fields } from "./migrations/007_add_supplier
 import { migration_008_add_customer_fields } from "./migrations/008_add_customer_fields.js";
 import { migration_009_add_salesman_fields } from "./migrations/009_add_salesman_fields.js";
 import { migration_010_fixing_issue_batch_edit } from "./migrations/010_fixing_issue_batch_edit.js";
+import { migration_011_unified_accounting_migration } from "./migrations/011_unified_accounting_migration.js";
 
 const migrations = [
   migration_006_add_shipped_to_sales,
@@ -10,6 +11,7 @@ const migrations = [
   migration_008_add_customer_fields,
   migration_009_add_salesman_fields,
   migration_010_fixing_issue_batch_edit,
+  migration_011_unified_accounting_migration,
 ];
 
 export function runMigrations(db) {

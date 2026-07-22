@@ -33,10 +33,17 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
   const loadParties = async () => {
     setLoading(true);
     try {
-      const data = await window.electronAPI.getAllParties();
-      console.log('gotten data is ',data)
-      setParties(data || []);
-      setFilteredParties(data || []);
+      const contacts = await window.electronAPI.getContacts();
+      const mappedParties = (contacts || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        contact: c.phone || c.email || '',
+        type: c.group_name || 'Contact',
+        source_type: 'contact',
+        description: c.address || ''
+      }));
+      setParties(mappedParties);
+      setFilteredParties(mappedParties);
     } catch (error) {
       console.error('Error loading parties:', error);
       setParties([]);
@@ -78,6 +85,8 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
 
   const getSourceIcon = (sourceType) => {
     switch (sourceType) {
+      case 'contact':
+        return <Users className="w-4 h-4 text-indigo-600" />;
       case 'customer':
         return <User className="w-4 h-4 text-blue-600" />;
       case 'supplier':
@@ -95,6 +104,8 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
 
   const getSourceBadgeColor = (sourceType) => {
     switch (sourceType) {
+      case 'contact':
+        return 'bg-indigo-100 text-indigo-700';
       case 'customer':
         return 'bg-blue-100 text-blue-700';
       case 'supplier':
@@ -191,7 +202,7 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
           ) : (
             <div>
               {/* Grouped by source type */}
-              {['category', 'customer', 'supplier','salesman', 'recent'].map(sourceType => {
+              {['contact', 'category', 'customer', 'supplier','salesman', 'recent'].map(sourceType => {
                 const groupParties = displayParties.filter(p => p.source_type === sourceType);
                 if (groupParties.length === 0) return null;
 
@@ -199,7 +210,8 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
                   <div key={sourceType}>
                     <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
                       <span className="text-xs font-medium text-gray-600 uppercase">
-                        {sourceType === 'category' ? 'Categories' :
+                        {sourceType === 'contact' ? 'Contacts' :
+                         sourceType === 'category' ? 'Categories' :
                          sourceType === 'customer' ? 'Customers' :
                          sourceType === 'supplier' ? 'Suppliers' :
                          sourceType === 'salesman' ? 'Salesmen' :

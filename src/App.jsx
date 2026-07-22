@@ -40,7 +40,8 @@ import CreditDebitNoteEdit from "./components/CreditDebitNoteEdit";
 import BranchGoDown from "./components/BranchGoDown";
 import DynamicReports from "./components/DynamicReports";
 import Settings from "./components/Settings";
- 
+import Contacts from "./components/Contacts";
+import AccountGroups from "./components/AccountGroups";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
@@ -138,6 +139,8 @@ const App = () => {
                 <Route path="/coming-soon2" element={<ComingSoon />} />
                 <Route path="/contact" element={<Contactus />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/contacts" element={<Contacts />} />
+                <Route path="/account-groups" element={<AccountGroups />} />
               </Routes> 
             </Layout>
 

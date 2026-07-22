@@ -4,138 +4,114 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
     const db = getDb();
     
     try {
-      // 1. REVENUE (Total Sales)
-      const salesData = db.prepare(`
-        SELECT 
-          COALESCE(SUM(s.total_amount), 0) as total_revenue,
-          COALESCE(SUM(s.cgst_total + s.sgst_total), 0) as total_gst
-        FROM sales s
-        WHERE --s.sale_date BETWEEN ? AND ? AND 
-        (s.status_code = 0 OR s.status_code IS NULL)
-      `).get(
-// startDate, endDate
-
-      );
-
-      const revenue = salesData.total_revenue || 0;
-
-      // 2. COST OF GOODS SOLD - Use faster aggregate method
-      // Use pre-calculated cost allocations where available
-      const totalCOGS = db.prepare(`
-        SELECT COALESCE(SUM(sica.cost_amount), 0) as total_cost
-        FROM sale_item_cost_allocation sica
-        JOIN sale_items si ON sica.sale_item_id = si.id
-        JOIN sales s ON si.sale_id = s.id
-        WHERE --s.sale_date BETWEEN ? AND ? AND
-         (s.status_code = 0 OR s.status_code IS NULL)
-      `).get(
-
-        // startDate, endDate
-      );
-
-      let finalCOGS = totalCOGS.total_cost || 0;
-
-      // 3. If no allocations exist, use Opening + Purchases - Closing method
-      if (finalCOGS === 0) {
-        const openingStockValue = db.prepare(`
-          SELECT COALESCE(SUM(opening_amount), 0) as total
-          FROM opening_stock
-         -- WHERE opening_date BETWEEN ? AND ?
-        `).get(
-
-          //startDate, endDate
-        );
-
-        const purchasesValue = db.prepare(`
-          SELECT COALESCE(SUM(total_amount), 0) - COALESCE(SUM(cgst_total + sgst_total), 0) as total
-          FROM purchases
-          WHERE -- purchase_date BETWEEN ? AND ? AND
-           (status_code = 0 OR status_code IS NULL)
-        `).get(
-
-          //startDate, endDate
-        );
-
-        const closingStockValue = db.prepare(`
-          SELECT COALESCE(SUM(current_stock * purchase_rate), 0) as total
-          FROM items
-          WHERE (status_code = 0 OR status_code IS NULL)
-        `).get();
-
-        finalCOGS = (openingStockValue.total || 0) + (purchasesValue.total || 0) - (closingStockValue.total || 0);
+      let dateFilter = '';
+      const params = [];
+      if (startDate && endDate) {
+        dateFilter = 'AND t.transaction_date BETWEEN ? AND ?';
+        params.push(startDate, endDate);
       }
 
-      // Get stock values for display
-      const openingStockValue = db.prepare(`
-        SELECT COALESCE(SUM(opening_amount), 0) as total
-        FROM opening_stock
-         --WHERE opening_date BETWEEN ? AND ? 
-        `).get(
-          //startDate, endDate
-        );
+      // Helper to get balance for an account group (direct + child contacts)
+      // Normal balance for Income is Credit
+      // Normal balance for Expense is Debit
+      const getGroupBalance = (groupId, isCreditNormal) => {
+        const result = db.prepare(`
+          SELECT SUM(tl.debit) as dr, SUM(tl.credit) as cr
+          FROM transaction_lines tl
+          JOIN transactions t ON tl.transaction_id = t.id
+          WHERE t.is_deleted = 0 ${dateFilter}
+          AND (
+            (tl.ledger_type = 'account_group' AND tl.ledger_id = ?)
+            OR 
+            (tl.ledger_type = 'contact' AND tl.ledger_id IN (SELECT id FROM contacts WHERE account_group_id = ?))
+          )
+        `).get(groupId, groupId, ...params, ...params);
+        
+        const dr = result.dr || 0;
+        const cr = result.cr || 0;
+        return isCreditNormal ? (cr - dr) : (dr - cr);
+      };
 
-      const purchasesValue = db.prepare(`
-        SELECT COALESCE(SUM(total_amount), 0)  - COALESCE(SUM(cgst_total + sgst_total), 0) as total
-        FROM purchases
-        WHERE -- purchase_date BETWEEN ? AND ? AND 
-         (status_code = 0 OR status_code IS NULL)
-      `).get(
-        //startDate, endDate
-      );
+      // 1. REVENUE (Sales Accounts - Group 17)
+      const revenue = getGroupBalance(17, true);
 
+      // 2. OTHER INCOME (Direct & Indirect Income - Groups 18, 19)
+      const directIncome = getGroupBalance(18, true);
+      const indirectIncome = getGroupBalance(19, true);
+      const otherIncome = directIncome + indirectIncome;
+
+      // 3. COST OF GOODS SOLD (Purchase Accounts - Group 20)
+      const purchases = getGroupBalance(20, false);
+      
+      // Note: In a fully integrated system, closing stock is passed via journal entry.
+      // If we don't have stock journal entries yet, we might still need to calculate it manually.
+      // For now, let's get the physical stock value for COGS adjustment.
       const closingStockValue = db.prepare(`
         SELECT COALESCE(SUM(current_stock * purchase_rate), 0) as total
         FROM items
         WHERE (status_code = 0 OR status_code IS NULL)
-      `).get();
+      `).get().total || 0;
+
+      // Assuming opening stock is in Group 15 (Stock-in-Hand) but let's query the legacy table if needed
+      const openingStockValue = db.prepare(`
+        SELECT COALESCE(SUM(opening_amount), 0) as total
+        FROM opening_stock
+      `).get().total || 0;
+
+      const cogs = openingStockValue + purchases - closingStockValue;
 
       // 4. GROSS PROFIT
-      const grossProfit = revenue - finalCOGS;
+      const grossProfit = revenue - cogs;
 
-      // 5. OPERATING EXPENSES - Optimized query
+      // 5. EXPENSES (Direct 21, Indirect 22)
+      // We also want a breakdown of expenses by category (sub-groups or contacts under these)
       const expenseCategories = db.prepare(`
         SELECT 
-          COALESCE(tc.category_name, bt.party_name, 'Miscellaneous') as name,
-          COALESCE(SUM(bt.amount), 0) as amount
-        FROM bank_transactions bt
-        LEFT JOIN transaction_categories tc ON bt.party_name = tc.category_name
-        WHERE bt.voucher_type = 'Payment'
-        --AND bt.transaction_date BETWEEN ? AND ?
-        AND (bt.status_code = 0 OR bt.status_code IS NULL)
-        GROUP BY name
+          ag.name,
+          SUM(tl.debit) - SUM(tl.credit) as amount
+        FROM transaction_lines tl
+        JOIN transactions t ON tl.transaction_id = t.id
+        JOIN account_groups ag ON tl.ledger_type = 'account_group' AND tl.ledger_id = ag.id
+        WHERE t.is_deleted = 0 ${dateFilter}
+        AND ag.master_account_id = 4 -- Expenses
+        GROUP BY ag.id
         HAVING amount > 0
         ORDER BY amount DESC
-      `).all(
-        //startDate, endDate
-      );
+      `).all(...params);
 
-      const totalExpenses = expenseCategories.reduce((sum, cat) => sum + (cat.amount || 0), 0);
+      // Add contact-level expenses (e.g. specific employee salary under indirect expenses)
+      const contactExpenses = db.prepare(`
+        SELECT 
+          c.name,
+          SUM(tl.debit) - SUM(tl.credit) as amount
+        FROM transaction_lines tl
+        JOIN transactions t ON tl.transaction_id = t.id
+        JOIN contacts c ON tl.ledger_type = 'contact' AND tl.ledger_id = c.id
+        JOIN account_groups ag ON c.account_group_id = ag.id
+        WHERE t.is_deleted = 0 ${dateFilter}
+        AND ag.master_account_id = 4
+        GROUP BY c.id
+        HAVING amount > 0
+        ORDER BY amount DESC
+      `).all(...params);
 
-      // 6. OTHER INCOME
-      const otherIncome = db.prepare(`
-        SELECT COALESCE(SUM(amount), 0) as total
-        FROM bank_transactions
-        WHERE voucher_type = 'Receipt'
-       -- AND transaction_date BETWEEN ? AND ?
-        AND (status_code = 0 OR status_code IS NULL)
-      `).get(
-        //startDate, endDate
-      );
+      const combinedExpenses = [...expenseCategories, ...contactExpenses].sort((a, b) => b.amount - a.amount);
+      const totalExpenses = combinedExpenses.reduce((sum, cat) => sum + cat.amount, 0);
 
       // 7. NET PROFIT
-      const netProfit = grossProfit - totalExpenses + (otherIncome.total || 0);
+      const netProfit = grossProfit - totalExpenses + otherIncome;
 
       return {
-        revenue: revenue,
-        cogs: finalCOGS,
-        grossProfit: grossProfit,
+        revenue,
+        cogs,
+        grossProfit,
         expenses: totalExpenses,
-        netProfit: netProfit,
-        expenseCategories: expenseCategories,
-        otherIncome: otherIncome.total || 0,
-        openingStock: openingStockValue.total || 0,
-        purchases: purchasesValue.total || 0,
-        closingStock: closingStockValue.total || 0
+        netProfit,
+        expenseCategories: combinedExpenses,
+        otherIncome,
+        openingStock: openingStockValue,
+        purchases,
+        closingStock: closingStockValue
       };
 
     } catch (error) {
@@ -148,89 +124,104 @@ export function registerFinancialReportsHandlers({ ipcMain, getDb }) {
     const db = getDb();
     
     try {
-      // Optimized balance sheet queries with proper indexing
-      const cashAndBank = db.prepare(`
-        SELECT COALESCE(SUM(current_balance), 0) as total
-        FROM bank_accounts
-        WHERE is_active = 1
-        AND (status_code = 0 OR status_code IS NULL)
-      `).get();
+      let dateFilter = asOfDate ? 'AND t.transaction_date <= ?' : '';
+      const params = asOfDate ? [asOfDate] : [];
 
-      const accountsReceivable = db.prepare(`
-        SELECT COALESCE(SUM(total_amount), 0) as total
-        FROM sales
-        WHERE is_paid = 0
-        AND sale_date <= ?
-        AND (status_code = 0 OR status_code IS NULL)
-      `).get(asOfDate);
+      // Helper to get total balance of a master account
+      const getMasterBalance = (masterId, isDebitNormal) => {
+        // Includes account_groups, contacts, and bank_accounts
+        const result = db.prepare(`
+          SELECT 
+            SUM(tl.debit) as dr, SUM(tl.credit) as cr
+          FROM transaction_lines tl
+          JOIN transactions t ON tl.transaction_id = t.id
+          WHERE t.is_deleted = 0 ${dateFilter}
+          AND (
+            (tl.ledger_type = 'account_group' AND tl.ledger_id IN (SELECT id FROM account_groups WHERE master_account_id = ?))
+            OR
+            (tl.ledger_type = 'contact' AND tl.ledger_id IN (SELECT c.id FROM contacts c JOIN account_groups ag ON c.account_group_id = ag.id WHERE ag.master_account_id = ?))
+            OR
+            (tl.ledger_type = 'bank_account' AND 2 = ?) -- Bank accounts are Assets (Master ID 2)
+          )
+        `).get(masterId, masterId, masterId, ...params, ...params, ...params);
+        
+        const dr = result.dr || 0;
+        const cr = result.cr || 0;
+        return isDebitNormal ? (dr - cr) : (cr - dr);
+      };
+
+      // Assets (Master 2)
+      const cashAndBank = db.prepare(`
+        SELECT COALESCE(SUM(current_balance), 0) as total FROM bank_accounts WHERE is_active = 1
+      `).get().total || 0;
+
+      // Accounts Receivable (Sundry Debtors - Group 13)
+      const accountsReceivableData = db.prepare(`
+        SELECT SUM(tl.debit) - SUM(tl.credit) as total
+        FROM transaction_lines tl
+        JOIN transactions t ON tl.transaction_id = t.id
+        WHERE t.is_deleted = 0 ${dateFilter}
+        AND tl.ledger_type = 'contact' 
+        AND tl.ledger_id IN (SELECT id FROM contacts WHERE account_group_id = 13)
+      `).get(...params);
+      const accountsReceivable = accountsReceivableData.total || 0;
 
       const inventory = db.prepare(`
         SELECT COALESCE(SUM(current_stock * purchase_rate), 0) as total
-        FROM items
-        WHERE (status_code = 0 OR status_code IS NULL)
-      `).get();
+        FROM items WHERE (status_code = 0 OR status_code IS NULL)
+      `).get().total || 0;
 
-      const currentAssets = (cashAndBank.total || 0) + (accountsReceivable.total || 0) + (inventory.total || 0);
-      const fixedAssets = 0;
+      const currentAssets = cashAndBank + accountsReceivable + inventory;
+      const fixedAssets = 0; // Can query Fixed Assets group if needed
       const totalAssets = currentAssets + fixedAssets;
 
-      const accountsPayable = db.prepare(`
-        SELECT COALESCE(SUM(total_amount), 0) as total
-        FROM purchases
-        WHERE is_paid = 0
-        AND purchase_date <= ?
-        AND (status_code = 0 OR status_code IS NULL)
-      `).get(asOfDate);
+      // Liabilities (Master 1)
+      // Accounts Payable (Sundry Creditors - Group 5)
+      const accountsPayableData = db.prepare(`
+        SELECT SUM(tl.credit) - SUM(tl.debit) as total
+        FROM transaction_lines tl
+        JOIN transactions t ON tl.transaction_id = t.id
+        WHERE t.is_deleted = 0 ${dateFilter}
+        AND tl.ledger_type = 'contact' 
+        AND tl.ledger_id IN (SELECT id FROM contacts WHERE account_group_id = 5)
+      `).get(...params);
+      const accountsPayable = accountsPayableData.total || 0;
 
-      const shortTermDebt = 0;
-      const currentLiabilities = (accountsPayable.total || 0) + shortTermDebt;
+      const currentLiabilities = accountsPayable;
       const longTermLiabilities = 0;
       const totalLiabilities = currentLiabilities + longTermLiabilities;
 
-      // Simplified profit calculation
-      const profitData = db.prepare(`
-        SELECT 
-          COALESCE(SUM(CASE WHEN s.sale_date <= ? THEN s.total_amount ELSE 0 END), 0) as total_sales,
-          COALESCE(SUM(CASE WHEN p.purchase_date <= ? THEN p.total_amount ELSE 0 END), 0) as total_purchases
-        FROM 
-          (SELECT 1) dummy
-        LEFT JOIN sales s ON (s.status_code = 0 OR s.status_code IS NULL)
-        LEFT JOIN purchases p ON (p.status_code = 0 OR p.status_code IS NULL)
-      `).get(asOfDate, asOfDate);
-
-      const totalExpenses = db.prepare(`
-        SELECT COALESCE(SUM(amount), 0) as total
-        FROM bank_transactions
-        WHERE voucher_type = 'Payment'
-        AND transaction_date <= ?
-        AND (status_code = 0 OR status_code IS NULL)
-      `).get(asOfDate);
-
-      const calculatedProfit = (profitData.total_sales || 0) - 
-                               (profitData.total_purchases || 0) - 
-                               (totalExpenses.total || 0);
+      // Calculate Profit to balance the sheet (Income - Expenses)
+      const totalIncome = getMasterBalance(3, false); // Income normal is Credit
+      const totalExpenses = getMasterBalance(4, true); // Expense normal is Debit
+      
+      // Adjust for inventory change (Closing - Opening) since it affects profit but isn't journaled yet
+      const openingStockValue = db.prepare(`SELECT COALESCE(SUM(opening_amount), 0) as total FROM opening_stock`).get().total || 0;
+      const inventoryAdjustment = inventory - openingStockValue;
+      
+      const calculatedProfit = (totalIncome - totalExpenses) + inventoryAdjustment;
 
       const capital = totalAssets - totalLiabilities - calculatedProfit;
       const equity = capital + calculatedProfit;
 
       return {
-        cash: cashAndBank.total || 0,
-        accountsReceivable: accountsReceivable.total || 0,
-        inventory: inventory.total || 0,
-        currentAssets: currentAssets,
+        cash: cashAndBank,
+        accountsReceivable,
+        inventory,
+        currentAssets,
         propertyEquipment: fixedAssets,
         depreciation: 0,
-        fixedAssets: fixedAssets,
-        totalAssets: totalAssets,
-        accountsPayable: accountsPayable.total || 0,
-        shortTermDebt: shortTermDebt,
-        currentLiabilities: currentLiabilities,
+        fixedAssets,
+        totalAssets,
+        accountsPayable,
+        shortTermDebt: 0,
+        currentLiabilities,
         longTermDebt: longTermLiabilities,
-        longTermLiabilities: longTermLiabilities,
-        totalLiabilities: totalLiabilities,
-        capital: capital,
+        longTermLiabilities,
+        totalLiabilities,
+        capital,
         retainedEarnings: calculatedProfit,
-        equity: equity,
+        equity,
         totalLiabilitiesAndEquity: totalLiabilities + equity
       };
 
