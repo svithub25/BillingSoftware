@@ -9,17 +9,24 @@ const ITEMS_PER_SINGLE_PAGE = 10;   // Single page has addresses + totals, max 8
 const ITEMS_PER_PAGE = 15;         // Multi-page invoices: 15 items per middle page
 const ITEMS_LAST_PAGE = 12;        // Last page max 12 items (has totals section)
 
-// ============================================================
-// COMPACT BLACK & WHITE INVOICE - PAGINATED
-// ============================================================
- 
+const theme = {
+  primary: '#042040',   // Deep Navy Blue
+  accent: '#b98f3b',    // Gold
+  bg: '#ffffffff',        // Off-white
+  textSecondary: '#677688', // Slate Gray
+  borderLight: '#a7b3c2', // Light Gray-blue
+  borderDark: '#35465b',  // Muted Navy
+  white: '#ffffff'
+};
+
 const styles = StyleSheet.create({
   page: {
     padding: 25,
     paddingBottom: 135,
     fontSize: 10,
-    fontFamily: 'Helvetica', 
-    backgroundColor: '#ffffff',
+    fontFamily: 'Helvetica',
+    backgroundColor: theme.bg,
+    color: theme.primary,
   },
 
   // Header
@@ -29,7 +36,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingBottom: 6,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.accent,
   },
   brandArea: {
     flexDirection: 'row',
@@ -53,10 +60,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
+    color: theme.primary,
   },
   brandContact: {
     fontSize: 10,
     lineHeight: 1.3,
+    color: theme.textSecondary,
   },
   invoiceTitleArea: {
     alignItems: 'flex-end',
@@ -65,6 +74,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 3,
+    color: theme.accent,
   },
   invoiceInfoRow: {
     flexDirection: 'row',
@@ -75,12 +85,14 @@ const styles = StyleSheet.create({
     width: 60,
     textAlign: 'right',
     marginRight: 6,
+    color: theme.textSecondary,
   },
   invoiceInfoValue: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     width: 80,
     textAlign: 'right',
+    color: theme.primary,
   },
 
   // Parties Section
@@ -93,7 +105,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
   },
   partyLabel: {
     fontSize: 9,
@@ -101,22 +115,26 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 3,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderLight,
     paddingBottom: 2,
+    color: theme.accent,
   },
   partyName: {
     fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
+    color: theme.primary,
   },
   partyText: {
     fontSize: 10,
     lineHeight: 1.3,
+    color: theme.textSecondary,
   },
   partyGstin: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     marginTop: 2,
+    color: theme.primary,
   },
 
   // Table
@@ -125,26 +143,31 @@ const styles = StyleSheet.create({
   },
   tableHead: {
     flexDirection: 'row',
-    backgroundColor: '#000000',
+    backgroundColor: theme.primary,
     paddingVertical: 8,
     paddingHorizontal: 6,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
   tableHeadCell: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
-    color: '#ffffff',
+    color: theme.white,
   },
   tableBody: {
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: '#000000',
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
   },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderLight,
   },
   tableRowLast: {
     flexDirection: 'row',
@@ -153,10 +176,12 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     fontSize: 10,
+    color: theme.primary,
   },
   tableCellBold: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
+    color: theme.primary,
   },
   colNum: { width: '6%', textAlign: 'center' },
   colItem: { width: '46%', paddingRight: 6 },
@@ -179,18 +204,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 4,
+    color: theme.textSecondary,
   },
   amountWordsText: {
     fontSize: 10,
     fontStyle: 'italic',
     padding: 8,
-    borderWidth: 0.5,
-    borderColor: '#000000',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
+    color: theme.primary,
   },
   totalsCard: {
     width: 200,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
   },
   totalsRow: {
     flexDirection: 'row',
@@ -198,49 +229,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderLight,
   },
   totalsLabel: {
     fontSize: 10,
+    color: theme.textSecondary,
   },
   totalsValue: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
+    color: theme.primary,
   },
   totalsFinal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#000000',
+    backgroundColor: theme.accent,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
   },
   totalsFinalLabel: {
     fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    color: '#ffffff',
+    color: theme.white,
   },
   totalsFinalValue: {
     fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    color: '#ffffff',
+    color: theme.white,
   },
 
   // Remarks
   remarksBox: {
     padding: 10,
     marginBottom: 12,
-    borderWidth: 0.5,
-    borderColor: '#000000',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
   },
   remarksLabel: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 4,
+    color: theme.textSecondary,
   },
   remarksText: {
     fontSize: 10,
     lineHeight: 1.4,
+    color: theme.primary,
   },
 
   // Footer - fixed at bottom
@@ -250,7 +289,7 @@ const styles = StyleSheet.create({
     left: 25,
     right: 25,
     borderTopWidth: 1.5,
-    borderTopColor: '#000000',
+    borderTopColor: theme.accent,
     paddingTop: 6,
   },
   footerGrid: {
@@ -270,18 +309,20 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginTop: 2,
     textAlign: 'center',
+    color: theme.textSecondary,
   },
   bankArea: {
     flex: 1,
     paddingHorizontal: 12,
-    borderLeftWidth: 0.5,
-    borderLeftColor: '#000000',
+    borderLeftWidth: 1,
+    borderLeftColor: theme.borderLight,
   },
   bankTitle: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 3,
+    color: theme.accent,
   },
   bankLine: {
     flexDirection: 'row',
@@ -290,27 +331,31 @@ const styles = StyleSheet.create({
   bankLabel: {
     fontSize: 9,
     width: 50,
+    color: theme.textSecondary,
   },
   bankValue: {
     fontSize: 9,
     flex: 1,
+    color: theme.primary,
   },
   termsArea: {
     flex: 1.2,
     paddingLeft: 12,
-    borderLeftWidth: 0.5,
-    borderLeftColor: '#000000',
+    borderLeftWidth: 1,
+    borderLeftColor: theme.borderLight,
   },
   termsTitle: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 3,
+    color: theme.accent,
   },
   termLine: {
     fontSize: 9,
     marginBottom: 2,
     lineHeight: 1.3,
+    color: theme.textSecondary,
   },
   signatureArea: {
     flexDirection: 'row',
@@ -324,12 +369,13 @@ const styles = StyleSheet.create({
   signatureLine: {
     width: '100%',
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderDark,
     marginBottom: 2,
     height: 22,
   },
   signatureLabel: {
     fontSize: 9,
+    color: theme.textSecondary,
   },
   footerNote: {
     textAlign: 'center',
@@ -339,22 +385,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
+    color: theme.primary,
   },
   footerNoteSub: {
     fontSize: 9,
     fontStyle: 'italic',
+    color: theme.textSecondary,
   },
   pageNumber: {
     fontSize: 10,
     textAlign: 'center',
     marginTop: 3,
     fontFamily: 'Helvetica-Bold',
+    color: theme.textSecondary,
   },
   continuedNote: {
     fontSize: 10,
     textAlign: 'right',
     fontStyle: 'italic',
     marginTop: 6,
+    color: theme.textSecondary,
   },
 });
 
@@ -819,4 +869,3 @@ const BillPDF = ({
 };
 
 export default BillPDF;
- 

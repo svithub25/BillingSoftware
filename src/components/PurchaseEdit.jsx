@@ -192,6 +192,8 @@ const getFilteredItems = (search) =>
     const updatedItems = [...purchaseForm.items];
     updatedItems[rowIdx].id = item.id;
     updatedItems[rowIdx].gst_percentage = item.gst_percentage;
+    updatedItems[rowIdx].unit_price = item.purchase_rate || 0;
+    updatedItems[rowIdx].mrp = item.mrp || 0;
     setPurchaseForm({ ...purchaseForm, items: updatedItems });
     setItemSearch(search => ({ ...search, [rowIdx]: item.name }));
     setShowItemList(list => ({ ...list, [rowIdx]: false }));
@@ -318,7 +320,8 @@ const getFilteredItems = (search) =>
         gst_percentage: gstRate,
         cgst_amount: cgstAmount,
         sgst_amount: sgstAmount,
-        total_price: totalPrice
+        total_price: totalPrice,
+        mrp: item.mrp || 0
       };
     });
 
@@ -502,6 +505,9 @@ const getFilteredItems = (search) =>
                                   if (match) {
                                     const updatedItems = [...purchaseForm.items];
                                     updatedItems[index].id = match.id;
+                                    updatedItems[index].gst_percentage = match.gst_percentage;
+                                    updatedItems[index].unit_price = match.purchase_rate || 0;
+                                    updatedItems[index].mrp = match.mrp || 0;
                                     setPurchaseForm({ ...purchaseForm, items: updatedItems });
                                   }
                                 } else {

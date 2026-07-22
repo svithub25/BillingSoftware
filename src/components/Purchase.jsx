@@ -768,6 +768,8 @@ console.log('Purchase saved successfully',purchaseForm);
                                   if (match) {
                                     const updatedItems = [...purchaseForm.items];
                                     updatedItems[index].id = match.id;
+                                    updatedItems[index].unit_price = match.purchase_rate || 0;
+                                    updatedItems[index].mrp = match.mrp || 0;
                                     setPurchaseForm({ ...purchaseForm, items: updatedItems });
                                   }
                                 } else {

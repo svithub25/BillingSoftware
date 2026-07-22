@@ -171,7 +171,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
   ipcMain.handle('delete-bill', async (event, billId) => {
     const db = getDb();
     const saleItems = db.prepare(
-      'SELECT item_id, quantity FROM sale_items WHERE sale_id = ? AND (status_code = 0 OR status_code IS NULL)'
+      'SELECT id, item_id, quantity FROM sale_items WHERE sale_id = ? AND (status_code = 0 OR status_code IS NULL)'
     ).all(billId);
 
     // Get default godown ID
@@ -194,6 +194,22 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
             updated_at = CURRENT_TIMESTAMP
         `).run(item.item_id, defaultGodownId, item.quantity, item.quantity);
       }
+
+      // Restore batch quantities
+      const oldAllocations = db.prepare(`
+        SELECT sica.*, ib.id as batch_id
+        FROM sale_item_cost_allocation sica
+        LEFT JOIN purchase_items pi ON sica.purchase_item_id = pi.id
+        LEFT JOIN item_batches ib ON pi.id = ib.purchase_item_id
+        WHERE sica.sale_item_id = ?
+      `).all(item.id);
+
+      oldAllocations.forEach(alloc => {
+        if (alloc.batch_id) {
+          db.prepare('UPDATE item_batches SET qty_available = qty_available + ? WHERE id = ?')
+            .run(alloc.quantity_allocated, alloc.batch_id);
+        }
+      });
     });
 
     db.prepare('UPDATE sales SET status_code = 1 WHERE id = ?').run(billId);
@@ -297,95 +313,38 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         newMap[item.id] = item;
       });
 
-      // Restore stock for removed or modified items
+      // Restore stock for ALL old items completely, as we will re-insert and re-deduct them below
       for (const oldItem of oldItems) {
-        const newItem = newMap[oldItem.item_id];
+        // Restore global stock
+        db.prepare('UPDATE items SET current_stock = current_stock + ? WHERE id = ?')
+          .run(oldItem.quantity, oldItem.item_id);
         
-        if (!newItem) {
-          // Item completely removed - restore all stock
-          db.prepare('UPDATE items SET current_stock = current_stock + ? WHERE id = ?')
-            .run(oldItem.quantity, oldItem.item_id);
-          
-          // Restore location stock
-          db.prepare(`
-            INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT(item_id, godown_id) DO UPDATE SET
-              current_stock = current_stock + excluded.current_stock,
-              available_stock = available_stock + excluded.available_stock,
-              last_movement_date = CURRENT_TIMESTAMP,
-              updated_at = CURRENT_TIMESTAMP
-          `).run(oldItem.item_id, defaultGodownId, oldItem.quantity, oldItem.quantity);
+        // Restore location stock
+        db.prepare(`
+          INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(item_id, godown_id) DO UPDATE SET
+            current_stock = current_stock + excluded.current_stock,
+            available_stock = available_stock + excluded.available_stock,
+            last_movement_date = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        `).run(oldItem.item_id, defaultGodownId, oldItem.quantity, oldItem.quantity);
 
-          // Restore batch quantities if they exist
-          const oldAllocations = db.prepare(`
-            SELECT sica.*, ib.id as batch_id
-            FROM sale_item_cost_allocation sica
-            LEFT JOIN purchase_items pi ON sica.purchase_item_id = pi.id
-            LEFT JOIN item_batches ib ON pi.id = ib.purchase_item_id
-            WHERE sica.sale_item_id = ?
-          `).all(oldItem.id);
+        // Restore old batch quantities
+        const oldAllocations = db.prepare(`
+          SELECT sica.*, ib.id as batch_id
+          FROM sale_item_cost_allocation sica
+          LEFT JOIN purchase_items pi ON sica.purchase_item_id = pi.id
+          LEFT JOIN item_batches ib ON pi.id = ib.purchase_item_id
+          WHERE sica.sale_item_id = ?
+        `).all(oldItem.id);
 
-          oldAllocations.forEach(alloc => {
-            if (alloc.batch_id) {
-              db.prepare('UPDATE item_batches SET qty_available = qty_available + ? WHERE id = ?')
-                .run(alloc.quantity_allocated, alloc.batch_id);
-            }
-          });
-
-        } else if (parseFloat(newItem.quantity) !== parseFloat(oldItem.quantity)) {
-          // Quantity changed - adjust stock
-          const qtyDiff = oldItem.quantity - parseFloat(newItem.quantity);
-          
-          db.prepare('UPDATE items SET current_stock = current_stock + ? WHERE id = ?')
-            .run(qtyDiff, oldItem.item_id);
-          
-          // Adjust location stock
-          db.prepare(`
-            INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT(item_id, godown_id) DO UPDATE SET
-              current_stock = current_stock + excluded.current_stock,
-              available_stock = available_stock + excluded.available_stock,
-              last_movement_date = CURRENT_TIMESTAMP,
-              updated_at = CURRENT_TIMESTAMP
-          `).run(oldItem.item_id, defaultGodownId, qtyDiff, qtyDiff);
-
-          // Restore old batch quantities
-          const oldAllocations = db.prepare(`
-            SELECT sica.*, ib.id as batch_id
-            FROM sale_item_cost_allocation sica
-            LEFT JOIN purchase_items pi ON sica.purchase_item_id = pi.id
-            LEFT JOIN item_batches ib ON pi.id = ib.purchase_item_id
-            WHERE sica.sale_item_id = ?
-          `).all(oldItem.id);
-
-          oldAllocations.forEach(alloc => {
-            if (alloc.batch_id) {
-              db.prepare('UPDATE item_batches SET qty_available = qty_available + ? WHERE id = ?')
-                .run(alloc.quantity_allocated, alloc.batch_id);
-            }
-          });
-        }
-      }
-
-      // Deduct stock for newly added items
-      for (const newItem of updatedSale.items) {
-        if (!oldMap[newItem.id]) {
-          db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?')
-            .run(parseFloat(newItem.quantity), newItem.id);
-          
-          // Deduct location stock
-          db.prepare(`
-            INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT(item_id, godown_id) DO UPDATE SET
-              current_stock = current_stock + excluded.current_stock,
-              available_stock = available_stock + excluded.available_stock,
-              last_movement_date = CURRENT_TIMESTAMP,
-              updated_at = CURRENT_TIMESTAMP
-          `).run(newItem.id, defaultGodownId, -parseFloat(newItem.quantity), -parseFloat(newItem.quantity));
-        }
+        oldAllocations.forEach(alloc => {
+          if (alloc.batch_id) {
+            db.prepare('UPDATE item_batches SET qty_available = qty_available + ? WHERE id = ?')
+              .run(alloc.quantity_allocated, alloc.batch_id);
+          }
+        });
       }
 
       // Update the sale header
@@ -444,16 +403,33 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       `);
 
       updatedSale.items.forEach((item) => {
+        const parsedQty = parseFloat(item.quantity);
+
         // Insert sale item
         const saleItemResult = saleItemStmt.run(
           saleId,
           item.id,
-          parseFloat(item.quantity),
+          parsedQty,
           parseFloat(item.unit_price),
           parseFloat(item.total_price),
           updatedSale.sale_type || 'customer'
         );
         const saleItemId = saleItemResult.lastInsertRowid;
+
+        // Deduct global stock
+        db.prepare('UPDATE items SET current_stock = current_stock - ? WHERE id = ?')
+          .run(parsedQty, item.id);
+        
+        // Deduct location stock
+        db.prepare(`
+          INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(item_id, godown_id) DO UPDATE SET
+            current_stock = current_stock + excluded.current_stock,
+            available_stock = available_stock + excluded.available_stock,
+            last_movement_date = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        `).run(item.id, defaultGodownId, -parsedQty, -parsedQty);
 
         // Insert batch allocations if present
         if (item.batches && Array.isArray(item.batches) && item.batches.length > 0) {
