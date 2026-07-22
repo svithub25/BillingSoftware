@@ -870,4 +870,19 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
   ipcMain.handle("generate-purchase-order-pdf", async (event, orderData) => {
     return { success: true, orderData };
   });
+
+  ipcMain.handle("get-pending-purchases", async (event, contactId) => {
+    return getDb()
+      .prepare(
+        `
+      SELECT id, invoice_number, purchase_date, total_amount, paid_amount, payment_status
+      FROM purchases
+      WHERE contact_id = ? 
+        AND payment_status != 'paid' 
+        AND (status_code = 0 OR status_code IS NULL)
+      ORDER BY purchase_date ASC
+    `,
+      )
+      .all(contactId);
+  });
 }

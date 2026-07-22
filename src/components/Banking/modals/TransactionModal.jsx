@@ -8,6 +8,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [pendingBills, setPendingBills] = useState([]);
+  const [billAdjustments, setBillAdjustments] = useState({});
 
   const [transactionForm, setTransactionForm] = useState({
     voucher_type: 'Payment',
@@ -62,6 +64,35 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
     }
   };
 
+  const fetchPendingBills = async (contactId, type) => {
+    try {
+      if (type === 'Receipt') {
+        const sales = await window.electronAPI.getPendingSales(contactId);
+        setPendingBills(sales || []);
+      } else if (type === 'Payment') {
+        const purchases = await window.electronAPI.getPendingPurchases(contactId);
+        setPendingBills(purchases || []);
+      } else {
+        setPendingBills([]);
+      }
+      setBillAdjustments({});
+    } catch (error) {
+      console.error('Error fetching pending bills:', error);
+      setPendingBills([]);
+    }
+  };
+
+  const handleAdjustmentChange = (billId, amount) => {
+    setBillAdjustments(prev => ({
+      ...prev,
+      [billId]: parseFloat(amount) || 0
+    }));
+  };
+
+  const calculateTotalAdjustment = () => {
+    return Object.values(billAdjustments).reduce((sum, amt) => sum + (amt || 0), 0);
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -89,6 +120,11 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
 
     if (transactionForm.cheque_number && !transactionForm.cheque_date) {
       newErrors.cheque_date = 'Cheque date is required when cheque number is provided';
+    }
+
+    const totalAdjusted = calculateTotalAdjustment();
+    if (totalAdjusted > 0 && totalAdjusted > parseFloat(transactionForm.amount || 0)) {
+      newErrors.amount = 'Adjusted amount cannot exceed total amount';
     }
 
     setErrors(newErrors);
@@ -126,11 +162,19 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
         // CREATE new transaction
         const voucherNumber = await window.electronAPI.generateVoucherNumber(transactionForm.voucher_type);
         
+        const adjustmentsToSave = Object.entries(billAdjustments)
+          .map(([id, amt]) => ({
+            [transactionForm.voucher_type === 'Receipt' ? 'invoice_id' : 'purchase_id']: parseInt(id),
+            adjusted_amount: amt
+          }))
+          .filter(adj => adj.adjusted_amount > 0);
+
         const result = await window.electronAPI.saveBankTransaction({
           ...transactionForm,
           amount: parseFloat(transactionForm.amount),
           voucher_number: voucherNumber,
-          created_by: 'admin'
+          created_by: 'admin',
+          billAdjustments: adjustmentsToSave
         });
         
         if (result.success) {
@@ -166,6 +210,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
     });
     setErrors({});
     setIsEditMode(false);
+    setPendingBills([]);
+    setBillAdjustments({});
     onClose();
   };
 
@@ -175,9 +221,13 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       voucher_type: type,
       category_type: type === 'Payment' ? 'Expense' : 'Income',
       party_name: '',
+      party_id: null,
+      party_type: 'contact',
       to_account_id: ''
     });
     setErrors({});
+    setPendingBills([]);
+    setBillAdjustments({});
   };
 
   if (!isOpen) return null;
@@ -309,7 +359,20 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                   </label>
                   <PartyComboBox
                     value={transactionForm.party_name}
-                    onChange={(value) => setTransactionForm({ ...transactionForm, party_name: value })}
+                    onChange={(value, party) => {
+                      setTransactionForm({ 
+                        ...transactionForm, 
+                        party_name: value, 
+                        party_id: party?.id || null, 
+                        party_type: party?.source_type || 'contact' 
+                      });
+                      if (party && party.source_type === 'contact') {
+                        fetchPendingBills(party.id, transactionForm.voucher_type);
+                      } else {
+                        setPendingBills([]);
+                        setBillAdjustments({});
+                      }
+                    }}
                     voucherType={transactionForm.voucher_type}
                     disabled={saving}
                     error={errors.party_name}
@@ -338,8 +401,48 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 )}
               </div>
 
-             
-             
+              {/* Bill Adjustments */}
+              {pendingBills.length > 0 && !isEditMode && (
+                <div className="col-span-2 mt-4 border rounded-lg p-4 bg-gray-50">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Adjust Against Pending Bills</h4>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {pendingBills.map(bill => {
+                      const balance = bill.total_amount - (bill.paid_amount || 0);
+                      return (
+                        <div key={bill.id} className="flex items-center justify-between bg-white p-3 rounded border">
+                          <div>
+                            <p className="font-medium text-sm text-gray-800">{bill.bill_number || bill.invoice_number}</p>
+                            <p className="text-xs text-gray-500">
+                              Date: {new Date(bill.sale_date || bill.purchase_date).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Balance: ₹{balance.toFixed(2)} (Total: ₹{bill.total_amount.toFixed(2)})
+                            </p>
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max={balance}
+                              value={billAdjustments[bill.id] || ''}
+                              onChange={(e) => handleAdjustmentChange(bill.id, e.target.value)}
+                              className="w-32 border rounded px-2 py-1 text-right focus:ring-2 focus:ring-blue-500"
+                              placeholder="Amount"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex justify-between items-center border-t pt-3">
+                    <span className="text-sm font-medium text-gray-700">Total Adjusted:</span>
+                    <span className={`text-sm font-bold ${calculateTotalAdjustment() > parseFloat(transactionForm.amount || 0) ? 'text-red-600' : 'text-green-600'}`}>
+                      ₹{calculateTotalAdjustment().toFixed(2)} / ₹{(parseFloat(transactionForm.amount) || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
               
               {/* Narration */}
               <div className="col-span-2">

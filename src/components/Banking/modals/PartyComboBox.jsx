@@ -55,7 +55,7 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
 
   const handleSearch = (searchValue) => {
     setSearchTerm(searchValue);
-    onChange(searchValue);
+    onChange(searchValue, null);
 
     if (!searchValue.trim()) {
       setFilteredParties(parties);
@@ -72,13 +72,13 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
 
   const handleSelectParty = (party) => {
     setSearchTerm(party.name);
-    onChange(party.name);
+    onChange(party.name, party);
     setShowDropdown(false);
   };
 
   const handleClear = () => {
     setSearchTerm('');
-    onChange('');
+    onChange('', null);
     setFilteredParties(parties);
     inputRef.current?.focus();
   };

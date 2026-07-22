@@ -264,6 +264,53 @@ export function registerBankingHandlers({ ipcMain, getDb }) {
         );
       }
       
+      // Handle Bill Adjustments
+      if (transactionData.billAdjustments && transactionData.billAdjustments.length > 0) {
+        const insertAdjustment = db.prepare(`
+          INSERT INTO bill_adjustments (transaction_id, invoice_id, purchase_id, adjusted_amount)
+          VALUES (?, ?, ?, ?)
+        `);
+        
+        const updateSale = db.prepare(`
+          UPDATE sales 
+          SET paid_amount = paid_amount + ?, 
+              payment_status = CASE 
+                WHEN paid_amount + ? >= total_amount THEN 'paid'
+                WHEN paid_amount + ? > 0 THEN 'partially_paid'
+                ELSE 'pending'
+              END
+          WHERE id = ?
+        `);
+
+        const updatePurchase = db.prepare(`
+          UPDATE purchases 
+          SET paid_amount = paid_amount + ?, 
+              payment_status = CASE 
+                WHEN paid_amount + ? >= total_amount THEN 'paid'
+                WHEN paid_amount + ? > 0 THEN 'partially_paid'
+                ELSE 'pending'
+              END
+          WHERE id = ?
+        `);
+
+        for (const adj of transactionData.billAdjustments) {
+          if (!adj.adjusted_amount || adj.adjusted_amount <= 0) continue;
+          
+          insertAdjustment.run(
+            transactionId, 
+            adj.invoice_id || null, 
+            adj.purchase_id || null, 
+            adj.adjusted_amount
+          );
+          
+          if (adj.invoice_id) {
+             updateSale.run(adj.adjusted_amount, adj.adjusted_amount, adj.adjusted_amount, adj.invoice_id);
+          } else if (adj.purchase_id) {
+             updatePurchase.run(adj.adjusted_amount, adj.adjusted_amount, adj.adjusted_amount, adj.purchase_id);
+          }
+        }
+      }
+      
       db.prepare('COMMIT').run();
       return { success: true, transactionId };
       
@@ -369,6 +416,41 @@ export function registerBankingHandlers({ ipcMain, getDb }) {
             db.prepare('UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?').run(line.credit, line.ledger_id);
          }
       }
+      
+      // Reverse bill adjustments
+      const adjustments = db.prepare('SELECT * FROM bill_adjustments WHERE transaction_id = ?').all(transactionId);
+      
+      const updateSale = db.prepare(`
+        UPDATE sales 
+        SET paid_amount = paid_amount - ?, 
+            payment_status = CASE 
+              WHEN paid_amount - ? >= total_amount THEN 'paid'
+              WHEN paid_amount - ? > 0 THEN 'partially_paid'
+              ELSE 'pending'
+            END
+        WHERE id = ?
+      `);
+
+      const updatePurchase = db.prepare(`
+        UPDATE purchases 
+        SET paid_amount = paid_amount - ?, 
+            payment_status = CASE 
+              WHEN paid_amount - ? >= total_amount THEN 'paid'
+              WHEN paid_amount - ? > 0 THEN 'partially_paid'
+              ELSE 'pending'
+            END
+        WHERE id = ?
+      `);
+
+      for (const adj of adjustments) {
+        if (adj.invoice_id) {
+           updateSale.run(adj.adjusted_amount, adj.adjusted_amount, adj.adjusted_amount, adj.invoice_id);
+        } else if (adj.purchase_id) {
+           updatePurchase.run(adj.adjusted_amount, adj.adjusted_amount, adj.adjusted_amount, adj.purchase_id);
+        }
+      }
+      
+      db.prepare('DELETE FROM bill_adjustments WHERE transaction_id = ?').run(transactionId);
       
       db.prepare('UPDATE transactions SET is_deleted = 1 WHERE id = ?').run(transactionId);
       

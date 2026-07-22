@@ -759,4 +759,18 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       )
       .all();
   });
+  ipcMain.handle("get-pending-sales", async (event, contactId) => {
+    return getDb()
+      .prepare(
+        `
+      SELECT id, bill_number, sale_date, total_amount, paid_amount, payment_status
+      FROM sales
+      WHERE contact_id = ? 
+        AND payment_status != 'paid' 
+        AND (status_code = 0 OR status_code IS NULL)
+      ORDER BY sale_date ASC
+    `,
+      )
+      .all(contactId);
+  });
 }

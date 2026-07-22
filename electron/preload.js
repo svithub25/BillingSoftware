@@ -76,7 +76,8 @@ const channelGroups = {
     updatePurchase: 'update-purchase',
     checkPurchaseEditStock: 'check-purchase-edit-stock',
     checkPurchaseDeleteStock: 'check-purchase-delete-stock',
-    deletePurchase: 'delete-purchase'
+    deletePurchase: 'delete-purchase',
+    getPendingPurchases: 'get-pending-purchases'
   },
   sales: {
     generateBillNumber: 'generate-bill-number',
@@ -90,6 +91,7 @@ const channelGroups = {
     getSalesHistory: 'get-sales-history',
     getSalePaymentForApproval: 'get-sale-payment-for-approval',
     getApprovalHistory: 'get-approval-history',
+    getPendingSales: 'get-pending-sales',
   },
   transactions: {
     getTransactions: 'get-transactions',

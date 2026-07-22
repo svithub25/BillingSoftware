@@ -5,6 +5,7 @@ import { migration_009_add_salesman_fields } from "./migrations/009_add_salesman
 import { migration_010_fixing_issue_batch_edit } from "./migrations/010_fixing_issue_batch_edit.js";
 import { migration_011_unified_accounting_migration } from "./migrations/011_unified_accounting_migration.js";
 import { migration_012_cleanup_legacy_schema } from "./migrations/012_cleanup_legacy_schema.js";
+import { migration_013_add_bill_adjustments } from "./migrations/013_add_bill_adjustments.js";
 
 const migrations = [
   migration_006_add_shipped_to_sales,
@@ -14,6 +15,7 @@ const migrations = [
   migration_010_fixing_issue_batch_edit,
   migration_011_unified_accounting_migration,
   migration_012_cleanup_legacy_schema,
+  migration_013_add_bill_adjustments,
 ];
 
 export function runMigrations(db) {

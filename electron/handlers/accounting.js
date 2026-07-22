@@ -79,6 +79,53 @@ export function registerAccountingHandlers({ ipcMain, getDb }) {
         );
       }
 
+      // 5. Handle Bill Adjustments
+      if (transactionData.billAdjustments && transactionData.billAdjustments.length > 0) {
+        const insertAdjustment = db.prepare(`
+          INSERT INTO bill_adjustments (transaction_id, invoice_id, purchase_id, adjusted_amount)
+          VALUES (?, ?, ?, ?)
+        `);
+        
+        const updateSale = db.prepare(`
+          UPDATE sales 
+          SET paid_amount = paid_amount + ?, 
+              payment_status = CASE 
+                WHEN paid_amount + ? >= total_amount THEN 'paid'
+                WHEN paid_amount + ? > 0 THEN 'partially_paid'
+                ELSE 'pending'
+              END
+          WHERE id = ?
+        `);
+
+        const updatePurchase = db.prepare(`
+          UPDATE purchases 
+          SET paid_amount = paid_amount + ?, 
+              payment_status = CASE 
+                WHEN paid_amount + ? >= total_amount THEN 'paid'
+                WHEN paid_amount + ? > 0 THEN 'partially_paid'
+                ELSE 'pending'
+              END
+          WHERE id = ?
+        `);
+
+        for (const adj of transactionData.billAdjustments) {
+          if (!adj.adjusted_amount || adj.adjusted_amount <= 0) continue;
+          
+          insertAdjustment.run(
+            transactionId, 
+            adj.invoice_id || null, 
+            adj.purchase_id || null, 
+            adj.adjusted_amount
+          );
+          
+          if (adj.invoice_id) {
+             updateSale.run(adj.adjusted_amount, adj.adjusted_amount, adj.adjusted_amount, adj.invoice_id);
+          } else if (adj.purchase_id) {
+             updatePurchase.run(adj.adjusted_amount, adj.adjusted_amount, adj.adjusted_amount, adj.purchase_id);
+          }
+        }
+      }
+
       return transactionId;
     });
 
