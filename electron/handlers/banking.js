@@ -217,6 +217,11 @@ export function registerBankingHandlers({ ipcMain, getDb }) {
          // Update bank balance (Cr decreases balance in Bank Accounts context here)
          db.prepare('UPDATE bank_accounts SET current_balance = current_balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
            .run(transactionData.amount, transactionData.bank_account_id);
+           
+         if (ledgerType === 'contact') {
+            db.prepare('UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?')
+              .run(transactionData.amount, ledgerId);
+         }
       } 
       else if (mappedVoucherType === 'receipt') {
          // Receipt: Bank Dr, Party/Income Cr
@@ -226,6 +231,11 @@ export function registerBankingHandlers({ ipcMain, getDb }) {
          // Update bank balance
          db.prepare('UPDATE bank_accounts SET current_balance = current_balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
            .run(transactionData.amount, transactionData.bank_account_id);
+           
+         if (ledgerType === 'contact') {
+            db.prepare('UPDATE contacts SET current_balance = current_balance - ? WHERE id = ?')
+              .run(transactionData.amount, ledgerId);
+         }
       }
       else if (mappedVoucherType === 'contra') {
          // Contra: Bank A Cr, Bank B Dr
@@ -344,6 +354,19 @@ export function registerBankingHandlers({ ipcMain, getDb }) {
          if (line.credit > 0) {
             // It was a Credit to bank (payment), so add back to reverse
             db.prepare('UPDATE bank_accounts SET current_balance = current_balance + ? WHERE id = ?').run(line.credit, line.ledger_id);
+         }
+      }
+
+      // Reverse contact balances
+      const contactLines = db.prepare("SELECT * FROM transaction_lines WHERE transaction_id = ? AND ledger_type = 'contact'").all(transactionId);
+      for (const line of contactLines) {
+         if (line.debit > 0) {
+            // It was a Debit to contact (payment), so subtract to reverse
+            db.prepare('UPDATE contacts SET current_balance = current_balance - ? WHERE id = ?').run(line.debit, line.ledger_id);
+         }
+         if (line.credit > 0) {
+            // It was a Credit to contact (receipt), so add back to reverse
+            db.prepare('UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?').run(line.credit, line.ledger_id);
          }
       }
       
