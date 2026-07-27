@@ -96,7 +96,8 @@ const Billing = () => {
   const [customerErrors, setCustomerErrors] = useState({});
 
   // Batch modal state
-  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null, isDuplicateRow: false });
+  const [duplicateItemModal, setDuplicateItemModal] = useState({ open: false, item: null, existingItem: null });
   const [selectedBatches, setSelectedBatches] = useState({}); // { [itemId]: [{batch, qty}] }
 
   const [previewCompanyInfo, setPreviewCompanyInfo] = useState(null);
@@ -299,30 +300,78 @@ const Billing = () => {
     return await window.electronAPI.getItemBatches(itemId);
   };
 
+  const getAdjustedStockForModal = (item, batches, excludeCartIdx = null) => {
+    let usedTotalQty = 0;
+    const usedBatchQty = {};
+
+    cart.forEach((c, idx) => {
+      if (c.id === item.id && (excludeCartIdx === null || idx !== excludeCartIdx)) {
+        const rowQty = parseInt(c.quantity) || 0;
+        usedTotalQty += rowQty;
+        if (c.batches && c.batches.length > 0) {
+          c.batches.forEach(b => {
+            const bKey = b.batch_id ? `${b.batch_id}` : (b.batch_number || 'No Batch');
+            usedBatchQty[bKey] = (usedBatchQty[bKey] || 0) + (parseInt(b.qty) || 0);
+          });
+        } else {
+          usedBatchQty['No Batch'] = (usedBatchQty['No Batch'] || 0) + rowQty;
+        }
+      }
+    });
+
+    const adjustedCurrentStock = Math.max(0, (parseInt(item.current_stock) || 0) - usedTotalQty);
+    const adjustedBatches = (batches || []).map(b => {
+      const bKey = b.id ? `${b.id}` : (b.batch_number || 'No Batch');
+      const origQty = parseInt(b.qty_available) || 0;
+      const used = usedBatchQty[bKey] || 0;
+      return {
+        ...b,
+        qty_available: Math.max(0, origQty - used)
+      };
+    });
+
+    return {
+      adjustedItem: { ...item, current_stock: adjustedCurrentStock },
+      adjustedBatches
+    };
+  };
+
   const addToCart = async (item) => {
     // Check if item already exists in cart
     const existingCartItem = cart.find(c => c.id === item.id);
     if (existingCartItem) {
-      // Reopen batch modal if item already in cart and has batches
-      if (existingCartItem.batches && existingCartItem.batches.length > 0) {
-        reopenBatchModal(existingCartItem);
-      } else {
-        // If no batches, just let user edit quantity directly
-        toast.info('Item already in cart. Update quantity in the cart.');
-      }
+      setDuplicateItemModal({ open: true, item, existingItem: existingCartItem });
       return;
     }
 
     const batches = await fetchItemBatches(item.id);
-    // Always open batch modal if batches exist OR if there's stock to manage
-    // This allows selecting from general stock even if no batch tracking exists
-    if (batches && batches.length > 0) {
-      setBatchModal({ open: true, item, batches, cartIdx: cart.length, existingSelections: null });
-    } else if (item.current_stock > 0) {
-      // No batches but has stock - still open modal to select general stock
-      setBatchModal({ open: true, item, batches: [], cartIdx: cart.length, existingSelections: null });
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
+    if (adjustedBatches && adjustedBatches.length > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: adjustedBatches, cartIdx: cart.length, existingSelections: null, isDuplicateRow: false });
+    } else if (adjustedItem.current_stock > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: [], cartIdx: cart.length, existingSelections: null, isDuplicateRow: false });
     } else {
-      // No stock at all
+      toast.error('Item is out of stock');
+    }
+  };
+
+  const proceedAddToCartAsNew = async (item) => {
+    setDuplicateItemModal({ open: false, item: null, existingItem: null });
+    const batches = await fetchItemBatches(item.id);
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
+    
+    const totalRemainingBatchStock = adjustedBatches.reduce((sum, b) => sum + (parseInt(b.qty_available) || 0), 0);
+    const hasRemainingStock = adjustedItem.current_stock > 0 || totalRemainingBatchStock > 0;
+    if (!hasRemainingStock) {
+      toast.error(`No remaining stock available for ${item.name}. All available stock is already in the cart.`);
+      return;
+    }
+
+    if (adjustedBatches && adjustedBatches.length > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: adjustedBatches, cartIdx: cart.length, existingSelections: null, isDuplicateRow: true });
+    } else if (adjustedItem.current_stock > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: [], cartIdx: cart.length, existingSelections: null, isDuplicateRow: true });
+    } else {
       toast.error('Item is out of stock');
     }
   };
@@ -331,7 +380,7 @@ const Billing = () => {
 
   // Handle batch selection and add to cart or update existing cart item
   const handleBatchSelection = (cartIdx, item, batchSelections) => {
-    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null, isDuplicateRow: false });
 
     // Group batch selections by rate (mrp)
     const rateGroups = {};
@@ -363,6 +412,7 @@ const Billing = () => {
           batch_id: b.batch ? b.batch.id : null,
           batch_number: b.batch ? b.batch.batch_number : 'No Batch',
           qty: b.qty,
+          qty_available: b.batch ? b.batch.qty_available : item.current_stock,
           mfg_date: b.batch ? b.batch.mfg_date : null,
           exp_date: b.batch ? b.batch.exp_date : null,
           purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
@@ -378,12 +428,12 @@ const Billing = () => {
       }
 
       newCartItems.forEach(newItem => {
-        const existingIdx = updatedCart.findIndex(c =>
+        const existingIdx = !batchModal.isDuplicateRow ? updatedCart.findIndex(c =>
           c.id === newItem.id &&
           Number(c.unit_price) === Number(newItem.unit_price) &&
           Number(c.discount || 0) === Number(newItem.discount || 0) &&
           (c.discount_type || 'percent') === (newItem.discount_type || 'percent')
-        );
+        ) : -1;
 
         if (existingIdx !== -1) {
           const existing = updatedCart[existingIdx];
@@ -413,16 +463,7 @@ const Billing = () => {
   };
 
   const addSplitRow = (item) => {
-    const newRow = {
-      ...item,
-      cart_id: `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      quantity: 1,
-      unit_price: 0,
-      discount: 0,
-      discount_type: 'percent',
-      batches: []
-    };
-    setCart(prev => [...prev, newRow]);
+    proceedAddToCartAsNew(item);
   };
 
   // Reopen batch modal to edit selections
@@ -435,13 +476,15 @@ const Billing = () => {
       })) || [];
 
       const cartIdx = cart.findIndex(c => getCartKey(c) === getCartKey(cartItem));
+      const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(cartItem, batches, cartIdx !== -1 ? cartIdx : null);
 
       setBatchModal({
         open: true,
-        item: cartItem,
-        batches,
+        item: adjustedItem,
+        batches: adjustedBatches,
         cartIdx: cartIdx !== -1 ? cartIdx : null,
-        existingSelections
+        existingSelections,
+        isDuplicateRow: false
       });
     }
   };
@@ -473,6 +516,18 @@ const Billing = () => {
     if (!newQuantity || newQuantity <= 0 || isNaN(newQuantity)) {
       removeFromCart(targetKey);
       return;
+    }
+    const targetItem = cart.find(item => getCartKey(item) === targetKey);
+    if (targetItem) {
+      const otherRowsQty = cart.reduce((sum, c) => (c.id === targetItem.id && getCartKey(c) !== targetKey) ? sum + (parseInt(c.quantity) || 0) : sum, 0);
+      const maxAllowed = Math.max(0, (parseInt(targetItem.current_stock) || 0) - otherRowsQty);
+      if (newQuantity > maxAllowed) {
+        toast.error(`Cannot exceed available stock (${maxAllowed} remaining)`);
+        if (maxAllowed <= 0) {
+          return;
+        }
+        newQuantity = maxAllowed;
+      }
     }
     setCart(cart.map(item =>
       getCartKey(item) === targetKey
@@ -551,11 +606,30 @@ const Billing = () => {
       return;
     }
 
-    // Stock validation
+    // Stock validation across all rows in cart
+    const itemQtyMap = {};
+    const batchQtyMap = {};
     for (const cartItem of filteredCart) {
-      if (parseInt(cartItem.quantity) > cartItem.current_stock) {
-        toast.error(`Insufficient stock for ${cartItem.name}. Available: ${cartItem.current_stock}`);
+      const qty = parseInt(cartItem.quantity) || 0;
+      itemQtyMap[cartItem.id] = (itemQtyMap[cartItem.id] || 0) + qty;
+      if (itemQtyMap[cartItem.id] > (cartItem.current_stock || 0)) {
+        toast.error(`Insufficient stock for ${cartItem.name}. Total in cart: ${itemQtyMap[cartItem.id]}, Available: ${cartItem.current_stock}`);
         return;
+      }
+
+      // Check batch quantities
+      if (cartItem.batches && cartItem.batches.length > 0) {
+        for (const b of cartItem.batches) {
+          if (b.batch_id) {
+            const bKey = `${cartItem.id}_${b.batch_id}`;
+            const bQty = parseInt(b.qty) || 0;
+            batchQtyMap[bKey] = (batchQtyMap[bKey] || 0) + bQty;
+            if (b.qty_available !== undefined && batchQtyMap[bKey] > b.qty_available) {
+              toast.error(`Insufficient stock for batch ${b.batch_number} of ${cartItem.name}. Total selected: ${batchQtyMap[bKey]}, Available: ${b.qty_available}`);
+              return;
+            }
+          }
+        }
       }
     }
     if (!customerInfo.id) {
@@ -1459,6 +1533,49 @@ const Billing = () => {
           setCustomerErrors({});
         }}
       />
+
+      {/* Duplicate Item Choice Modal */}
+      {duplicateItemModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Item Already in Bill</h3>
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-800">{duplicateItemModal.item?.name}</span> is already added to this bill. How would you like to proceed?
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const existing = duplicateItemModal.existingItem;
+                  setDuplicateItemModal({ open: false, item: null, existingItem: null });
+                  if (existing && existing.batches && existing.batches.length > 0) {
+                    reopenBatchModal(existing);
+                  } else {
+                    toast.info('Update quantity directly in the cart.');
+                  }
+                }}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow transition text-sm"
+              >
+                Modify Existing Row
+              </button>
+              <button
+                type="button"
+                onClick={() => proceedAddToCartAsNew(duplicateItemModal.item)}
+                className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg border border-gray-300 transition text-sm"
+              >
+                Add as New Row Below (Duplicate)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateItemModal({ open: false, item: null, existingItem: null })}
+                className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition mt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Batch Select Modal */}
       {batchModal.open && (

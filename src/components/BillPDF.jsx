@@ -811,8 +811,37 @@ const BillPDF = ({
     ? Math.min(subtotal, discount)
     : subtotal * (discount / 100);
 
+  // Group items by identical rate and discount for PDF rendering (don't show duplicate in PDF if rate and discount are same)
+  const groupedPdfItems = (() => {
+    const grouped = [];
+    (items || []).forEach(item => {
+      const rate = Number(item.unit_price || 0);
+      const disc = Number(item.discount || 0);
+      const discType = item.discount_type || 'percent';
+      const existing = grouped.find(g =>
+        (g.id && item.id ? g.id === item.id : g.name === item.name) &&
+        Math.abs(Number(g.unit_price || 0) - rate) < 0.001 &&
+        Math.abs(Number(g.discount || 0) - disc) < 0.001 &&
+        (g.discount_type || 'percent') === discType
+      );
+      if (existing) {
+        existing.quantity = Number(existing.quantity || 0) + Number(item.quantity || 0);
+        existing.total_price = Number(existing.total_price || 0) + Number(item.total_price || 0);
+        if (existing.cgst_amount !== undefined) existing.cgst_amount = Number(existing.cgst_amount || 0) + Number(item.cgst_amount || 0);
+        if (existing.sgst_amount !== undefined) existing.sgst_amount = Number(existing.sgst_amount || 0) + Number(item.sgst_amount || 0);
+        if (existing.discount_amount !== undefined) existing.discount_amount = Number(existing.discount_amount || 0) + Number(item.discount_amount || 0);
+        if (item.batches && existing.batches) {
+          existing.batches = [...existing.batches, ...item.batches];
+        }
+      } else {
+        grouped.push({ ...item, batches: item.batches ? [...item.batches] : [] });
+      }
+    });
+    return grouped;
+  })();
+
   // Paginate items
-  const itemPages = paginateItems(items);
+  const itemPages = paginateItems(groupedPdfItems);
   const totalPages = itemPages.length;
 
   // Calculate starting index for each page

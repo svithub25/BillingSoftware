@@ -70,7 +70,8 @@ const SaleEdit = () => {
   });
 
   // --- Batch modal state ---
-  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null, isDuplicateRow: false });
+  const [duplicateItemModal, setDuplicateItemModal] = useState({ open: false, item: null, existingItem: null });
   const [selectedBatches, setSelectedBatches] = useState({}); // { [itemId]: [{batch, qty}] }
 
   useEffect(() => {
@@ -169,27 +170,103 @@ const SaleEdit = () => {
   };
 
   // Update the addItemToSale function to always open batch modal
+  const getAdjustedStockForModal = (item, batches, excludeCartIdx = null) => {
+    const originalSaleItems = sale?.items?.filter(si => si.item_id === item.id) || [];
+    const originalTotalQty = originalSaleItems.reduce((sum, si) => sum + (parseInt(si.quantity) || 0), 0);
+    const originalBatchQtyMap = {};
+    originalSaleItems.forEach(si => {
+      if (si.batches && si.batches.length > 0) {
+        si.batches.forEach(b => {
+          const bKey = b.batch_id ? `${b.batch_id}` : (b.batch_number || 'No Batch');
+          originalBatchQtyMap[bKey] = (originalBatchQtyMap[bKey] || 0) + (parseInt(b.qty) || 0);
+        });
+      } else {
+        originalBatchQtyMap['No Batch'] = (originalBatchQtyMap['No Batch'] || 0) + (parseInt(si.quantity) || 0);
+      }
+    });
+
+    let usedTotalQty = 0;
+    const usedBatchQty = {};
+
+    form.items.forEach((c, idx) => {
+      if (c.id === item.id && (excludeCartIdx === null || idx !== excludeCartIdx)) {
+        const rowQty = parseInt(c.quantity) || 0;
+        usedTotalQty += rowQty;
+        if (c.batches && c.batches.length > 0) {
+          c.batches.forEach(b => {
+            const bKey = b.batch_id ? `${b.batch_id}` : (b.batch_number || 'No Batch');
+            usedBatchQty[bKey] = (usedBatchQty[bKey] || 0) + (parseInt(b.qty) || 0);
+          });
+        } else {
+          usedBatchQty['No Batch'] = (usedBatchQty['No Batch'] || 0) + rowQty;
+        }
+      }
+    });
+
+    const totalAvailableGeneral = (parseInt(item.current_stock) || 0) + originalTotalQty;
+    const adjustedCurrentStock = Math.max(0, totalAvailableGeneral - usedTotalQty);
+
+    const adjustedBatches = (batches || []).map(b => {
+      const bKey = b.id ? `${b.id}` : (b.batch_number || 'No Batch');
+      const origQty = parseInt(b.qty_available) || 0;
+      const origSold = originalBatchQtyMap[bKey] || 0;
+      const used = usedBatchQty[bKey] || 0;
+      return {
+        ...b,
+        qty_available: Math.max(0, origQty + origSold - used)
+      };
+    });
+
+    return {
+      adjustedItem: { ...item, current_stock: adjustedCurrentStock },
+      adjustedBatches
+    };
+  };
+
   const addItemToSale = async (item) => {
     if (!item) return;
 
     // Check if item already exists in cart
     const existingCartItem = form.items.find(i => i.id === item.id);
     if (existingCartItem) {
-      reopenBatchModal(existingCartItem);
-      setShowItemList(false);
-      setItemSearch('');
+      setDuplicateItemModal({ open: true, item, existingItem: existingCartItem });
       return;
     }
 
     const batches = await fetchItemBatches(item.id);
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
     
-    // Always open batch modal - with batches or with "No Batch" option
     setBatchModal({ 
       open: true, 
-      item, 
-      batches: batches || [], 
+      item: adjustedItem, 
+      batches: adjustedBatches || [], 
       cartIdx: form.items.length, 
-      existingSelections: null 
+      existingSelections: null,
+      isDuplicateRow: false
+    });
+    setShowItemList(false);
+    setItemSearch('');
+  };
+
+  const proceedAddItemAsNew = async (item) => {
+    setDuplicateItemModal({ open: false, item: null, existingItem: null });
+    const batches = await fetchItemBatches(item.id);
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
+    
+    const totalRemainingBatchStock = adjustedBatches.reduce((sum, b) => sum + (parseInt(b.qty_available) || 0), 0);
+    const hasRemainingStock = adjustedItem.current_stock > 0 || totalRemainingBatchStock > 0;
+    if (!hasRemainingStock) {
+      toast.error(`No remaining stock available for ${item.name}. All available stock is already in the sale.`);
+      return;
+    }
+
+    setBatchModal({ 
+      open: true, 
+      item: adjustedItem, 
+      batches: adjustedBatches || [], 
+      cartIdx: form.items.length, 
+      existingSelections: null,
+      isDuplicateRow: true
     });
     setShowItemList(false);
     setItemSearch('');
@@ -198,29 +275,12 @@ const SaleEdit = () => {
   const getCartKey = (item) => item.cart_id || item.id;
 
   const addSplitRow = (item) => {
-    const newCartId = `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const splitItem = {
-      ...item,
-      cart_id: newCartId,
-      quantity: 1,
-      unit_price: item.unit_price,
-      discount: 0,
-      discount_type: 'percent',
-      total_price: item.unit_price,
-      batches: item.batches ? item.batches.map(b => ({ ...b, qty: b.batch_number === 'No Batch' ? 1 : 0 })).filter(b => b.qty > 0 || b.batch_number !== 'No Batch') : []
-    };
-    if (splitItem.batches && splitItem.batches.length > 0 && splitItem.batches[0].batch_number !== 'No Batch') {
-      splitItem.batches[0].qty = 1;
-    }
-    setForm(f => ({
-      ...f,
-      items: [...f.items, splitItem]
-    }));
+    proceedAddItemAsNew(item);
   };
 
   // Handle batch selection and add to cart or update existing cart item
   const handleBatchSelection = (cartIdx, item, batchSelections) => {
-    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null, isDuplicateRow: false });
 
     // Group selected batches by rate (MRP)
     const batchesByRate = {};
@@ -259,6 +319,7 @@ const SaleEdit = () => {
           batch_id: b.batch ? b.batch.id : null,
           batch_number: b.batch ? b.batch.batch_number : 'No Batch',
           qty: b.qty,
+          qty_available: b.batch ? (b.batch.qty_available !== undefined ? b.batch.qty_available : (item.current_stock || 0)) : (item.current_stock || 0),
           mfg_date: b.batch ? b.batch.mfg_date : null,
           exp_date: b.batch ? b.batch.exp_date : null,
           purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
@@ -273,12 +334,12 @@ const SaleEdit = () => {
       updatedItems = updatedItems.filter(i => getCartKey(i) !== getCartKey(item));
 
       newCartItems.forEach(newItem => {
-        const existingIdx = updatedItems.findIndex(i =>
+        const existingIdx = !batchModal.isDuplicateRow ? updatedItems.findIndex(i =>
           i.id === newItem.id &&
           Math.abs((i.unit_price || 0) - (newItem.unit_price || 0)) < 0.001 &&
           (i.discount || 0) === (newItem.discount || 0) &&
           (i.discount_type || 'percent') === (newItem.discount_type || 'percent')
-        );
+        ) : -1;
 
         if (existingIdx > -1) {
           const existing = updatedItems[existingIdx];
@@ -327,18 +388,20 @@ const SaleEdit = () => {
       qty: b.qty
     })) || [];
 
-    // Always open modal - even if no batches exist
-    // Pass the full item object that has all necessary properties
+    const cartIdx = form.items.findIndex(c => getCartKey(c) === getCartKey(cartItem));
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(fullItem, batches, cartIdx !== -1 ? cartIdx : null);
+
     setBatchModal({
       open: true,
       item: {
-        ...fullItem,
+        ...adjustedItem,
         ...cartItem,
         name: cartItem.name,
-        hsn_code: cartItem.hsn_code
+        hsn_code: cartItem.hsn_code,
+        current_stock: adjustedItem.current_stock
       },
-      batches: batches || [],  // Pass empty array if no batches
-      cartIdx: null,
+      batches: adjustedBatches || [],
+      cartIdx: cartIdx !== -1 ? cartIdx : null,
       existingSelections
     });
   };
@@ -479,6 +542,23 @@ const SaleEdit = () => {
           `Insufficient stock for ${stockItem?.name || 'item'}. Available for sale: ${maxAllowedQty} (Current stock: ${stockItem?.current_stock || 0}, Previously sold: ${originalQty})`
         );
         return;
+      }
+    }
+
+    // Also validate batch quantities across all items
+    const batchQtyMap = {};
+    for (const item of validItems) {
+      if (item.batches && item.batches.length > 0) {
+        for (const b of item.batches) {
+          if (b.batch_id) {
+            const bKey = `${item.id}_${b.batch_id}`;
+            batchQtyMap[bKey] = (batchQtyMap[bKey] || 0) + (parseInt(b.qty) || 0);
+            if (b.qty_available !== undefined && batchQtyMap[bKey] > b.qty_available) {
+              toast.error(`Insufficient stock for batch ${b.batch_number} of ${item.name}. Selected: ${batchQtyMap[bKey]}, Available: ${b.qty_available}`);
+              return;
+            }
+          }
+        }
       }
     }
     // --- END STOCK VALIDATION ---
@@ -920,6 +1000,49 @@ const SaleEdit = () => {
 
 
         </div>
+
+        {/* Duplicate Item Choice Modal */}
+        {duplicateItemModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Item Already in Bill</h3>
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold text-gray-800">{duplicateItemModal.item?.name}</span> is already added to this bill. How would you like to proceed?
+              </p>
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const existing = duplicateItemModal.existingItem;
+                    setDuplicateItemModal({ open: false, item: null, existingItem: null });
+                    if (existing && existing.batches && existing.batches.length > 0) {
+                      reopenBatchModal(existing);
+                    } else {
+                      toast.info('Update quantity directly in the cart.');
+                    }
+                  }}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow transition text-sm"
+                >
+                  Modify Existing Row
+                </button>
+                <button
+                  type="button"
+                  onClick={() => proceedAddItemAsNew(duplicateItemModal.item)}
+                  className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg border border-gray-300 transition text-sm"
+                >
+                  Add as New Row Below (Duplicate)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDuplicateItemModal({ open: false, item: null, existingItem: null })}
+                  className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition mt-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Batch Select Modal */}
         {batchModal.open && (
