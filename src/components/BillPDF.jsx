@@ -148,6 +148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderTopLeftRadius: 4,
     borderTopRightRadius: 4,
+    alignItems: 'center',
   },
   tableHeadCell: {
     fontSize: 10,
@@ -168,11 +169,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
     borderBottomColor: theme.borderLight,
+    alignItems: 'center',
   },
   tableRowLast: {
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 6,
+    alignItems: 'center',
   },
   tableCell: {
     fontSize: 10,
@@ -183,10 +186,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     color: theme.primary,
   },
-  colNum: { width: '6%', textAlign: 'center' },
-  colItem: { width: '46%', paddingRight: 6 },
-  colQty: { width: '12%', textAlign: 'center' },
-  colRate: { width: '18%', textAlign: 'right' },
+  colNum: { width: '5%', textAlign: 'center' },
+  colItem: { width: '31%', paddingRight: 6 },
+  colQty: { width: '10%', textAlign: 'center' },
+  colRate: { width: '14%', textAlign: 'center' },
+  colDiscGroup: { width: '22%', flexDirection: 'column' },
+  colDiscPerc: { width: '10%', textAlign: 'center' },
+  colDiscAmt: { width: '12%', textAlign: 'right' },
   colTotal: { width: '18%', textAlign: 'right' },
 
   // Summary
@@ -603,6 +609,17 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
       <Text style={[styles.tableHeadCell, styles.colItem]}>Item Description</Text>
       <Text style={[styles.tableHeadCell, styles.colQty]}>Qty</Text>
       <Text style={[styles.tableHeadCell, styles.colRate]}>Rate</Text>
+      <View style={styles.colDiscGroup}>
+        <Text style={[styles.tableHeadCell, {
+          paddingBottom: 2,
+          // borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.3)',
+          width: '100%', textAlign: 'center', fontSize: 9
+        }]}>Discount</Text>
+        <View style={{ flexDirection: 'row', width: '100%', paddingTop: 2 }}>
+          <Text style={[styles.tableHeadCell, { width: '45.5%', textAlign: 'center', fontSize: 8 }]}>%</Text>
+          <Text style={[styles.tableHeadCell, { width: '54.5%', textAlign: 'right', fontSize: 8 }]}>Amount</Text>
+        </View>
+      </View>
       <Text style={[styles.tableHeadCell, styles.colTotal]}>Amount</Text>
     </View>
 
@@ -624,19 +641,15 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
             <Text style={[styles.tableCell, styles.colNum]}>{itemNumber}</Text>
             <View style={[styles.colItem, { flexDirection: 'column' }]}>
               <Text style={styles.tableCell}>{item.name}</Text>
-              {/* {batchText ? (
-                <Text style={{ fontSize: 8, color: theme.textSecondary, marginTop: 2 }}>
-                  Batches: {batchText}
-                </Text>
-              ) : null} */}
-              {discVal > 0 ? (
-                <Text style={{ fontSize: 8, color: theme.accent, marginTop: 1 }}>
-                  Discount: {discType === 'amount' ? `${discVal}` : `${discVal}%`} (-{formatAmount(itemDiscAmount)})
-                </Text>
-              ) : null}
             </View>
             <Text style={[styles.tableCell, styles.colQty]}>{item.quantity}</Text>
             <Text style={[styles.tableCell, styles.colRate]}>{formatAmount(item.unit_price)}</Text>
+            <Text style={[styles.tableCell, styles.colDiscPerc]}>
+              {discVal > 0 && discType === 'percent' ? `${discVal}%` : '-'}
+            </Text>
+            <Text style={[styles.tableCell, styles.colDiscAmt]}>
+              {itemDiscAmount > 0 ? formatAmount(itemDiscAmount) : '-'}
+            </Text>
             <Text style={[styles.tableCellBold, styles.colTotal]}>
               {formatAmount(netAmt)}
             </Text>

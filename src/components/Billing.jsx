@@ -8,13 +8,13 @@ import QRCode from 'qrcode';
 import CustomerFormModal from './admin/modals/CustomerFormModal';
 import BatchSelectModal from './BatchSelectModal';
 
-const Billing = () => { 
+const Billing = () => {
   // Load saved state from sessionStorage or use defaults
   const loadSavedState = () => {
     const saved = sessionStorage.getItem('billingState');
     if (saved) {
       try {
-        return JSON.parse(saved); 
+        return JSON.parse(saved);
       } catch (e) {
         console.error('Error loading saved state:', e);
         return null;
@@ -169,7 +169,7 @@ const Billing = () => {
     sessionStorage.setItem('billingState', JSON.stringify(stateToSave));
   }, [cart, discount, discountType, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
 
-  const loadItems = async () => { 
+  const loadItems = async () => {
     try {
       const data = await window.electronAPI.getInventory();
       console.log('Inventory data loaded:', data);
@@ -359,7 +359,7 @@ const Billing = () => {
     setDuplicateItemModal({ open: false, item: null, existingItem: null });
     const batches = await fetchItemBatches(item.id);
     const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
-    
+
     const totalRemainingBatchStock = adjustedBatches.reduce((sum, b) => sum + (parseInt(b.qty_available) || 0), 0);
     const hasRemainingStock = adjustedItem.current_stock > 0 || totalRemainingBatchStock > 0;
     if (!hasRemainingStock) {
@@ -1235,14 +1235,14 @@ const Billing = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-900 truncate">{item.name}</span>
-                            <button
+                            {/* <button
                               type="button"
                               onClick={() => addSplitRow(item)}
                               className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded font-medium flex items-center gap-1"
                               title="Add another line for this item (e.g. Free item or different rate/discount)"
                             >
                               + Row
-                            </button>
+                            </button> */}
                           </div>
                           {batchText && (
                             <div
