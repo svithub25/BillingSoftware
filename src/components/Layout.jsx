@@ -61,8 +61,6 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Credit & Debit Note', href: '/credit-debit-note', icon: ArrowRightLeft },
 
     // --- Finance & Accounts ---
-    { name: 'Contacts', href: '/contacts', icon: Users },
-    { name: 'Account Groups', href: '/account-groups', icon: FolderTree },
     { name: 'Ledger', href: '/ledger', icon: BookOpen },
     { name: 'Banking', href: '/banking', icon: Landmark }, // Changed to Landmark (Bank building)
 
@@ -73,6 +71,8 @@ const Layout = ({ children, user, onLogout }) => {
 
     // --- System & Administration ---
     { name: 'Company Profile', href: '/company', icon: Building2 },
+    { name: 'Alter', href: '/alter', icon: Users },
+    { name: 'Account Groups', href: '/account-groups', icon: FolderTree },
     { name: 'Admin Controls', href: '/admin', icon: ShieldCheck }, // Shield implies security/access
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Data Backup', href: '/backup', icon: Database },

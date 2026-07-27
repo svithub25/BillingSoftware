@@ -119,7 +119,7 @@ const Contacts = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Alter</h1>
           <p className="text-gray-600">Manage all your customers, suppliers, and other parties</p>
         </div>
         <button
@@ -127,7 +127,7 @@ const Contacts = () => {
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
           <Plus className="w-5 h-5 mr-2" />
-          Add Contact
+          Add Alter
         </button>
       </div>
 
