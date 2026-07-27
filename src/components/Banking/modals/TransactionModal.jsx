@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import PartyComboBox from './PartyComboBox';
+import ContactModal from '../../reusables/ContactModal';
 
 function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -10,6 +11,10 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [errors, setErrors] = useState({});
   const [pendingBills, setPendingBills] = useState([]);
   const [billAdjustments, setBillAdjustments] = useState({});
+
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+  const partyComboBoxRef = useRef(null);
 
   const [transactionForm, setTransactionForm] = useState({
     voucher_type: 'Payment',
@@ -75,35 +80,37 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
         bills = purchases || [];
       }
       setPendingBills(bills);
-
-      if (bills.length > 0 && !isEditMode && transactionForm.amount) {
-        let remainingAmount = parseFloat(transactionForm.amount) || 0;
-        const newAdjustments = {};
-
-        bills.forEach(bill => {
-          const balance = bill.total_amount - (bill.paid_amount || 0);
-          if (remainingAmount > 0) {
-            const adjustAmt = Math.min(balance, remainingAmount);
-            if (adjustAmt > 0) {
-              newAdjustments[bill.id] = parseFloat(adjustAmt.toFixed(2));
-              remainingAmount -= adjustAmt;
-            }
-          }
-        });
-        setBillAdjustments(newAdjustments);
-      } else {
-        setBillAdjustments({});
-      }
+      setBillAdjustments({});
     } catch (error) {
       console.error('Error fetching pending bills:', error);
       setPendingBills([]);
+      setBillAdjustments({});
     }
   };
 
-  const handleAdjustmentChange = (billId, amount) => {
+  const handleAdjustmentChange = (billId, value, maxBalance) => {
+    if (value === '') {
+      setBillAdjustments(prev => {
+        const next = { ...prev };
+        delete next[billId];
+        return next;
+      });
+      return;
+    }
+
+    let numericValue = parseFloat(value);
+    if (isNaN(numericValue) || numericValue < 0) {
+      numericValue = 0;
+    }
+
+    if (maxBalance !== undefined && numericValue > maxBalance) {
+      numericValue = maxBalance;
+      toast.warning(`Adjustment cannot exceed pending amount (₹${maxBalance.toFixed(2)})`);
+    }
+
     setBillAdjustments(prev => ({
       ...prev,
-      [billId]: parseFloat(amount) || 0
+      [billId]: numericValue
     }));
   };
 
@@ -132,8 +139,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       }
     }
 
-    if (transactionForm.voucher_type !== 'Contra' && !transactionForm.party_name?.trim()) {
-      newErrors.party_name = 'Please enter To';
+    if (transactionForm.voucher_type !== 'Contra') {
+      if (!transactionForm.party_name?.trim()) {
+        newErrors.party_name = 'Please enter To';
+      } else if (!transactionForm.party_id && !isEditMode) {
+        newErrors.party_name = 'Please select an existing contact from the list or add a new one first';
+      }
     }
 
     if (transactionForm.cheque_number && !transactionForm.cheque_date) {
@@ -152,23 +163,6 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
   const handleAmountChange = (e) => {
     const newAmount = e.target.value;
     setTransactionForm({ ...transactionForm, amount: newAmount });
-
-    if (pendingBills.length > 0 && !isEditMode) {
-      let remainingAmount = parseFloat(newAmount) || 0;
-      const newAdjustments = {};
-
-      pendingBills.forEach(bill => {
-        const balance = bill.total_amount - (bill.paid_amount || 0);
-        if (remainingAmount > 0) {
-          const adjustAmt = Math.min(balance, remainingAmount);
-          if (adjustAmt > 0) {
-            newAdjustments[bill.id] = parseFloat(adjustAmt.toFixed(2));
-            remainingAmount -= adjustAmt;
-          }
-        }
-      });
-      setBillAdjustments(newAdjustments);
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -395,6 +389,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                     To <span className="text-red-500">*</span>
                   </label>
                   <PartyComboBox
+                    ref={partyComboBoxRef}
                     value={transactionForm.party_name}
                     onChange={(value, party) => {
                       setTransactionForm({
@@ -409,6 +404,10 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                         setPendingBills([]);
                         setBillAdjustments({});
                       }
+                    }}
+                    onAddContact={(name) => {
+                      setNewContactName(name || '');
+                      setIsContactModalOpen(true);
                     }}
                     voucherType={transactionForm.voucher_type}
                     disabled={saving}
@@ -463,10 +462,10 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                               step="0.01"
                               min="0"
                               max={balance}
-                              value={billAdjustments[bill.id] || ''}
-                              onChange={(e) => handleAdjustmentChange(bill.id, e.target.value)}
+                              value={billAdjustments[bill.id] !== undefined ? billAdjustments[bill.id] : ''}
+                              onChange={(e) => handleAdjustmentChange(bill.id, e.target.value, balance)}
                               className="w-32 border rounded px-2 py-1 text-right focus:ring-2 focus:ring-blue-500"
-                              placeholder="Amount"
+                              placeholder="0.00"
                             />
                           </div>
                         </div>
@@ -512,14 +511,14 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                 disabled={saving}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-blue-300"
                 disabled={saving}
               >
                 {saving ? 'Saving...' : isEditMode ? 'Update Transaction' : 'Save Transaction'}
@@ -527,6 +526,19 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
             </div>
           </form>
         )}
+
+        {/* Reusable Contact Modal for adding a new party inline */}
+        <ContactModal
+          isOpen={isContactModalOpen}
+          onClose={() => setIsContactModalOpen(false)}
+          initialName={newContactName}
+          onSuccess={async (newContactId) => {
+            setIsContactModalOpen(false);
+            if (partyComboBoxRef.current && newContactId) {
+              await partyComboBoxRef.current.refreshAndSelect(newContactId);
+            }
+          }}
+        />
       </div>
     </div>
   );

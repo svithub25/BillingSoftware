@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, ChevronDown, User, Users, Building2, Briefcase, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { Search, X, ChevronDown, User, Users, Building2, Briefcase, Clock, Plus } from 'lucide-react';
 
-const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error = null }) => {
+const PartyComboBox = forwardRef(({ value, onChange, voucherType, disabled = false, error = null, onAddContact }, ref) => {
   const [parties, setParties] = useState([]);
   const [filteredParties, setFilteredParties] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -9,6 +9,12 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    refreshAndSelect: async (newContactId) => {
+      await loadParties(newContactId);
+    }
+  }));
 
   useEffect(() => {
     loadParties();
@@ -30,7 +36,7 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadParties = async () => {
+  const loadParties = async (selectContactId = null) => {
     setLoading(true);
     try {
       const contacts = await window.electronAPI.getContacts();
@@ -38,12 +44,18 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
         id: c.id,
         name: c.name,
         contact: c.phone || c.email || '',
-        type: c.group_name || 'Contact',
+        type: c.account_group_name || 'Contact',
         source_type: 'contact',
         description: c.address || ''
       }));
       setParties(mappedParties);
       setFilteredParties(mappedParties);
+      if (selectContactId) {
+        const newlyAdded = mappedParties.find(p => p.id === selectContactId);
+        if (newlyAdded) {
+          handleSelectParty(newlyAdded);
+        }
+      }
     } catch (error) {
       console.error('Error loading parties:', error);
       setParties([]);
@@ -123,22 +135,6 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
 
   // Filter suggestions based on voucher type
   const getSuggestedParties = () => {
-    // if (voucherType === 'Payment') {
-    //   // For payments, show suppliers, expenses, salesmen
-    //   return filteredParties.filter(p => 
-    //     p.source_type === 'supplier' || 
-    //     p.source_type === 'salesman' ||
-    //     (p.source_type === 'category' && p.type === 'Expense') ||
-    //     p.source_type === 'recent'
-    //   );
-    // } else if (voucherType === 'Receipt') {
-    //   // For receipts, show customers, income categories
-    //   return filteredParties.filter(p => 
-    //     p.source_type === 'customer' || 
-    //     (p.source_type === 'category' && p.type === 'Income') ||
-    //     p.source_type === 'recent'
-    //   );
-    // }
     return filteredParties;
   };
 
@@ -189,6 +185,22 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
       {/* Dropdown */}
       {showDropdown && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+          {onAddContact && (
+            <div className="p-2 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <span className="text-xs text-gray-500 font-medium">Select Party</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDropdown(false);
+                  onAddContact(searchTerm || '');
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add New Alter
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="p-4 text-center text-gray-500">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
@@ -197,7 +209,21 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
           ) : displayParties.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
               <p className="text-sm">No parties found</p>
-              <p className="text-xs mt-1">Type a new name to create</p>
+              {onAddContact ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDropdown(false);
+                    onAddContact(searchTerm || '');
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add "{searchTerm || 'New Alter'}" as Contact
+                </button>
+              ) : (
+                <p className="text-xs mt-1">Please select an existing contact</p>
+              )}
             </div>
           ) : (
             <div>
@@ -256,12 +282,20 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
             </div>
           )}
           
-          {/* Create new hint */}
-          {searchTerm && !displayParties.find(p => p.name?.toLowerCase() === searchTerm.toLowerCase()) && (
-            <div className="border-t border-gray-200 p-3 bg-blue-50">
-              <p className="text-xs text-blue-800">
-                <strong>"{searchTerm}"</strong> will be saved as a new party name
-              </p>
+          {/* Create new contact option when typed name not found */}
+          {searchTerm && !displayParties.find(p => p.name?.toLowerCase() === searchTerm.toLowerCase()) && onAddContact && (
+            <div className="border-t border-gray-200 p-2 bg-blue-50">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDropdown(false);
+                  onAddContact(searchTerm);
+                }}
+                className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add "{searchTerm}" as New Contact / Alter
+              </button>
             </div>
           )}
         </div>
@@ -272,6 +306,6 @@ const PartyComboBox = ({ value, onChange, voucherType, disabled = false, error =
       )}
     </div>
   );
-};
+});
 
 export default PartyComboBox;
