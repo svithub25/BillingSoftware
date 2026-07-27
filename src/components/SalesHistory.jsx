@@ -306,7 +306,11 @@ const SalesHistory = () => {
         sku: item.sku,
         name: item.item_name,
         quantity: item.quantity,
-        unit_price: item.unit_price
+        unit_price: item.unit_price,
+        discount: item.discount || 0,
+        discount_type: item.discount_type || 'percent',
+        total_price: item.total_price,
+        batches: item.batches || []
       }));
 
       // Generate PDF using @react-pdf/renderer
@@ -316,6 +320,7 @@ const SalesHistory = () => {
           customer={customer}
           items={billItems}
           discount={discount}
+          discountType={saleDetails.discount_type || 'percent'}
           subtotal={subtotal}
           roundingOff={roundingOff}
           total={total}

@@ -56,6 +56,7 @@ const SaleEdit = () => {
     customer_gstin: '',
     sale_date: '',
     discount: 0,
+    discount_type: 'percent',
     items: []
   });
 
@@ -95,14 +96,20 @@ const SaleEdit = () => {
         customer_gstin: result.customer_gstin || '',
         sale_date: result.sale_date,
         discount: result.discount || 0,
+        discount_type: result.discount_type || 'percent',
         items: result.items.map(item => ({
           id: item.item_id,
+          cart_id: `${item.item_id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
           name: item.item_name,
           hsn_code: item.hsn_code,
           quantity: item.quantity,
           unit_price: item.unit_price,
           total_price: item.total_price,
           saved_unit_price: item.unit_price,
+          discount: item.discount || 0,
+          discount_type: item.discount_type || 'percent',
+          gst_percentage: item.gst_percentage || 0,
+          unit: item.unit || '',
           // If no batches from DB, create a "No Batch" structure for consistency
           batches: (item.batches && item.batches.length > 0) 
             ? item.batches 
@@ -188,57 +195,117 @@ const SaleEdit = () => {
     setItemSearch('');
   };
 
+  const getCartKey = (item) => item.cart_id || item.id;
+
+  const addSplitRow = (item) => {
+    const newCartId = `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const splitItem = {
+      ...item,
+      cart_id: newCartId,
+      quantity: 1,
+      unit_price: item.unit_price,
+      discount: 0,
+      discount_type: 'percent',
+      total_price: item.unit_price,
+      batches: item.batches ? item.batches.map(b => ({ ...b, qty: b.batch_number === 'No Batch' ? 1 : 0 })).filter(b => b.qty > 0 || b.batch_number !== 'No Batch') : []
+    };
+    if (splitItem.batches && splitItem.batches.length > 0 && splitItem.batches[0].batch_number !== 'No Batch') {
+      splitItem.batches[0].qty = 1;
+    }
+    setForm(f => ({
+      ...f,
+      items: [...f.items, splitItem]
+    }));
+  };
+
   // Handle batch selection and add to cart or update existing cart item
   const handleBatchSelection = (cartIdx, item, batchSelections) => {
     setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
 
-    // Calculate total qty and use weighted average MRP
-    const totalQty = batchSelections.reduce((sum, b) => sum + Number(b.qty), 0);
+    // Group selected batches by rate (MRP)
+    const batchesByRate = {};
+    batchSelections.forEach(b => {
+      const qty = Number(b.qty) || 0;
+      if (qty <= 0) return;
+      const rate = b.batch ? Number(b.batch.mrp) : Number(item.mrp || item.unit_price || 0);
+      const key = `${rate}`;
+      if (!batchesByRate[key]) {
+        batchesByRate[key] = { rate, batches: [], totalQty: 0 };
+      }
+      batchesByRate[key].batches.push(b);
+      batchesByRate[key].totalQty += qty;
+    });
 
-    // Calculate weighted average MRP
-    const avgMRP = totalQty > 0
-      ? batchSelections.reduce((sum, b) => {
-          const mrp = b.batch ? Number(b.batch.mrp) : Number(item.mrp);
-          return sum + mrp * Number(b.qty);
-        }, 0) / totalQty
-      : item.mrp;
+    const rateGroups = Object.values(batchesByRate);
+    if (rateGroups.length === 0) return;
 
-    const cartItem = {
-      id: item.id,
-      name: item.name,
-      hsn_code: item.hsn_code,
-      quantity: totalQty,
-      unit_price: avgMRP,
-      total_price: totalQty * avgMRP,
-      saved_unit_price: avgMRP,
-      batches: batchSelections.map(b => ({
-        batch_id: b.batch ? b.batch.id : null,
-        batch_number: b.batch ? b.batch.batch_number : 'No Batch',
-        qty: b.qty,
-        mfg_date: b.batch ? b.batch.mfg_date : null,
-        exp_date: b.batch ? b.batch.exp_date : null,
-        purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
-        mrp: b.batch ? b.batch.mrp : item.mrp
-      }))
-    };
+    const newCartItems = rateGroups.map((group, index) => {
+      const isFirst = index === 0;
+      const cartId = isFirst && item.cart_id ? item.cart_id : `${item.id}_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`;
+      return {
+        id: item.id,
+        cart_id: cartId,
+        name: item.name,
+        hsn_code: item.hsn_code,
+        quantity: group.totalQty,
+        unit_price: group.rate,
+        total_price: group.totalQty * group.rate,
+        saved_unit_price: group.rate,
+        discount: item.discount || 0,
+        discount_type: item.discount_type || 'percent',
+        gst_percentage: item.gst_percentage || 0,
+        unit: item.unit || '',
+        batches: group.batches.map(b => ({
+          batch_id: b.batch ? b.batch.id : null,
+          batch_number: b.batch ? b.batch.batch_number : 'No Batch',
+          qty: b.qty,
+          mfg_date: b.batch ? b.batch.mfg_date : null,
+          exp_date: b.batch ? b.batch.exp_date : null,
+          purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
+          mrp: b.batch ? b.batch.mrp : item.mrp
+        }))
+      };
+    });
 
-    // Check if we're updating an existing cart item
-    const existingCartItem = form.items.find(i => i.id === item.id);
-    if (existingCartItem) {
-      // Update existing item
-      setForm(f => ({
-        ...f,
-        items: f.items.map(i => i.id === item.id ? cartItem : i)
-      }));
-    } else {
-      // Add new item
-      setForm(f => ({
-        ...f,
-        items: [...f.items, cartItem]
-      }));
-    }
+    setForm(f => {
+      let updatedItems = [...f.items];
+      // Remove original item being modified
+      updatedItems = updatedItems.filter(i => getCartKey(i) !== getCartKey(item));
 
-    // Store batch selections for reopening
+      newCartItems.forEach(newItem => {
+        const existingIdx = updatedItems.findIndex(i =>
+          i.id === newItem.id &&
+          Math.abs((i.unit_price || 0) - (newItem.unit_price || 0)) < 0.001 &&
+          (i.discount || 0) === (newItem.discount || 0) &&
+          (i.discount_type || 'percent') === (newItem.discount_type || 'percent')
+        );
+
+        if (existingIdx > -1) {
+          const existing = updatedItems[existingIdx];
+          const mergedQty = (parseInt(existing.quantity) || 0) + (parseInt(newItem.quantity) || 0);
+          const mergedBatches = [...(existing.batches || [])];
+          (newItem.batches || []).forEach(nb => {
+            const bIdx = mergedBatches.findIndex(mb => mb.batch_id === nb.batch_id && mb.batch_number === nb.batch_number);
+            if (bIdx > -1) {
+              mergedBatches[bIdx] = { ...mergedBatches[bIdx], qty: (parseInt(mergedBatches[bIdx].qty) || 0) + (parseInt(nb.qty) || 0) };
+            } else {
+              mergedBatches.push(nb);
+            }
+          });
+          updatedItems[existingIdx] = {
+            ...existing,
+            quantity: mergedQty,
+            total_price: mergedQty * existing.unit_price,
+            batches: mergedBatches
+          };
+        } else {
+          updatedItems.push(newItem);
+        }
+      });
+
+      return { ...f, items: updatedItems };
+    });
+
     setSelectedBatches(prev => ({ ...prev, [item.id]: batchSelections }));
   };
 
@@ -266,6 +333,7 @@ const SaleEdit = () => {
       open: true,
       item: {
         ...fullItem,
+        ...cartItem,
         name: cartItem.name,
         hsn_code: cartItem.hsn_code
       },
@@ -274,40 +342,34 @@ const SaleEdit = () => {
       existingSelections
     });
   };
- 
-  // Update the updateSaleItem function to always prevent direct editing
-  const updateSaleItem = (idx, field, value) => {
+
+  const updateSaleItem = (key, field, value) => {
     setForm(f => {
-      const items = [...f.items];
-      const item = items[idx];
-
-      // Prevent direct quantity editing - always use batch modal
-      if (field === 'quantity') {
-        toast.info('Click on quantity to edit batch selection');
-        return f;
-      }
-
-      items[idx][field] = value;
-
-      // Recalculate total_price when unit_price changes
-      if (field === 'unit_price') {
-        const qty = parseFloat(items[idx].quantity) || 0;
-        const rate = parseFloat(items[idx].unit_price) || 0;
-        items[idx].total_price = qty * rate;
-      }
-
+      const items = f.items.map(item => {
+        if (getCartKey(item) !== key) return item;
+        if (field === 'quantity') {
+          toast.info('Click on quantity to edit batch selection');
+          return item;
+        }
+        const updated = { ...item, [field]: value };
+        if (field === 'unit_price') {
+          const qty = parseFloat(updated.quantity) || 0;
+          const rate = parseFloat(updated.unit_price) || 0;
+          updated.total_price = qty * rate;
+        }
+        return updated;
+      });
       return { ...f, items };
     });
   };
 
-  const removeSaleItem = (idx) => {
-    const itemToRemove = form.items[idx];
+  const removeSaleItem = (key) => {
+    const itemToRemove = form.items.find(i => getCartKey(i) === key);
     setForm(f => ({
       ...f,
-      items: f.items.filter((_, i) => i !== idx)
+      items: f.items.filter(i => getCartKey(i) !== key)
     }));
-    // Clean up batch selections
-    if (itemToRemove) {
+    if (itemToRemove && !form.items.some(i => i.id === itemToRemove.id && getCartKey(i) !== key)) {
       setSelectedBatches(prev => {
         const updated = { ...prev };
         delete updated[itemToRemove.id];
@@ -316,33 +378,61 @@ const SaleEdit = () => {
     }
   };
 
-  // Reset price to saved price
-  const resetPriceToOriginal = (idx) => {
+  const resetPriceToOriginal = (key) => {
     setForm(f => {
-      const items = [...f.items];
-      const item = items[idx];
-      
-      if (item.saved_unit_price) {
-        items[idx].unit_price = item.saved_unit_price;
-        items[idx].total_price = (parseFloat(items[idx].quantity) || 0) * item.saved_unit_price;
-        toast.success('Price reset to original saved price');
-      } else {
-        toast.error('Original price not found');
-      }
-      
+      const items = f.items.map(item => {
+        if (getCartKey(item) !== key) return item;
+        if (item.saved_unit_price !== undefined && item.saved_unit_price !== null) {
+          const updated = {
+            ...item,
+            unit_price: item.saved_unit_price,
+            total_price: (parseFloat(item.quantity) || 0) * item.saved_unit_price
+          };
+          toast.success('Price reset to original saved price');
+          return updated;
+        } else {
+          toast.error('Original price not found');
+          return item;
+        }
+      });
       return { ...f, items };
     });
   };
 
+  const calculateItemTotal = (item) => {
+    const qty = parseInt(item.quantity, 10) || 0;
+    const grossAmount = (item.unit_price || 0) * qty;
+    const discVal = parseFloat(item.discount) || 0;
+    const itemDiscountAmount = (item.discount_type || 'percent') === 'amount' ? Math.min(grossAmount, discVal) : (grossAmount * discVal) / 100;
+    const baseAmount = Math.max(0, grossAmount - itemDiscountAmount);
+    return { baseAmount, totalAmount: baseAmount };
+  };
+
   // Calculate subtotal
   const getSubtotal = () =>
-    form.items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 0);
+    form.items.reduce((sum, item) => sum + calculateItemTotal(item).baseAmount, 0);
 
   // Calculate discount amount
-  const getDiscountAmount = () => (getSubtotal() * (parseFloat(form.discount) || 0)) / 100;
+  const getDiscountAmount = () => {
+    const sub = getSubtotal();
+    const discVal = parseFloat(form.discount) || 0;
+    return (form.discount_type || 'percent') === 'amount' ? Math.min(sub, discVal) : (sub * discVal) / 100;
+  };
+
+  const getGstTotal = () => {
+    const sub = getSubtotal();
+    const overallDiscAmount = getDiscountAmount();
+    const overallDiscountFactor = sub > 0 ? Math.max(0, 1 - (overallDiscAmount / sub)) : 1;
+    return form.items.reduce((sum, item) => {
+      const { baseAmount } = calculateItemTotal(item);
+      const discountedBase = baseAmount * overallDiscountFactor;
+      const gstRate = item.gst_percentage || 0;
+      return sum + (discountedBase * gstRate) / 100;
+    }, 0);
+  };
 
   // Calculate final amount before rounding
-  const getAmountBeforeRounding = () => getSubtotal() - getDiscountAmount();
+  const getAmountBeforeRounding = () => Math.max(0, getSubtotal() - getDiscountAmount() + getGstTotal());
 
   // Rounding off
   const getRoundingOff = () => +(Math.round(getAmountBeforeRounding()) - getAmountBeforeRounding()).toFixed(2);
@@ -361,9 +451,10 @@ const SaleEdit = () => {
         item.id &&
         item.name &&
         item.quantity &&
-        item.unit_price &&
+        item.unit_price !== undefined &&
+        item.unit_price !== null &&
         parseFloat(item.quantity) > 0 &&
-        parseFloat(item.unit_price) > 0
+        parseFloat(item.unit_price) >= 0
     );
     if (validItems.length === 0) {
       toast.error('Please enter at least one valid item');
@@ -371,35 +462,60 @@ const SaleEdit = () => {
     }
  
     // --- STOCK VALIDATION ---
+    const qtyByItemId = {};
     for (const item of validItems) {
-      const stockItem = items.find(i => i.id === item.id);
-      // Find the original quantity from the loaded sale
-      const originalSaleItem = sale?.items?.find(si => si.item_id === item.id);
-      const originalQty = originalSaleItem ? parseInt(originalSaleItem.quantity) : 0;
+      qtyByItemId[item.id] = (qtyByItemId[item.id] || 0) + parseInt(item.quantity || 0);
+    }
+    for (const itemIdStr of Object.keys(qtyByItemId)) {
+      const itemId = parseInt(itemIdStr);
+      const totalRequestedQty = qtyByItemId[itemId];
+      const stockItem = items.find(i => i.id === itemId);
+      const originalSaleItems = sale?.items?.filter(si => si.item_id === itemId) || [];
+      const originalQty = originalSaleItems.reduce((sum, si) => sum + parseInt(si.quantity || 0), 0);
       const maxAllowedQty = (stockItem?.current_stock || 0) + originalQty;
 
-      if (parseInt(item.quantity) > maxAllowedQty) {
+      if (totalRequestedQty > maxAllowedQty) {
         toast.error(
-          `Insufficient stock for ${item.name}. Available for sale: ${maxAllowedQty} (Current stock: ${stockItem?.current_stock || 0}, Previously sold: ${originalQty})`
+          `Insufficient stock for ${stockItem?.name || 'item'}. Available for sale: ${maxAllowedQty} (Current stock: ${stockItem?.current_stock || 0}, Previously sold: ${originalQty})`
         );
         return;
-      } 
+      }
     }
     // --- END STOCK VALIDATION ---
 
     try {
-      // Prepare items with batch information
-      const itemsToSave = form.items.map(item => ({
-        id: item.id,
-        quantity: parseInt(item.quantity),
-        unit_price: item.unit_price,
-        gst_percentage: item.gst_percentage,
-        total_price: item.total_price,
-        batches: item.batches || [] // Include batch data
-      }));
+      const sub = getSubtotal();
+      const overallDiscAmount = getDiscountAmount();
+      const overallDiscountFactor = sub > 0 ? Math.max(0, 1 - (overallDiscAmount / sub)) : 1;
+
+      // Prepare items with batch and discount information
+      const itemsToSave = form.items.map(item => {
+        const qty = parseInt(item.quantity, 10) || 0;
+        const { baseAmount } = calculateItemTotal({ ...item, quantity: qty });
+        const discountedBase = baseAmount * overallDiscountFactor;
+        const gstRate = item.gst_percentage || 0;
+        const cgstAmount = (discountedBase * gstRate) / 200;
+        const sgstAmount = (discountedBase * gstRate) / 200;
+        const totalAmount = discountedBase + cgstAmount + sgstAmount;
+
+        return {
+          id: item.id,
+          quantity: qty,
+          unit_price: item.unit_price,
+          discount: item.discount || 0,
+          discount_type: item.discount_type || 'percent',
+          discount_amount: (item.discount_type || 'percent') === 'amount' ? Math.min((item.unit_price || 0) * qty, parseFloat(item.discount) || 0) : ((item.unit_price || 0) * qty * (parseFloat(item.discount) || 0)) / 100,
+          gst_percentage: gstRate,
+          cgst_amount: cgstAmount,
+          sgst_amount: sgstAmount,
+          total_price: totalAmount,
+          batches: item.batches || []
+        };
+      });
 
       await window.electronAPI.updateSale(parseInt(id), {
         ...form,
+        discount_amount: getDiscountAmount(),
         items: itemsToSave,
         total_amount: getFinalAmount(),
         rounding_off: getRoundingOff(),
@@ -618,112 +734,188 @@ const SaleEdit = () => {
             </div>
           </div>
 
-          {/* Items Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-auto">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Item</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">HSN Code</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Quantity</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Rate</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Total</th>
-                  <th className="px-4 py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {form.items.map((item, idx) => {
-                  return (
-                    <tr key={idx} className="border-b">
-                      <td className="px-4 py-2">{item.name}</td>
-                      <td className="px-4 py-2">{item.hsn_code || 'N/A'}</td>
-                      <td className="px-4 py-2">
-                        {/* Always show clickable quantity box */}
+          {/* Items List */}
+          <div className="space-y-4">
+            <h3 className="text-md font-semibold text-gray-800 border-b pb-2">Sale Items</h3>
+            {form.items.map((item, idx) => {
+              const key = getCartKey(item);
+              const { totalAmount } = calculateItemTotal({ ...item, quantity: parseInt(item.quantity) || 0 });
+              const batchText = item.batches && item.batches.length > 0
+                ? item.batches.map(b => `${b.batch_number || 'No Batch'} (${b.qty})`).join(', ')
+                : null;
+
+              return (
+                <div key={key} className="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-white transition-colors space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900 truncate">{item.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => addSplitRow(item)}
+                          className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded font-medium flex items-center gap-1"
+                          title="Add another line for this item (e.g. Free item or different rate/discount)"
+                        >
+                          + Row
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">HSN: {item.hsn_code || 'N/A'}</div>
+                      {batchText && (
                         <div
                           onClick={() => reopenBatchModal(item)}
-                          className="w-20 px-2 py-1 border border-blue-300 bg-blue-50 rounded text-sm text-center cursor-pointer hover:bg-blue-100 transition-colors font-medium text-blue-700"
-                          title="Click to edit batch/quantity selection"
+                          className="text-xs text-blue-600 hover:underline cursor-pointer mt-0.5 truncate"
+                          title="Click to change batch selection"
                         >
-                          {item.quantity}
+                          Batches: {batchText}
                         </div>
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            onWheel={e => e.target.blur()}
-                            value={item.unit_price}
-                            min={0}
-                            onChange={e => updateSaleItem(idx, 'unit_price', e.target.value)}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                            placeholder="₹0.00"
-                          />
-                          <button
-                            onClick={() => resetPriceToOriginal(idx)}
-                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
-                            title="Reset to original saved price"
-                          >
-                            <RotateCcw className="w-3 h-3 mr-1" />
-                            Reset
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 font-semibold">₹{item.total_price?.toLocaleString()}</td>
-                      <td className="px-4 py-2">
-                        <button
-                          onClick={() => removeSaleItem(idx)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-gray-900 text-right">₹{totalAmount.toFixed(2)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSaleItem(key)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="Remove row"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs pt-1 border-t border-gray-200">
+                    {/* Quantity */}
+                    <div className="flex items-center gap-1">
+                      <label className="text-gray-600 font-medium">Qty:</label>
+                      <div
+                        onClick={() => reopenBatchModal(item)}
+                        className="w-12 px-1 py-1 border border-blue-300 bg-blue-50 rounded text-center cursor-pointer hover:bg-blue-100 font-semibold text-blue-700"
+                        title="Click to edit batch/quantity selection"
+                      >
+                        {item.quantity}
+                      </div>
+                    </div>
+
+                    {/* Rate Input */}
+                    <div className="flex items-center gap-1">
+                      <label className="text-gray-600 font-medium">Rate:</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        onWheel={e => e.target.blur()}
+                        value={item.unit_price}
+                        onChange={e => updateSaleItem(key, 'unit_price', parseFloat(e.target.value) || 0)}
+                        className="w-16 px-1 py-1 border border-gray-300 rounded bg-white"
+                        placeholder="₹0.00"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => resetPriceToOriginal(key)}
+                        className="flex items-center text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-1 rounded transition-colors"
+                        title="Reset to original saved price"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {/* Item Discount Input */}
+                    <div className="flex items-center gap-1">
+                      <label className="text-gray-600 font-medium">Disc:</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        onWheel={e => e.target.blur()}
+                        value={item.discount || ''}
+                        onChange={e => updateSaleItem(key, 'discount', parseFloat(e.target.value) || 0)}
+                        className="w-14 px-1 py-1 border border-gray-300 rounded bg-white"
+                        placeholder="0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newType = (item.discount_type || 'percent') === 'percent' ? 'amount' : 'percent';
+                          updateSaleItem(key, 'discount_type', newType);
+                        }}
+                        className="px-1.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-semibold text-xs border border-gray-300"
+                        title="Toggle between % and ₹"
+                      >
+                        {(item.discount_type || 'percent') === 'amount' ? '₹' : '%'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Discount and Totals */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-4 border-t border-gray-200 gap-4">
-            <div className="flex flex-col items-end space-y-1 order-1 md:order-2 w-full md:w-auto">
-              <div className="flex justify-between w-full md:w-auto">
-                <span className="font-medium text-gray-700 mr-2">Subtotal:</span>
-                <span>₹{getSubtotal().toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between w-full md:w-auto">
-                <span className="font-medium text-gray-700 mr-2">Discount (%):</span>
-                <input
-                  type="number"
-                  onWheel={e => e.target.blur()}
-                  value={form.discount}
-                  min={0}
-                  max={100}
-                  onChange={e => setForm(f => ({ ...f, discount: e.target.value }))}
-                  className="w-20 px-2 py-1 border border-gray-300 rounded"
-                />
-              </div>
-              <div className="flex justify-between w-full md:w-auto">
-                <span className="font-medium text-gray-700 mr-2">Amount Before Rounding:</span>
-                <span>₹{getAmountBeforeRounding().toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between w-full md:w-auto">
-                <span className="font-medium text-gray-700 mr-2">Rounding Off:</span>
-                <span>{getRoundingOff() > 0 ? '+' : '-'}₹{Math.abs(getRoundingOff()).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between w-full md:w-auto text-lg font-semibold border-t border-gray-200 pt-2">
-                <span>Final Amount:</span>
-                <span>₹{getFinalAmount().toLocaleString()}</span>
-              </div>
-            </div>
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between pt-6 border-t border-gray-200 gap-6">
             <button
               onClick={() => setConfirmOpen(true)}
-              className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors order-2 md:order-1"
+              className="flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors order-2 md:order-1 shadow"
             >
-              <Save className="w-4 h-4 mr-2" />
+              <Save className="w-5 h-5 mr-2" />
               Update Sale
             </button>
+
+            <div className="flex flex-col items-end space-y-2 order-1 md:order-2 w-full md:w-80 bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex justify-between w-full text-sm">
+                <span className="font-medium text-gray-700">Subtotal:</span>
+                <span className="font-semibold">₹{getSubtotal().toFixed(2)}</span>
+              </div>
+              
+              <div className="w-full pt-2 border-t border-gray-200">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-medium text-gray-700">
+                    Overall Discount ({(form.discount_type || 'percent') === 'amount' ? '₹' : '%'})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, discount_type: (f.discount_type || 'percent') === 'amount' ? 'percent' : 'amount' }))}
+                    className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded font-medium"
+                  >
+                    Switch to {(form.discount_type || 'percent') === 'amount' ? '%' : '₹'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    onWheel={e => e.target.blur()}
+                    value={form.discount || ''}
+                    min={0}
+                    max={(form.discount_type || 'percent') === 'amount' ? getSubtotal() : 100}
+                    onChange={e => setForm(f => ({ ...f, discount: parseFloat(e.target.value) || 0 }))}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm bg-white"
+                    placeholder="0"
+                  />
+                  {parseFloat(form.discount) > 0 && (
+                    <span className="text-xs font-semibold text-green-600 whitespace-nowrap">
+                      -₹{getDiscountAmount().toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {getGstTotal() > 0 && (
+                <div className="flex justify-between w-full text-sm pt-1">
+                  <span className="font-medium text-gray-700">Total GST:</span>
+                  <span className="font-semibold">₹{getGstTotal().toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between w-full text-sm">
+                <span className="font-medium text-gray-700">Amount Before Rounding:</span>
+                <span>₹{getAmountBeforeRounding().toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between w-full text-sm">
+                <span className="font-medium text-gray-700">Rounding Off:</span>
+                <span>{getRoundingOff() >= 0 ? '+' : ''}₹{getRoundingOff().toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between w-full text-lg font-bold border-t border-gray-300 pt-2 text-gray-900">
+                <span>Final Amount:</span>
+                <span>₹{getFinalAmount().toFixed(2)}</span>
+              </div>
+            </div>
           </div>
 
 

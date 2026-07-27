@@ -86,7 +86,9 @@ export function initDatabase(dbPath) {
     shipped_to_gstin TEXT,
     is_shipped_different INTEGER DEFAULT 0,
     sale_date DATE NOT NULL,
+    discount_type TEXT DEFAULT 'percent',
     discount REAL DEFAULT 0,
+    discount_amount REAL DEFAULT 0,
     total_amount REAL NOT NULL,
     rounding_off REAL DEFAULT 0,
     cgst_total REAL DEFAULT 0,
@@ -105,6 +107,9 @@ export function initDatabase(dbPath) {
     gst_percentage REAL NOT NULL DEFAULT 0,
     cgst_amount REAL NOT NULL DEFAULT 0,
     sgst_amount REAL NOT NULL DEFAULT 0,
+    discount REAL DEFAULT 0,
+     discount_amount REAL DEFAULT 0,
+    discount_type TEXT DEFAULT 'percent',
     total_price REAL NOT NULL,
     sale_type TEXT DEFAULT 'customer',
     status_code INTEGER DEFAULT 0,
@@ -207,25 +212,25 @@ CREATE TABLE IF NOT EXISTS sale_item_cost_allocation (
   if (!defaultUser) {
     db.prepare("INSERT INTO users (username, password) VALUES (?, ?)").run(
       "admin",
-      "admin"
+      "admin",
     );
   }
 
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
     "last_backup",
-    new Date().toISOString()
+    new Date().toISOString(),
   );
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
     "bill_counter",
-    "0"
+    "0",
   );
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
     "gst_on_sale",
-    "0"
+    "0",
   );
   db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)").run(
     "gst_on_purchase",
-    "0"
+    "0",
   );
   // Add to your database initialization:
   db.exec(`
@@ -995,14 +1000,14 @@ CREATE INDEX IF NOT EXISTS idx_nfa_adjusted_purchase ON note_financial_adjustmen
   if (!defaultGodown) {
     db.prepare(
       `INSERT INTO godowns (name, code, location_type, is_active, is_default, remarks)
-       VALUES (?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
       "Main Warehouse",
       "MAIN-001",
       "warehouse",
       1,
       1,
-      "Default main warehouse location"
+      "Default main warehouse location",
     );
   }
 
@@ -1015,7 +1020,7 @@ CREATE INDEX IF NOT EXISTS idx_nfa_adjusted_purchase ON note_financial_adjustmen
     INSERT INTO bank_accounts 
     (account_name, account_number, bank_name, branch_name, ifsc_code, account_type, opening_balance, current_balance, is_active) 
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
+  `,
     ).run(
       "Cash", // account_name
       "CASH-001", // account_number
@@ -1025,7 +1030,7 @@ CREATE INDEX IF NOT EXISTS idx_nfa_adjusted_purchase ON note_financial_adjustmen
       "Current", // account_type
       0, // opening_balance
       0, // current_balance
-      1 // is_active
+      1, // is_active
     );
   }
 

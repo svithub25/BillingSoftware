@@ -610,14 +610,35 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
       {pageItems.map((item, i) => {
         const isLast = i === pageItems.length - 1;
         const itemNumber = startIndex + i + 1;
+        const batchText = item.batches && item.batches.length > 0
+          ? item.batches.map(b => `${b.batch_number || 'No Batch'} (${b.qty || b.quantity})`).join(', ')
+          : null;
+        const discVal = parseFloat(item.discount) || 0;
+        const discType = item.discount_type || 'percent';
+        const grossAmt = (parseFloat(item.unit_price) || 0) * (parseInt(item.quantity) || 0);
+        const itemDiscAmount = discType === 'amount' ? Math.min(grossAmt, discVal) : (grossAmt * discVal) / 100;
+        const netAmt = item.total_price !== undefined && item.total_price !== null ? item.total_price : Math.max(0, grossAmt - itemDiscAmount);
+
         return (
           <View key={i} style={isLast && isLastPageTable ? styles.tableRowLast : styles.tableRow}>
             <Text style={[styles.tableCell, styles.colNum]}>{itemNumber}</Text>
-            <Text style={[styles.tableCell, styles.colItem]}>{item.name}</Text>
+            <View style={[styles.colItem, { flexDirection: 'column' }]}>
+              <Text style={styles.tableCell}>{item.name}</Text>
+              {/* {batchText ? (
+                <Text style={{ fontSize: 8, color: theme.textSecondary, marginTop: 2 }}>
+                  Batches: {batchText}
+                </Text>
+              ) : null} */}
+              {discVal > 0 ? (
+                <Text style={{ fontSize: 8, color: theme.accent, marginTop: 1 }}>
+                  Discount: {discType === 'amount' ? `${discVal}` : `${discVal}%`} (-{formatAmount(itemDiscAmount)})
+                </Text>
+              ) : null}
+            </View>
             <Text style={[styles.tableCell, styles.colQty]}>{item.quantity}</Text>
             <Text style={[styles.tableCell, styles.colRate]}>{formatAmount(item.unit_price)}</Text>
             <Text style={[styles.tableCellBold, styles.colTotal]}>
-              {formatAmount(item.unit_price * item.quantity)}
+              {formatAmount(netAmt)}
             </Text>
           </View>
         );
@@ -626,7 +647,7 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
   </View>
 );
 
-const SummarySection = ({ subtotal, discount, discountAmt, roundingOff, total }) => (
+const SummarySection = ({ subtotal, discount, discountType, discountAmt, roundingOff, total }) => (
   <View style={styles.summarySection}>
     <View style={styles.amountWords}>
       <Text style={styles.amountWordsTitle}>Amount in Words</Text>
@@ -640,7 +661,9 @@ const SummarySection = ({ subtotal, discount, discountAmt, roundingOff, total })
       </View>
       {discount > 0 && (
         <View style={styles.totalsRow}>
-          <Text style={styles.totalsLabel}>Discount ({discount}%)</Text>
+          <Text style={styles.totalsLabel}>
+            Discount {discountType === 'amount' ? `` : `(${discount}%)`}
+          </Text>
           <Text style={styles.totalsValue}>- {formatAmount(discountAmt)}</Text>
         </View>
       )}
@@ -735,6 +758,7 @@ const BillPDF = ({
   customer,
   items,
   discount = 0,
+  discountType = 'percent',
   subtotal = 0,
   roundingOff = 0,
   total = 0,
@@ -783,7 +807,9 @@ const BillPDF = ({
 
   const billedTo = getBilledTo();
   const shipTo = isShippedDifferent ? shippedTo : billedTo;
-  const discountAmt = subtotal * (discount / 100);
+  const discountAmt = (discountType || 'percent') === 'amount'
+    ? Math.min(subtotal, discount)
+    : subtotal * (discount / 100);
 
   // Paginate items
   const itemPages = paginateItems(items);
@@ -840,6 +866,7 @@ const BillPDF = ({
                 <SummarySection
                   subtotal={subtotal}
                   discount={discount}
+                  discountType={discountType}
                   discountAmt={discountAmt}
                   roundingOff={roundingOff}
                   total={total}

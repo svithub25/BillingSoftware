@@ -50,6 +50,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       sale_date,
       items,
       discount,
+      discount_type,
       total_amount,
       cgst_total,
       sgst_total,
@@ -58,13 +59,24 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       sale_type,
     } = saleData;
 
+    const subtotalCalc = (items || []).reduce((sum, item) => {
+      const gross = (parseFloat(item.unit_price) || 0) * (parseFloat(item.quantity) || 0);
+      const discVal = parseFloat(item.discount) || 0;
+      const iDiscType = item.discount_type || "percent";
+      const iDiscAmount = item.discount_amount !== undefined ? parseFloat(item.discount_amount) : (iDiscType === "amount" ? Math.min(gross, discVal) : (gross * discVal) / 100);
+      return sum + Math.max(0, gross - iDiscAmount);
+    }, 0);
+    const saleDiscVal = parseFloat(discount) || 0;
+    const saleDiscType = discount_type || "percent";
+    const saleDiscAmount = saleData.discount_amount !== undefined ? parseFloat(saleData.discount_amount) : (saleDiscType === "amount" ? Math.min(subtotalCalc, saleDiscVal) : (subtotalCalc * saleDiscVal) / 100);
+
     const db = getDb();
     const saleStmt = db.prepare(`
       INSERT INTO sales (
         bill_number, contact_id,
         shipped_to_name, shipped_to_contact, shipped_to_address, shipped_to_gstin, is_shipped_different,
-        sale_date, discount, total_amount, cgst_total, sgst_total, rounding_off, salesman_id, sale_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sale_date, discount, discount_type, discount_amount, total_amount, cgst_total, sgst_total, rounding_off, salesman_id, sale_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const saleResult = saleStmt.run(
@@ -76,7 +88,9 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       shipped_to_gstin || null,
       is_shipped_different ? 1 : 0,
       sale_date,
-      discount,
+      saleDiscVal,
+      saleDiscType,
+      saleDiscAmount,
       total_amount,
       cgst_total || 0,
       sgst_total || 0,
@@ -100,7 +114,7 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     }
 
     const saleItemStmt = db.prepare(
-      "INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, gst_percentage, cgst_amount, sgst_amount, total_price, sale_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO sale_items (sale_id, item_id, quantity, unit_price, gst_percentage, cgst_amount, sgst_amount, discount, discount_amount, discount_type, total_price, sale_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     const updateStockStmt = db.prepare(
       "UPDATE items SET current_stock = current_stock - ? WHERE id = ?",
@@ -125,6 +139,11 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
     `);
 
     items.forEach((item) => {
+      const gross = (parseFloat(item.unit_price) || 0) * (parseFloat(item.quantity) || 0);
+      const discVal = parseFloat(item.discount) || 0;
+      const iDiscType = item.discount_type || "percent";
+      const iDiscAmount = item.discount_amount !== undefined ? parseFloat(item.discount_amount) : (iDiscType === "amount" ? Math.min(gross, discVal) : (gross * discVal) / 100);
+
       // Save sale item
       const saleItemResult = saleItemStmt.run(
         saleId,
@@ -134,6 +153,9 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         item.gst_percentage || 0,
         item.cgst_amount || 0,
         item.sgst_amount || 0,
+        discVal,
+        iDiscAmount,
+        iDiscType,
         item.total_price,
         sale_type || "customer",
       );
@@ -477,6 +499,18 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         });
       }
 
+      // Calculate discount amounts for updatedSale
+      const subtotalCalc = (updatedSale.items || []).reduce((sum, item) => {
+        const gross = (parseFloat(item.unit_price) || 0) * (parseFloat(item.quantity) || 0);
+        const discVal = parseFloat(item.discount) || 0;
+        const iDiscType = item.discount_type || "percent";
+        const iDiscAmount = item.discount_amount !== undefined ? parseFloat(item.discount_amount) : (iDiscType === "amount" ? Math.min(gross, discVal) : (gross * discVal) / 100);
+        return sum + Math.max(0, gross - iDiscAmount);
+      }, 0);
+      const saleDiscVal = parseFloat(updatedSale.discount) || 0;
+      const saleDiscType = updatedSale.discount_type || "percent";
+      const saleDiscAmount = updatedSale.discount_amount !== undefined ? parseFloat(updatedSale.discount_amount) : (saleDiscType === "amount" ? Math.min(subtotalCalc, saleDiscVal) : (subtotalCalc * saleDiscVal) / 100);
+
       // Update the sale header
       db.prepare(
         `
@@ -489,6 +523,8 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
           is_shipped_different = ?,
           sale_date = ?,
           discount = ?,
+          discount_type = ?,
+          discount_amount = ?,
           total_amount = ?,
           rounding_off = ?,
           salesman_id = ?,
@@ -503,7 +539,9 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
         updatedSale.shipped_to_gstin || null,
         updatedSale.is_shipped_different ? 1 : 0,
         updatedSale.sale_date,
-        updatedSale.discount,
+        saleDiscVal,
+        saleDiscType,
+        saleDiscAmount,
         updatedSale.total_amount,
         updatedSale.rounding_off,
         updatedSale.salesman_id || null,
@@ -520,8 +558,8 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
       // Re-insert sale items with new batch allocations
       const saleItemStmt = db.prepare(`
         INSERT INTO sale_items
-          (sale_id, item_id, quantity, unit_price, total_price, sale_type)
-        VALUES (?, ?, ?, ?, ?, ?)
+          (sale_id, item_id, quantity, unit_price, gst_percentage, cgst_amount, sgst_amount, discount, discount_type, discount_amount, total_price, sale_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const costAllocStmt = db.prepare(`
@@ -532,6 +570,10 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
 
       updatedSale.items.forEach((item) => {
         const parsedQty = parseFloat(item.quantity);
+        const gross = (parseFloat(item.unit_price) || 0) * parsedQty;
+        const discVal = parseFloat(item.discount) || 0;
+        const iDiscType = item.discount_type || "percent";
+        const iDiscAmount = item.discount_amount !== undefined ? parseFloat(item.discount_amount) : (iDiscType === "amount" ? Math.min(gross, discVal) : (gross * discVal) / 100);
 
         // Insert sale item
         const saleItemResult = saleItemStmt.run(
@@ -539,6 +581,12 @@ export function registerSalesHandlers({ ipcMain, getDb }) {
           item.id,
           parsedQty,
           parseFloat(item.unit_price),
+          item.gst_percentage || 0,
+          item.cgst_amount || 0,
+          item.sgst_amount || 0,
+          discVal,
+          iDiscType,
+          iDiscAmount,
           parseFloat(item.total_price),
           updatedSale.sale_type || "customer",
         );

@@ -32,6 +32,7 @@ const Billing = () => {
   const [searchDropdown, setSearchDropdown] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
   const [discount, setDiscount] = useState(savedState?.discount || 0);
+  const [discountType, setDiscountType] = useState(savedState?.discountType || 'percent');
   const [billNumber, setBillNumber] = useState('');
   const [billDate, setBillDate] = useState(savedState?.billDate || new Date().toISOString().split('T')[0]);
   const [salesmen, setSalesmen] = useState([]);
@@ -154,6 +155,7 @@ const Billing = () => {
     const stateToSave = {
       cart,
       discount,
+      discountType,
       billDate,
       selectedSalesman,
       billNarration,
@@ -164,7 +166,7 @@ const Billing = () => {
       isOthers
     };
     sessionStorage.setItem('billingState', JSON.stringify(stateToSave));
-  }, [cart, discount, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
+  }, [cart, discount, discountType, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
 
   const loadItems = async () => { 
     try {
@@ -325,86 +327,133 @@ const Billing = () => {
     }
   };
 
+  const getCartKey = (item) => item.cart_id || item.id;
+
   // Handle batch selection and add to cart or update existing cart item
   const handleBatchSelection = (cartIdx, item, batchSelections) => {
     setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
 
-    // Calculate total qty and use weighted average MRP
-    const totalQty = batchSelections.reduce((sum, b) => sum + Number(b.qty), 0);
+    // Group batch selections by rate (mrp)
+    const rateGroups = {};
+    batchSelections.forEach(b => {
+      const rate = b.batch ? Number(b.batch.mrp) : Number(item.mrp || item.unit_price || 0);
+      if (!rateGroups[rate]) {
+        rateGroups[rate] = [];
+      }
+      rateGroups[rate].push(b);
+    });
 
-    // Calculate weighted average MRP
-    const avgMRP = totalQty > 0
-      ? batchSelections.reduce((sum, b) => {
-          const mrp = b.batch ? Number(b.batch.mrp) : Number(item.mrp);
-          return sum + mrp * Number(b.qty);
-        }, 0) / totalQty
-      : item.mrp;
+    const newCartItems = Object.entries(rateGroups).map(([rateStr, selections]) => {
+      const rate = Number(rateStr);
+      const totalQty = selections.reduce((sum, b) => sum + Number(b.qty), 0);
+      return {
+        id: item.id,
+        cart_id: `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        name: item.name,
+        sku: item.sku,
+        hsn_code: item.hsn_code,
+        unit_price: rate,
+        quantity: totalQty,
+        current_stock: item.current_stock,
+        gst_percentage: item.gst_percentage,
+        unit: item.unit,
+        discount: item.discount || 0,
+        discount_type: item.discount_type || 'percent',
+        batches: selections.map(b => ({
+          batch_id: b.batch ? b.batch.id : null,
+          batch_number: b.batch ? b.batch.batch_number : 'No Batch',
+          qty: b.qty,
+          mfg_date: b.batch ? b.batch.mfg_date : null,
+          exp_date: b.batch ? b.batch.exp_date : null,
+          purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
+          mrp: b.batch ? b.batch.mrp : item.mrp
+        }))
+      };
+    });
 
-    const cartItem = {
-      id: item.id,
-      name: item.name,
-      sku: item.sku,
-      hsn_code: item.hsn_code,
-      unit_price: avgMRP,
-      quantity: totalQty,
-      current_stock: item.current_stock,
-      gst_percentage: item.gst_percentage,
-      unit: item.unit,
-      batches: batchSelections.map(b => ({
-        batch_id: b.batch ? b.batch.id : null,
-        batch_number: b.batch ? b.batch.batch_number : 'No Batch',
-        qty: b.qty,
-        mfg_date: b.batch ? b.batch.mfg_date : null,
-        exp_date: b.batch ? b.batch.exp_date : null,
-        purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
-        mrp: b.batch ? b.batch.mrp : item.mrp
-      }))
-    };
+    setCart(prevCart => {
+      let updatedCart = [...prevCart];
+      if (cartIdx !== null && cartIdx !== undefined && cartIdx >= 0 && cartIdx < updatedCart.length) {
+        updatedCart.splice(cartIdx, 1);
+      }
 
+      newCartItems.forEach(newItem => {
+        const existingIdx = updatedCart.findIndex(c =>
+          c.id === newItem.id &&
+          Number(c.unit_price) === Number(newItem.unit_price) &&
+          Number(c.discount || 0) === Number(newItem.discount || 0) &&
+          (c.discount_type || 'percent') === (newItem.discount_type || 'percent')
+        );
 
-    console.log('cartt is ' , cartItem)
-    // Check if we're updating an existing cart item
-    const existingCartItem = cart.find(c => c.id === item.id);
-    if (existingCartItem) {
-      // Update existing item
-      setCart(prevCart => prevCart.map(c => c.id === item.id ? cartItem : c));
-    } else {
-      // Add new item
-      setCart(prevCart => [...prevCart, cartItem]);
-    }
+        if (existingIdx !== -1) {
+          const existing = updatedCart[existingIdx];
+          const mergedBatches = [...(existing.batches || [])];
+          newItem.batches.forEach(nb => {
+            const foundB = mergedBatches.find(mb => mb.batch_id === nb.batch_id && mb.batch_number === nb.batch_number);
+            if (foundB) {
+              foundB.qty = Number(foundB.qty) + Number(nb.qty);
+            } else {
+              mergedBatches.push({ ...nb });
+            }
+          });
+          updatedCart[existingIdx] = {
+            ...existing,
+            quantity: Number(existing.quantity) + Number(newItem.quantity),
+            batches: mergedBatches
+          };
+        } else {
+          updatedCart.push(newItem);
+        }
+      });
 
-    // Store batch selections for reopening
+      return updatedCart;
+    });
+
     setSelectedBatches(prev => ({ ...prev, [item.id]: batchSelections }));
+  };
+
+  const addSplitRow = (item) => {
+    const newRow = {
+      ...item,
+      cart_id: `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      quantity: 1,
+      unit_price: 0,
+      discount: 0,
+      discount_type: 'percent',
+      batches: []
+    };
+    setCart(prev => [...prev, newRow]);
   };
 
   // Reopen batch modal to edit selections
   const reopenBatchModal = async (cartItem) => {
     const batches = await fetchItemBatches(cartItem.id);
     if (batches && batches.length > 0) {
-      // Convert cart item batches back to selection format
       const existingSelections = cartItem.batches?.map(b => ({
         batch_id: b.batch_id,
         qty: b.qty
       })) || [];
 
+      const cartIdx = cart.findIndex(c => getCartKey(c) === getCartKey(cartItem));
+
       setBatchModal({
         open: true,
         item: cartItem,
         batches,
-        cartIdx: null,
+        cartIdx: cartIdx !== -1 ? cartIdx : null,
         existingSelections
       });
     }
   };
 
   // --- Cart keyboard controls ---
-  const handleCartKeyDown = (e, idx, itemId) => {
+  const handleCartKeyDown = (e, idx, targetKey) => {
     if (e.key === 'Delete') {
-      removeFromCart(itemId);
+      removeFromCart(targetKey);
     } else if (e.key === '+' || e.key === '=') {
-      updateCartItemQuantity(itemId, (parseInt(cart[idx].quantity) || 0) + 1);
+      updateCartItemQuantity(targetKey, (parseInt(cart[idx].quantity) || 0) + 1);
     } else if (e.key === '-' || e.key === '_') {
-      updateCartItemQuantity(itemId, (parseInt(cart[idx].quantity) || 0) - 1);
+      updateCartItemQuantity(targetKey, (parseInt(cart[idx].quantity) || 0) - 1);
     }
     if (e.key === 'Tab' || e.key === 'Enter') {
       e.preventDefault();
@@ -420,32 +469,37 @@ const Billing = () => {
     }
   };
 
-  const updateCartItemQuantity = (itemId, newQuantity) => {
-    // Check for invalid quantities (null, undefined, empty string, 0, negative)
+  const updateCartItemQuantity = (targetKey, newQuantity) => {
     if (!newQuantity || newQuantity <= 0 || isNaN(newQuantity)) {
-      removeFromCart(itemId);
+      removeFromCart(targetKey);
       return;
     }
     setCart(cart.map(item =>
-      item.id === itemId
+      getCartKey(item) === targetKey
         ? { ...item, quantity: newQuantity }
         : item
     ));
   };
 
-  const removeFromCart = (itemId) => {
-    setCart(cart.filter(item => item.id !== itemId));
-    // Also clean up batch selections
-    setSelectedBatches(prev => {
-      const updated = { ...prev };
-      delete updated[itemId];
-      return updated;
-    });
+  const removeFromCart = (targetKey) => {
+    const targetItem = cart.find(item => getCartKey(item) === targetKey);
+    setCart(cart.filter(item => getCartKey(item) !== targetKey));
+    if (targetItem) {
+      setSelectedBatches(prev => {
+        const updated = { ...prev };
+        delete updated[targetItem.id];
+        return updated;
+      });
+    }
   };
 
   // --- Totals ---
   const calculateItemTotal = (item) => {
-    const baseAmount = item.unit_price * item.quantity;
+    const qty = parseInt(item.quantity, 10) || 0;
+    const grossAmount = (item.unit_price || 0) * qty;
+    const discVal = parseFloat(item.discount) || 0;
+    const itemDiscountAmount = item.discount_type === 'amount' ? Math.min(grossAmount, discVal) : (grossAmount * discVal) / 100;
+    const baseAmount = Math.max(0, grossAmount - itemDiscountAmount);
     const gstRate = gstOnSale ? (item.gst_percentage || 0) : 0;
     const gstAmount = (baseAmount * gstRate) / 100;
     return { baseAmount, gstAmount, totalAmount: baseAmount + gstAmount };
@@ -453,18 +507,24 @@ const Billing = () => {
 
   const getSubtotal = () => cart.reduce((sum, item) => sum + calculateItemTotal(item).baseAmount, 0);
 
+  const getDiscountAmount = () => {
+    const sub = getSubtotal();
+    const discVal = parseFloat(discount) || 0;
+    return discountType === 'amount' ? Math.min(sub, discVal) : (sub * discVal) / 100;
+  };
+
   const getDiscountedSubtotal = () => {
-    const total = getSubtotal();
-    const discountAmount = (total * discount) / 100;
-    return total - discountAmount;
+    return Math.max(0, getSubtotal() - getDiscountAmount());
   };
 
   const getGstTotal = () => {
     if (!gstOnSale) return 0;
-    const discountFactor = 1 - (discount || 0) / 100;
+    const sub = getSubtotal();
+    const overallDiscAmount = getDiscountAmount();
+    const overallDiscountFactor = sub > 0 ? Math.max(0, 1 - (overallDiscAmount / sub)) : 1;
     return cart.reduce((sum, item) => {
-      const baseAmount = (item.unit_price || 0) * (parseInt(item.quantity, 10) || 0);
-      const discountedBase = baseAmount * discountFactor;
+      const { baseAmount } = calculateItemTotal(item);
+      const discountedBase = baseAmount * overallDiscountFactor;
       const gstRate = item.gst_percentage || 0;
       return sum + (discountedBase * gstRate) / 100;
     }, 0);
@@ -513,24 +573,33 @@ const Billing = () => {
         });
       }
 
-      const discountFactor = 1 - (discount || 0) / 100;
+      const sub = getSubtotal();
+      const overallDiscAmount = getDiscountAmount();
+      const overallDiscountFactor = sub > 0 ? Math.max(0, 1 - (overallDiscAmount / sub)) : 1;
       const saleItems = filteredCart.map(item => {
         const quantity = parseInt(item.quantity, 10) || 0;
-        const baseAmount = (item.unit_price || 0) * quantity;
-        const discountedBase = baseAmount * discountFactor;
+        const { baseAmount } = calculateItemTotal({ ...item, quantity });
+        const discountedBase = baseAmount * overallDiscountFactor;
         const gstRate = gstOnSale ? (item.gst_percentage || 0) : 0;
         const cgstAmount = (discountedBase * gstRate) / 200;
         const sgstAmount = (discountedBase * gstRate) / 200;
         const totalAmount = discountedBase + cgstAmount + sgstAmount;
         return {
           id: item.id,
+          name: item.name,
+          sku: item.sku,
+          hsn_code: item.hsn_code,
+          unit: item.unit,
           quantity,
           unit_price: item.unit_price,
+          discount: item.discount || 0,
+          discount_type: item.discount_type || 'percent',
+          discount_amount: (item.discount_type || 'percent') === 'amount' ? Math.min((item.unit_price || 0) * quantity, parseFloat(item.discount) || 0) : ((item.unit_price || 0) * quantity * (parseFloat(item.discount) || 0)) / 100,
           gst_percentage: gstRate,
           cgst_amount: cgstAmount,
           sgst_amount: sgstAmount,
           total_price: totalAmount,
-          batches: item.batches || [] // <-- include batches here
+          batches: item.batches || []
         };
       });
 
@@ -548,7 +617,9 @@ const Billing = () => {
         is_shipped_different: isShippedDifferent,
         sale_date: billDate,
         items: saleItems,
-        discount,
+        discount: parseFloat(discount) || 0,
+        discount_type: discountType,
+        discount_amount: getDiscountAmount(),
         total_amount: getFinalTotal(),
         cgst_total: gstOnSale ? getCgstTotal() : 0,
         sgst_total: gstOnSale ? getSgstTotal() : 0,
@@ -594,14 +665,9 @@ const Billing = () => {
             <BillPDF
               billNumber={billNumber}
               customer={customerInfo}
-              items={cart.map(item => ({
-                hsn_code: item.hsn_code,
-                sku: item.sku,
-                name: item.name,
-                quantity: parseInt(item.quantity) || 0,
-                unit_price: item.unit_price
-              }))}
+              items={saleItems}
               discount={discount}
+              discountType={discountType}
               subtotal={getSubtotal()}
               roundingOff={getRoundingOff()}
               total={getFinalTotal()}
@@ -1083,102 +1149,176 @@ const Billing = () => {
             ) : (
               <div className="space-y-4">
                 {cart.map((item, idx) => {
+                  const key = getCartKey(item);
                   const { totalAmount } = calculateItemTotal({ ...item, quantity: parseInt(item.quantity) || 0 });
+                  const batchText = item.batches && item.batches.length > 0
+                    ? item.batches.map(b => `${b.batch_number || 'No Batch'} (${b.qty})`).join(', ')
+                    : null;
+
                   return (
-                    <div key={item.id} className="border-b border-gray-200 pb-2 flex justify-between items-center gap-2">
-                      {/* Product Name */}
-                      <span className="font-medium text-gray-900  w-5/12 truncate">{item.name}</span>
-                      {/* Quantity Input */}
-                      <div className="flex items-center gap-1 w-24">
-                        <label className="text-xs text-gray-700">Qty</label>
-                        {item.batches && item.batches.length > 0 ? (
-                          // Read-only with click to edit batches
-                          <div
-                            onClick={() => reopenBatchModal(item)}
-                            className="w-12 px-1 py-1 border border-blue-300 bg-blue-50 rounded text-sm text-center cursor-pointer hover:bg-blue-100 transition-colors font-medium text-blue-700"
-                            title="Click to edit batch selection"
-                          >
-                            {item.quantity}
+                    <div key={key} className="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-white transition-colors space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900 truncate">{item.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => addSplitRow(item)}
+                              className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded font-medium flex items-center gap-1"
+                              title="Add another line for this item (e.g. Free item or different rate/discount)"
+                            >
+                              + Row
+                            </button>
                           </div>
-                        ) : (
-                          // Editable input for non-batched items
+                          {batchText && (
+                            <div
+                              onClick={() => reopenBatchModal(item)}
+                              className="text-xs text-blue-600 hover:underline cursor-pointer mt-0.5 truncate"
+                              title="Click to change batch selection"
+                            >
+                              Batches: {batchText}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-gray-900 text-right">₹{totalAmount.toFixed(2)}</span>
+                          <button
+                            onClick={() => removeFromCart(key)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            title="Remove row"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs pt-1 border-t border-gray-200">
+                        {/* Quantity Input */}
+                        <div className="flex items-center gap-1">
+                          <label className="text-gray-600 font-medium">Qty:</label>
+                          {item.batches && item.batches.length > 0 ? (
+                            <div
+                              onClick={() => reopenBatchModal(item)}
+                              className="w-12 px-1 py-1 border border-blue-300 bg-blue-50 rounded text-center cursor-pointer hover:bg-blue-100 font-semibold text-blue-700"
+                              title="Click to edit batch selection"
+                            >
+                              {item.quantity}
+                            </div>
+                          ) : (
+                            <input
+                              ref={el => qtyInputRefs.current[item.id] = el}
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              value={item.quantity}
+                              min={1}
+                              max={item.current_stock}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '' || val === null || val === undefined) {
+                                  removeFromCart(key);
+                                  return;
+                                }
+                                const numVal = parseInt(val);
+                                if (isNaN(numVal) || numVal <= 0) {
+                                  removeFromCart(key);
+                                } else {
+                                  updateCartItemQuantity(key, numVal);
+                                }
+                              }}
+                              onKeyDown={e => handleCartKeyDown(e, idx, key)}
+                              className="w-12 px-1 py-1 border border-gray-300 rounded bg-white"
+                              tabIndex={0}
+                            />
+                          )}
+                          <span className="text-gray-500">/ {item.current_stock}</span>
+                        </div>
+
+                        {/* Rate Input */}
+                        <div className="flex items-center gap-1">
+                          <label className="text-gray-600 font-medium">Rate:</label>
                           <input
-                            ref={el => qtyInputRefs.current[item.id] = el}
                             type="number"
+                            step="0.01"
                             onWheel={e => e.target.blur()}
-                            value={item.quantity}
-                            min={1}
-                            max={item.current_stock}
+                            value={item.unit_price}
                             onChange={e => {
-                              const val = e.target.value;
-                              if (val === '' || val === null || val === undefined) {
-                                removeFromCart(item.id);
-                                return;
-                              }
-                              const numVal = parseInt(val);
-                              if (isNaN(numVal) || numVal <= 0) {
-                                removeFromCart(item.id);
-                              } else {
-                                updateCartItemQuantity(item.id, numVal);
-                              }
+                              const newPrice = parseFloat(e.target.value) || 0;
+                              setCart(cart.map(cartItem =>
+                                getCartKey(cartItem) === key
+                                  ? { ...cartItem, unit_price: newPrice }
+                                  : cartItem
+                              ));
                             }}
-                            onKeyDown={e => handleCartKeyDown(e, idx, item.id)}
-                            className="w-12 px-1 py-1 border border-gray-300 rounded text-sm"
-                            tabIndex={0}
-                            autoFocus={item.quantity === ''}
+                            className="w-16 px-1 py-1 border border-gray-300 rounded bg-white"
+                            placeholder="₹0.00"
                           />
-                        )}
-                        <span className="text-xs text-gray-500">/ {item.current_stock}</span>
+                        </div>
+
+                        {/* Item Discount Input */}
+                        <div className="flex items-center gap-1">
+                          <label className="text-gray-600 font-medium">Disc:</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            onWheel={e => e.target.blur()}
+                            value={item.discount || ''}
+                            onChange={e => {
+                              const newDisc = parseFloat(e.target.value) || 0;
+                              setCart(cart.map(cartItem =>
+                                getCartKey(cartItem) === key
+                                  ? { ...cartItem, discount: newDisc }
+                                  : cartItem
+                              ));
+                            }}
+                            className="w-14 px-1 py-1 border border-gray-300 rounded bg-white"
+                            placeholder="0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newType = (item.discount_type || 'percent') === 'percent' ? 'amount' : 'percent';
+                              setCart(cart.map(cartItem =>
+                                getCartKey(cartItem) === key
+                                  ? { ...cartItem, discount_type: newType }
+                                  : cartItem
+                              ));
+                            }}
+                            className="px-1.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-semibold text-xs border border-gray-300"
+                            title="Toggle between % and ₹"
+                          >
+                            {(item.discount_type || 'percent') === 'amount' ? '₹' : '%'}
+                          </button>
+                        </div>
                       </div>
-                      {/* Unit Price Input */}
-                      <div className="flex items-center gap-1 w-24">
-                        <label className="text-xs text-gray-700">Rate</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          onWheel={e => e.target.blur()}
-                          value={item.unit_price}
-                          onChange={e => {
-                            const newPrice = parseFloat(e.target.value) || 0;
-                            setCart(cart.map(cartItem =>
-                              cartItem.id === item.id
-                                ? { ...cartItem, unit_price: newPrice }
-                                : cartItem
-                            ));
-                          }}
-                          className="w-14 px-1 py-1 border border-gray-300 rounded text-sm"
-                          placeholder="₹0.00"
-                        />
-                      </div>
-                      {/* Total */}
-                      <span className="font-medium text-gray-900 w-20 text-right">₹{totalAmount.toFixed(2)}</span>
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-red-600 hover:text-red-800 ml-2"
-                        tabIndex={0}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   );
                 })}
 
                 {/* Discount */}
                 <div className="pt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Discount (%)
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Overall Discount ({discountType === 'amount' ? '₹' : '%'})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType(discountType === 'amount' ? 'percent' : 'amount')}
+                      className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded font-medium"
+                    >
+                      Switch to {discountType === 'amount' ? '%' : '₹'}
+                    </button>
+                  </div>
                   <input
                     ref={discountInputRef}
                     type="number"
                     onWheel={e => e.target.blur()}
-                    value={discount}
+                    value={discount || ''}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     min="0"
-                    max="100"
+                    max={discountType === 'amount' ? getSubtotal() : 100}
                     tabIndex={0}
+                    placeholder="0"
                   />
                 </div>
 
@@ -1190,8 +1330,8 @@ const Billing = () => {
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600">
-                      <span>Discount ({discount}%):</span>
-                      <span>-₹{(getSubtotal() * discount / 100).toFixed(2)}</span>
+                      <span>Discount ({discountType === 'amount' ? `₹${discount}` : `${discount}%`}):</span>
+                      <span>-₹{getDiscountAmount().toFixed(2)}</span>
                     </div>
                   )}
                   {gstOnSale && (
@@ -1265,9 +1405,13 @@ const Billing = () => {
                   sku: item.sku,
                   name: item.name,
                   quantity: parseInt(item.quantity) || 0,
-                  unit_price: item.unit_price
+                  unit_price: item.unit_price,
+                  discount: item.discount || 0,
+                  discount_type: item.discount_type || 'percent',
+                  batches: item.batches || []
                 }))}
                 discount={discount}
+                discountType={discountType}
                 subtotal={getSubtotal()}
                 roundingOff={getRoundingOff()}
                 total={getFinalTotal()}
