@@ -18,7 +18,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
   const [filters, setFilters] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -98,7 +98,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
         loadTransactions();
         setShowDeleteConfirm(false);
         setDeleteId(null);
-        
+
         // Trigger dashboard refresh
         if (onTransactionChange) {
           onTransactionChange();
@@ -130,11 +130,11 @@ const BankingTransactions = ({ onTransactionChange }) => {
   // Highlight matching text
   const highlightText = (text, search) => {
     if (!search || !text) return text;
-    
+
     const parts = text.toString().split(new RegExp(`(${search})`, 'gi'));
     return (
       <span>
-        {parts.map((part, index) => 
+        {parts.map((part, index) =>
           part.toLowerCase() === search.toLowerCase() ? (
             <mark key={index} className="bg-yellow-200 font-semibold px-1 rounded">
               {part}
@@ -181,7 +181,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -203,7 +203,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
         pages.push(totalPages);
       }
     }
-    
+
     return pages;
   };
 
@@ -213,16 +213,16 @@ const BankingTransactions = ({ onTransactionChange }) => {
       toast.error('Cannot edit reconciled transaction');
       return;
     }
-    
+
     if (transaction.cleared_status === 'Cleared' && transaction.cheque_number) {
       toast.error('Cannot edit cleared cheque transaction');
       return;
     }
-    
+
     try {
       // Get full transaction details including to_account_id for Contra
       const details = await window.electronAPI.getBankTransactionDetails(transaction.id);
-      
+
       // For Contra transactions, find the destination account
       if (details.voucher_type === 'Contra') {
         const contraReceipt = transactions.find(
@@ -232,7 +232,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
           details.to_account_id = contraReceipt.bank_account_id;
         }
       }
-      
+
       setEditingTransaction(details);
       setShowTransactionModal(true);
     } catch (error) {
@@ -274,7 +274,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
             <input
@@ -349,7 +349,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
             </p>
           </div>
         )}
-        
+
         {!searchTerm && (
           <div className="text-sm text-gray-600">
             Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
@@ -413,11 +413,10 @@ const BankingTransactions = ({ onTransactionChange }) => {
                       {highlightText(txn.voucher_number, searchTerm)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        txn.voucher_type === 'Payment' ? 'bg-red-100 text-red-800' :
-                        txn.voucher_type === 'Receipt' ? 'bg-green-100 text-green-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${txn.voucher_type === 'Payment' ? 'bg-red-100 text-red-800' :
+                          txn.voucher_type === 'Receipt' ? 'bg-green-100 text-green-800' :
+                            'bg-blue-100 text-blue-800'
+                        }`}>
                         {txn.voucher_type}
                       </span>
                     </td>
@@ -445,7 +444,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        
+
                         {/* Edit Button - Only show if not reconciled and not cleared cheque */}
                         {txn.reconciled !== 1 && !(txn.cleared_status === 'Cleared' && txn.cheque_number) && (
                           <button
@@ -456,7 +455,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
                             <Edit2 className="w-4 h-4" />
                           </button>
                         )}
-                        
+
                         {txn.cheque_number && txn.cleared_status !== 'Cleared' && txn.cleared_status !== 'Cancelled' && (
                           <button
                             onClick={() => handleChequeStatus(txn)}
@@ -466,7 +465,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
-                        
+
                         <button
                           onClick={() => handleDeleteClick(txn.id)}
                           className="text-red-600 hover:text-red-800"
@@ -491,7 +490,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
             Page <span className="font-medium">{currentPage}</span> of{' '}
             <span className="font-medium">{totalPages}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Previous Button */}
             <button
@@ -514,11 +513,10 @@ const BankingTransactions = ({ onTransactionChange }) => {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`px-3 py-2 rounded-lg ${
-                      currentPage === page
+                    className={`px-3 py-2 rounded-lg ${currentPage === page
                         ? 'bg-blue-600 text-white'
                         : 'border border-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>
@@ -542,6 +540,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
             <span className="text-sm text-gray-700">Go to:</span>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               min="1"
               max={totalPages}
               value={currentPage}
@@ -567,7 +566,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
         onSuccess={() => {
           loadTransactions();
           setEditingTransaction(null);
-          
+
           // Trigger dashboard refresh
           if (onTransactionChange) {
             onTransactionChange();
@@ -588,7 +587,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
         transaction={selectedTransaction}
         onStatusUpdate={() => {
           loadTransactions();
-          
+
           // Trigger dashboard refresh
           if (onTransactionChange) {
             onTransactionChange();

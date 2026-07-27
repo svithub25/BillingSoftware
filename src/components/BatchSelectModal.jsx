@@ -246,17 +246,16 @@ const BatchSelectModal = ({ item, batches, onClose, onSelect, existingSelections
                     <tr
                       key={batch.id}
                       onClick={() => handleRowClick(idx)}
-                      className={`cursor-pointer border-l-4 transition-all ${
-                        selectedIdx === idx
+                      className={`cursor-pointer border-l-4 transition-all ${selectedIdx === idx
                           ? 'bg-blue-50 border-l-blue-500'
                           : 'hover:bg-gray-50 border-l-transparent'
-                      }`}
+                        }`}
                     >
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {batch.batch_number}
                       </td>
                       {batches.length > 0 && (
-                        <> 
+                        <>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {batch.mfg_date ? new Date(batch.mfg_date).toLocaleDateString('en-GB') : '-'}
                           </td>
@@ -298,11 +297,10 @@ const BatchSelectModal = ({ item, batches, onClose, onSelect, existingSelections
                   {generalStockAvailable > 0 && (
                     <tr
                       onClick={() => handleRowClick(batches.length)}
-                      className={`cursor-pointer transition-colors border-t-2 border-gray-300 ${
-                        selectedIdx === batches.length
+                      className={`cursor-pointer transition-colors border-t-2 border-gray-300 ${selectedIdx === batches.length
                           ? 'bg-green-50 border-l-4 border-l-green-500'
                           : 'hover:bg-gray-50 border-l-4 border-l-transparent'
-                      }`}
+                        }`}
                     >
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900" colSpan={batches.length > 0 ? 3 : 1}>
                         <div className="flex items-center gap-2">
@@ -383,11 +381,10 @@ const BatchSelectModal = ({ item, batches, onClose, onSelect, existingSelections
             <button
               onClick={handleConfirm}
               disabled={totalQtySelected === 0}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                totalQtySelected === 0
+              className={`px-4 py-2 rounded-md font-medium transition-colors ${totalQtySelected === 0
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
+                }`}
             >
               Confirm Selection ({totalQtySelected})
             </button>

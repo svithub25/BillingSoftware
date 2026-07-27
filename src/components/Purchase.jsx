@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from 'react-router-dom';
 import PinProtected from './reusables/PinProtected';
-import ReactDOM from 'react-dom'; 
+import ReactDOM from 'react-dom';
 import SupplierFormModal from './admin/modals/SupplierFormModal';
 import ProductFormModal from './admin/modals/ProductFormModal';
 
@@ -424,7 +424,7 @@ const Purchase = () => {
         rounding_off,
         discount: purchaseForm.discount
       });
-console.log('Purchase saved successfully',purchaseForm);          
+      console.log('Purchase saved successfully', purchaseForm);
       // Reset form: clear all except date
       setPurchaseForm({
         ...initialPurchaseForm,
@@ -581,585 +581,590 @@ console.log('Purchase saved successfully',purchaseForm);
   }
 
   return (
-     <PinProtected message="This module is protected and requires PIN verification to access." modulename='Purchase'>
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Purchase Management</h1>
-          <p className="text-gray-600">Record new purchases and manage supplier information</p>
-        </div>
-        {/* <button
+    <PinProtected message="This module is protected and requires PIN verification to access." modulename='Purchase'>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Purchase Management</h1>
+            <p className="text-gray-600">Record new purchases and manage supplier information</p>
+          </div>
+          {/* <button
           onClick={() => navigate('/purchase-history')}
           className="mt-4 sm:mt-0 inline-flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
         >
           View Purchase History
         </button> */}
-      </div>
-
-      {/* Purchase Form */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">New Purchase</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Supplier Dropdown */}
-          <div>
-            <div className="flex items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700">Supplier</label>
-              <button
-                onClick={() => setShowNewSupplierForm(true)}
-                className="ml-2 px-1 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                tabIndex={-1}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="relative">
-              <input
-                ref={supplierInputRef}
-                type="text"
-
-                value={supplierSearch}
-                onChange={e => {
-                  setSupplierSearch(e.target.value);
-                  setShowSupplierList(true);
-                  setSupplierDropdownIndex(0);
-                  const match = suppliers.find(s => s.name.toLowerCase() === e.target.value.toLowerCase());
-                  setPurchaseForm({ ...purchaseForm, supplier_id: match ? match.id : '' });
-                }}
-                onFocus={() => setShowSupplierList(true)}
-                onBlur={() => setTimeout(() => setShowSupplierList(false), 100)}
-                onKeyDown={handleSupplierInputKeyDown}
-                placeholder="Type to search supplier"
-                className="min-w-[160px] w-full md:w-[220px] px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-base"
-                autoComplete="off"
-                tabIndex={0}
-              />
-              {showSupplierList && filteredSuppliers.length > 0 && (
-                <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
-                  {filteredSuppliers.map((supplier, idx) => (
-                    <li
-                      key={supplier.id}
-                      className={`px-3 py-2 cursor-pointer ${idx === supplierDropdownIndex ? 'bg-blue-100' : ''
-                        }`}
-                      onMouseDown={() => handleSupplierSelect(supplier)}
-                      tabIndex={-1}
-                    >
-                      {supplier.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-          </div>
-          {/* Invoice Number */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-2">Invoice Number</label>
-            <input
-              id="invoice-input"
-              type="text"
-              value={purchaseForm.invoice_number}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, invoice_number: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter invoice number"
-              tabIndex={0}
-            />
-          </div>
-          {/* Purchase Date */}
-          <div>
-            <label className="block text-base font-medium text-gray-700 mb-2">Purchase Date</label>
-            <input
-              type="date"
-              value={purchaseForm.purchase_date}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, purchase_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              tabIndex={0}
-            />
-          </div>
-
-
         </div>
 
-        {/* Items Table */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h3 className="text-md font-medium text-gray-900">Items</h3>
-              <button
-                onClick={() => setShowProductForm(true)}
-                className="px-1 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                title="Add New Item"
-                type="button"
-                tabIndex={-1}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+        {/* Purchase Form */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">New Purchase</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Supplier Dropdown */}
+            <div>
+              <div className="flex items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">Supplier</label>
+                <button
+                  onClick={() => setShowNewSupplierForm(true)}
+                  className="ml-2 px-1 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  tabIndex={-1}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="relative">
+                <input
+                  ref={supplierInputRef}
+                  type="text"
+
+                  value={supplierSearch}
+                  onChange={e => {
+                    setSupplierSearch(e.target.value);
+                    setShowSupplierList(true);
+                    setSupplierDropdownIndex(0);
+                    const match = suppliers.find(s => s.name.toLowerCase() === e.target.value.toLowerCase());
+                    setPurchaseForm({ ...purchaseForm, supplier_id: match ? match.id : '' });
+                  }}
+                  onFocus={() => setShowSupplierList(true)}
+                  onBlur={() => setTimeout(() => setShowSupplierList(false), 100)}
+                  onKeyDown={handleSupplierInputKeyDown}
+                  placeholder="Type to search supplier"
+                  className="min-w-[160px] w-full md:w-[220px] px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-base"
+                  autoComplete="off"
+                  tabIndex={0}
+                />
+                {showSupplierList && filteredSuppliers.length > 0 && (
+                  <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full mt-1">
+                    {filteredSuppliers.map((supplier, idx) => (
+                      <li
+                        key={supplier.id}
+                        className={`px-3 py-2 cursor-pointer ${idx === supplierDropdownIndex ? 'bg-blue-100' : ''
+                          }`}
+                        onMouseDown={() => handleSupplierSelect(supplier)}
+                        tabIndex={-1}
+                      >
+                        {supplier.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
             </div>
-            <button
-              onClick={addItemToPurchase}
-              className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Item
-            </button>
+            {/* Invoice Number */}
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-2">Invoice Number</label>
+              <input
+                id="invoice-input"
+                type="text"
+                value={purchaseForm.invoice_number}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, invoice_number: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter invoice number"
+                tabIndex={0}
+              />
+            </div>
+            {/* Purchase Date */}
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-2">Purchase Date</label>
+              <input
+                type="date"
+                value={purchaseForm.purchase_date}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, purchase_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                tabIndex={0}
+              />
+            </div>
+
+
           </div>
 
+          {/* Items Table */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-md font-medium text-gray-900">Items</h3>
+                <button
+                  onClick={() => setShowProductForm(true)}
+                  className="px-1 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  title="Add New Item"
+                  type="button"
+                  tabIndex={-1}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                onClick={addItemToPurchase}
+                className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Item
+              </button>
+            </div>
 
-          {purchaseForm.items.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mfg date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exp date</th>
-                    {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th> */}
 
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">MRP</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST %</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subtotal</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount (%)</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discounted Amount</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total (With GST)</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {purchaseForm.items.map((item, index) => {
-                    const selectedItem = items.find(i => i.id == item.id);
-                    const MRP = selectedItem?.mrp || 0;
-                    const gstRate = gstOnPurchase ? (selectedItem?.gst_percentage || 0) : 0;
-                    const baseAmount = item.quantity * item.unit_price;
-                    const itemDiscount = item.discount ? (baseAmount * item.discount) / 100 : 0;
-                    const discountedAmount = baseAmount - itemDiscount;
-                    const gstAmount = (discountedAmount * gstRate) / 100;
-                    const totalWithGst = discountedAmount + gstAmount;
-                    console.log({
-                      quantity: item.quantity,
-                      unit_price: item.unit_price,
-                      baseAmount,
-                      itemDiscount,
-                      discountedAmount,
-                      gstRate,
-                      gstAmount
-                    });
-                    const filtered = getFilteredItems(itemSearch[index]);
-                    return (
-                      <tr key={index}>
-                        <td className="px-4 py-3">
-                          <div className="relative">
-                            <input
-                              ref={el => (itemInputRefs.current[index] = el)}
-                              type="text"
-                              value={itemSearch[index] || (selectedItem?.name || '')}
-                              onChange={e => {
-                                const value = e.target.value;
-                                setItemSearch(search => ({ ...search, [index]: value }));
-                                setShowItemList(list => ({ ...list, [index]: true }));
-                                setItemDropdownIndex(idx => ({ ...idx, [index]: 0 }));
-                                // Only auto-select if not empty
-                                if (value.trim() !== '') {
-                                  const match = items.find(i => i.name.toLowerCase() === value.toLowerCase());
-                                  if (match) {
+            {purchaseForm.items.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mfg date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exp date</th>
+                      {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th> */}
+
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">MRP</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST %</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subtotal</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount (%)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discounted Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total (With GST)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {purchaseForm.items.map((item, index) => {
+                      const selectedItem = items.find(i => i.id == item.id);
+                      const MRP = selectedItem?.mrp || 0;
+                      const gstRate = gstOnPurchase ? (selectedItem?.gst_percentage || 0) : 0;
+                      const baseAmount = item.quantity * item.unit_price;
+                      const itemDiscount = item.discount ? (baseAmount * item.discount) / 100 : 0;
+                      const discountedAmount = baseAmount - itemDiscount;
+                      const gstAmount = (discountedAmount * gstRate) / 100;
+                      const totalWithGst = discountedAmount + gstAmount;
+                      console.log({
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        baseAmount,
+                        itemDiscount,
+                        discountedAmount,
+                        gstRate,
+                        gstAmount
+                      });
+                      const filtered = getFilteredItems(itemSearch[index]);
+                      return (
+                        <tr key={index}>
+                          <td className="px-4 py-3">
+                            <div className="relative">
+                              <input
+                                ref={el => (itemInputRefs.current[index] = el)}
+                                type="text"
+                                value={itemSearch[index] || (selectedItem?.name || '')}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  setItemSearch(search => ({ ...search, [index]: value }));
+                                  setShowItemList(list => ({ ...list, [index]: true }));
+                                  setItemDropdownIndex(idx => ({ ...idx, [index]: 0 }));
+                                  // Only auto-select if not empty
+                                  if (value.trim() !== '') {
+                                    const match = items.find(i => i.name.toLowerCase() === value.toLowerCase());
+                                    if (match) {
+                                      const updatedItems = [...purchaseForm.items];
+                                      updatedItems[index].id = match.id;
+                                      updatedItems[index].unit_price = match.purchase_rate || 0;
+                                      updatedItems[index].mrp = match.mrp || 0;
+                                      setPurchaseForm({ ...purchaseForm, items: updatedItems });
+                                    }
+                                  } else {
+                                    // If input is empty, clear the selected item for this row
                                     const updatedItems = [...purchaseForm.items];
-                                    updatedItems[index].id = match.id;
-                                    updatedItems[index].unit_price = match.purchase_rate || 0;
-                                    updatedItems[index].mrp = match.mrp || 0;
+                                    updatedItems[index].id = '';
                                     setPurchaseForm({ ...purchaseForm, items: updatedItems });
                                   }
-                                } else {
-                                  // If input is empty, clear the selected item for this row
-                                  const updatedItems = [...purchaseForm.items];
-                                  updatedItems[index].id = '';
-                                  setPurchaseForm({ ...purchaseForm, items: updatedItems });
-                                }
-                              }}
-                              onFocus={() => setShowItemList(list => ({ ...list, [index]: true }))}
-                              onBlur={() => setTimeout(() => setShowItemList(list => ({ ...list, [index]: false })), 100)}
-                              onKeyDown={e => {
-                                const filtered = getFilteredItems(itemSearch[index]);
-                                if ((e.key === 'Enter' || e.key === 'Tab') && filtered.length > 0) {
-                                  // Select the first filtered item on Enter/Tab
-                                  handleItemSelect(filtered[itemDropdownIndex[index] || 0] || filtered[0], index);
-                                  e.preventDefault();
-                                  // Move focus to quantity input
-                                  document.getElementById(`qty-input-${index}`)?.focus();
-                                } else {
-                                  handleItemInputKeyDown(e, index);
-                                }
-                              }}
-                              placeholder="Type to search item"
-                              className="w-[300px] px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-base"
-                              autoComplete="off"
-                              tabIndex={0}
-                            />
-                            <DropdownPortal
-                              anchorRef={{ current: itemInputRefs.current[index] }}
-                              show={showItemList[index] && filtered.length > 0}
-                            >
-                              <ul
-                                className="bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full"
-                                style={{ minWidth: 180, maxHeight: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+                                }}
+                                onFocus={() => setShowItemList(list => ({ ...list, [index]: true }))}
+                                onBlur={() => setTimeout(() => setShowItemList(list => ({ ...list, [index]: false })), 100)}
+                                onKeyDown={e => {
+                                  const filtered = getFilteredItems(itemSearch[index]);
+                                  if ((e.key === 'Enter' || e.key === 'Tab') && filtered.length > 0) {
+                                    // Select the first filtered item on Enter/Tab
+                                    handleItemSelect(filtered[itemDropdownIndex[index] || 0] || filtered[0], index);
+                                    e.preventDefault();
+                                    // Move focus to quantity input
+                                    document.getElementById(`qty-input-${index}`)?.focus();
+                                  } else {
+                                    handleItemInputKeyDown(e, index);
+                                  }
+                                }}
+                                placeholder="Type to search item"
+                                className="w-[300px] px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-base"
+                                autoComplete="off"
+                                tabIndex={0}
+                              />
+                              <DropdownPortal
+                                anchorRef={{ current: itemInputRefs.current[index] }}
+                                show={showItemList[index] && filtered.length > 0}
                               >
-                                {filtered.map((itm, idx) => (
-                                  <li
-                                    key={itm.id}
-                                    className={`px-3 py-2 cursor-pointer ${idx === (itemDropdownIndex[index] || 0) ? 'bg-blue-100' : ''
-                                      }`}
-                                    onMouseDown={() => handleItemSelect(itm, index)}
-                                    tabIndex={-1}
-                                  >
-                                    {itm.name}
-                                  </li>
-                                ))}
-                              </ul>
-                            </DropdownPortal>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {item.id && (
+                                <ul
+                                  className="bg-white border border-gray-200 rounded shadow max-h-40 overflow-y-auto w-full"
+                                  style={{ minWidth: 180, maxHeight: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+                                >
+                                  {filtered.map((itm, idx) => (
+                                    <li
+                                      key={itm.id}
+                                      className={`px-3 py-2 cursor-pointer ${idx === (itemDropdownIndex[index] || 0) ? 'bg-blue-100' : ''
+                                        }`}
+                                      onMouseDown={() => handleItemSelect(itm, index)}
+                                      tabIndex={-1}
+                                    >
+                                      {itm.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </DropdownPortal>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {item.id && (
+                              <button
+                                type="button"
+                                onClick={() => showPurchaseHistory(item.id)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Show Purchase History (Ctrl+H)"
+                                tabIndex={-1}
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={item.batch_number || ''}
+                              onChange={e => updatePurchaseItem(index, 'batch_number', e.target.value)}
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Batch No"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="date"
+                              value={item.mfg_date || ''}
+                              onChange={e => updatePurchaseItem(index, 'mfg_date', e.target.value)}
+                              className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Mfg Date"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="date"
+                              value={item.exp_date || ''}
+                              onChange={e => updatePurchaseItem(index, 'exp_date', e.target.value)}
+                              className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Exp Date"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              id={`qty-input-${index}`}
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              value={item.quantity}
+                              onChange={(e) => updatePurchaseItem(index, 'quantity', parseInt(e.target.value))}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                              min="0"
+                              tabIndex={0}
+                              onKeyDown={e => {
+                                if (e.key === 'Delete') removePurchaseItem(index);
+                                if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
+                                  if (item.id) showPurchaseHistory(item.id);
+                                }
+                              }}
+                            />
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              step="0.01"
+                              value={item.unit_price}
+                              onChange={(e) => updatePurchaseItem(index, 'unit_price', parseFloat(e.target.value))}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                              min="0"
+                              tabIndex={0}
+                              onKeyDown={e => {
+                                if (e.key === 'Delete') removePurchaseItem(index);
+                                if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
+                                  if (item.id) showPurchaseHistory(item.id);
+                                }
+                                if (e.key === 'Tab' && !e.shiftKey) {
+                                  // On Tab after unit price, add new item
+                                  addItemToPurchase();
+                                }
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              step="0.01"
+                              value={item.mrp}
+                              onChange={e => updatePurchaseItem(index, 'mrp', parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                              min="0"
+                              placeholder="MRP"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="font-medium">{gstRate}%</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium">
+                              ₹{baseAmount.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              value={item.discount || 0}
+                              onChange={e => updatePurchaseItem(index, 'discount', parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                              min="0"
+                              max="100"
+                              placeholder="%"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium">
+                              ₹{discountedAmount.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium">
+                              ₹{gstAmount.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium">
+                              ₹{totalWithGst.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
                             <button
-                              type="button"
-                              onClick={() => showPurchaseHistory(item.id)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Show Purchase History (Ctrl+H)"
+                              onClick={() => removePurchaseItem(index)}
+                              className="text-red-600 hover:text-red-800"
                               tabIndex={-1}
                             >
-                              <History className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            type="text"
-                            value={item.batch_number || ''}
-                            onChange={e => updatePurchaseItem(index, 'batch_number', e.target.value)}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                            placeholder="Batch No"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            type="date"
-                            value={item.mfg_date || ''}
-                            onChange={e => updatePurchaseItem(index, 'mfg_date', e.target.value)}
-                            className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
-                            placeholder="Mfg Date"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            type="date"
-                            value={item.exp_date || ''}
-                            onChange={e => updatePurchaseItem(index, 'exp_date', e.target.value)}
-                            className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
-                            placeholder="Exp Date"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            id={`qty-input-${index}`}
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updatePurchaseItem(index, 'quantity', parseInt(e.target.value))}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                            min="0"
-                            tabIndex={0}
-                            onKeyDown={e => {
-                              if (e.key === 'Delete') removePurchaseItem(index);
-                              if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
-                                if (item.id) showPurchaseHistory(item.id);
-                              }
-                            }}
-                          />
-                        </td>
+                          </td>
 
-                        <td className="px-4 py-3">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.unit_price}
-                            onChange={(e) => updatePurchaseItem(index, 'unit_price', parseFloat(e.target.value))}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                            min="0"
-                            tabIndex={0}
-                            onKeyDown={e => {
-                              if (e.key === 'Delete') removePurchaseItem(index);
-                              if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
-                                if (item.id) showPurchaseHistory(item.id);
-                              }
-                              if (e.key === 'Tab' && !e.shiftKey) {
-                                // On Tab after unit price, add new item
-                                addItemToPurchase();
-                              }
-                            }}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.mrp}
-                            onChange={e => updatePurchaseItem(index, 'mrp', parseFloat(e.target.value) || 0)}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                            min="0"
-                            placeholder="MRP"
-                          />
-                        </td> 
-                        <td className="px-4 py-3 text-center">
-                          <span className="font-medium">{gstRate}%</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-medium">
-                            ₹{baseAmount.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            type="number"
-                            value={item.discount || 0}
-                            onChange={e => updatePurchaseItem(index, 'discount', parseFloat(e.target.value) || 0)}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                            min="0"
-                            max="100"
-                            placeholder="%"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-medium">
-                            ₹{discountedAmount.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-medium">
-                            ₹{gstAmount.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-medium">
-                            ₹{totalWithGst.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => removePurchaseItem(index)}
-                            className="text-red-600 hover:text-red-800"
-                            tabIndex={-1}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Total and Save */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-4 border-t border-gray-200 gap-4">
-          <button
-            onClick={savePurchase}
-            className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors order-2 md:order-1"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Purchase
-          </button>
-          <div className="flex flex-col items-end space-y-1 order-1 md:order-2 w-full md:w-auto">
-            {/* Subtotal before discount */}
-            <div className="flex justify-between w-full md:w-auto">
-              <span className="font-medium text-gray-700 mr-2">Subtotal :</span>
-              <span>₹{subtotal.toFixed(2)}</span>
-            </div>
-            {/* Discount amount */}
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-
-
-              <span className="font-medium text-gray-700">Total Discount:</span>
-              <input
-                type="number"
-                value={overallDiscount}
-                onChange={(e) => updateOverallDiscount(parseFloat(e.target.value) || 0)}
-                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0"
-                min="0"
-                max="100"
-                step="0.01"
-                tabIndex={0}
-              />
-              <span className="text-red-600 font-semibold">- ₹{totalDiscountAmount.toFixed(2)}</span>
-            </div>
-
-
-            {/* Overall Discount input */}
-            <div className="flex justify-between w-full md:w-auto items-center">
-              <label className="block text-base font-medium text-gray-700 mb-2">Overall Discount (%)</label>
-
-            </div>
-            {/* CGST */}
-            <div className="flex justify-between w-full md:w-auto">
-              <span className="font-medium text-gray-700 mr-2">Total CGST:</span>
-              <span>₹{cgstTotal.toFixed(2)}</span>
-            </div>
-            {/* SGST */}
-            <div className="flex justify-between w-full md:w-auto">
-              <span className="font-medium text-gray-700 mr-2">Total SGST:</span>
-              <span>₹{sgstTotal.toFixed(2)}</span>
-            </div>
-            {/* Total with GST */}
-            <div className="flex justify-between w-full md:w-auto">
-              <span className="font-medium text-gray-700 mr-2">Total With GST:</span>
-              <span>₹{totalWithGst.toFixed(2)}</span>
-            </div>
-            {/* Rounding Off */}
-            <div className="flex justify-between w-full md:w-auto">
-              <span className="font-medium text-gray-700 mr-2">Rounding Off:</span>
-              <span>
-                {getRoundingOff() > 0 ? '+' : '-'}₹{Math.abs(getRoundingOff()).toFixed(2)}
-              </span>
-            </div>
-            {/* Grand Total */}
-            <div className="flex justify-between w-full md:w-auto text-lg font-semibold border-t border-gray-200 pt-2">
-              <span>Grand Total:</span>
-              <span>₹{getFinalTotal().toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      <SupplierFormModal
-        isOpen={showNewSupplierForm}
-        isEditing={false}
-        supplierForm={supplierForm}
-        supplierErrors={supplierErrors}
-        setSupplierForm={setSupplierForm}
-        setSupplierErrors={setSupplierErrors}
-        onSubmit={addNewSupplier}
-        onClose={() => {
-          setShowNewSupplierForm(false);
-          setSupplierForm(initialSupplierForm);
-          setSupplierErrors({});
-        }}
-      />
-
-      {/* Item History Modal */}
-      {showItemHistory && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setShowItemHistory(null)}
-        >
-          <div
-            className="bg-white rounded-xl p-8 w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl relative custom-scroll"
-            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Purchase History</h2>
-              <button
-                onClick={() => setShowItemHistory(null)}
-                className="text-white bg-red-600 hover:bg-red-700 rounded-full w-9 h-9 flex items-center justify-center transition-colors"
-                title="Close"
-              >
-                <span className="text-2xl leading-none font-bold">×</span>
-              </button>
-            </div>
-            {itemHistory.length > 0 ? (() => {
-              // Find lowest and highest price records
-              const sortedByPrice = [...itemHistory].sort((a, b) => a.unit_price - b.unit_price);
-              const lowest = sortedByPrice[0];
-              const highest = sortedByPrice[sortedByPrice.length - 1];
-
-              // Remove lowest and highest from the rest (if same record, only show once)
-              const rest = itemHistory
-                .filter(
-                  r =>
-                    r !== lowest &&
-                    r !== highest
-                )
-                .sort((a, b) => new Date(b.purchase_date) - new Date(a.purchase_date));
-
-              return (
-                <div className="space-y-5">
-                  {/* Lowest Price */}
-                  <div className="border border-green-300 rounded-lg p-5 bg-green-50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <span className="font-semibold text-green-800 text-lg">Lowest Price</span>
-                      <div className="grid grid-cols-2 gap-4 text-sm mt-2">
-                        <div>
-                          <span className="font-medium">Supplier:</span> {lowest.supplier_name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Date:</span> {new Date(lowest.purchase_date).toLocaleDateString()}
-                        </div>
-                        <div>
-                          <span className="font-medium">Quantity:</span> {lowest.quantity}
-                        </div>
-                        <div>
-                          <span className="font-medium">Price:</span> <span className="text-green-700 font-bold">₹{lowest.unit_price}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Highest Price (only if different from lowest) */}
-                  {highest !== lowest && (
-                    <div className="border border-red-300 rounded-lg p-5 bg-red-50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div>
-                        <span className="font-semibold text-red-800 text-lg">Highest Price</span>
-                        <div className="grid grid-cols-2 gap-4 text-sm mt-2">
-                          <div>
-                            <span className="font-medium">Supplier:</span> {highest.supplier_name}
-                          </div>
-                          <div>
-                            <span className="font-medium">Date:</span> {new Date(highest.purchase_date).toLocaleDateString()}
-                          </div>
-                          <div>
-                            <span className="font-medium">Quantity:</span> {highest.quantity}
-                          </div>
-                          <div>
-                            <span className="font-medium">Price:</span> <span className="text-red-700 font-bold">₹{highest.unit_price}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {/* Rest of the history, sorted by date (recent first) */}
-                  {rest.length > 0 && rest.map((record, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-5">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Supplier:</span> {record.supplier_name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Date:</span> {new Date(record.purchase_date).toLocaleDateString()}
-                        </div>
-                        <div>
-                          <span className="font-medium">Quantity:</span> {record.quantity}
-                        </div>
-                        <div>
-                          <span className="font-medium">Price:</span> ₹{record.unit_price}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })() : (
-              <p className="text-gray-600 text-center py-8">No purchase history available</p>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-          {/* Custom scrollbar styles */}
-          <style>
-            {`
+
+          {/* Total and Save */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-4 border-t border-gray-200 gap-4">
+            <button
+              onClick={savePurchase}
+              className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors order-2 md:order-1"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save Purchase
+            </button>
+            <div className="flex flex-col items-end space-y-1 order-1 md:order-2 w-full md:w-auto">
+              {/* Subtotal before discount */}
+              <div className="flex justify-between w-full md:w-auto">
+                <span className="font-medium text-gray-700 mr-2">Subtotal :</span>
+                <span>₹{subtotal.toFixed(2)}</span>
+              </div>
+              {/* Discount amount */}
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+
+
+                <span className="font-medium text-gray-700">Total Discount:</span>
+                <input
+                  type="number"
+                  onWheel={e => e.target.blur()}
+                  value={overallDiscount}
+                  onChange={(e) => updateOverallDiscount(parseFloat(e.target.value) || 0)}
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  tabIndex={0}
+                />
+                <span className="text-red-600 font-semibold">- ₹{totalDiscountAmount.toFixed(2)}</span>
+              </div>
+
+
+              {/* Overall Discount input */}
+              <div className="flex justify-between w-full md:w-auto items-center">
+                <label className="block text-base font-medium text-gray-700 mb-2">Overall Discount (%)</label>
+
+              </div>
+              {/* CGST */}
+              <div className="flex justify-between w-full md:w-auto">
+                <span className="font-medium text-gray-700 mr-2">Total CGST:</span>
+                <span>₹{cgstTotal.toFixed(2)}</span>
+              </div>
+              {/* SGST */}
+              <div className="flex justify-between w-full md:w-auto">
+                <span className="font-medium text-gray-700 mr-2">Total SGST:</span>
+                <span>₹{sgstTotal.toFixed(2)}</span>
+              </div>
+              {/* Total with GST */}
+              <div className="flex justify-between w-full md:w-auto">
+                <span className="font-medium text-gray-700 mr-2">Total With GST:</span>
+                <span>₹{totalWithGst.toFixed(2)}</span>
+              </div>
+              {/* Rounding Off */}
+              <div className="flex justify-between w-full md:w-auto">
+                <span className="font-medium text-gray-700 mr-2">Rounding Off:</span>
+                <span>
+                  {getRoundingOff() > 0 ? '+' : '-'}₹{Math.abs(getRoundingOff()).toFixed(2)}
+                </span>
+              </div>
+              {/* Grand Total */}
+              <div className="flex justify-between w-full md:w-auto text-lg font-semibold border-t border-gray-200 pt-2">
+                <span>Grand Total:</span>
+                <span>₹{getFinalTotal().toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <SupplierFormModal
+          isOpen={showNewSupplierForm}
+          isEditing={false}
+          supplierForm={supplierForm}
+          supplierErrors={supplierErrors}
+          setSupplierForm={setSupplierForm}
+          setSupplierErrors={setSupplierErrors}
+          onSubmit={addNewSupplier}
+          onClose={() => {
+            setShowNewSupplierForm(false);
+            setSupplierForm(initialSupplierForm);
+            setSupplierErrors({});
+          }}
+        />
+
+        {/* Item History Modal */}
+        {showItemHistory && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={() => setShowItemHistory(null)}
+          >
+            <div
+              className="bg-white rounded-xl p-8 w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl relative custom-scroll"
+              style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Purchase History</h2>
+                <button
+                  onClick={() => setShowItemHistory(null)}
+                  className="text-white bg-red-600 hover:bg-red-700 rounded-full w-9 h-9 flex items-center justify-center transition-colors"
+                  title="Close"
+                >
+                  <span className="text-2xl leading-none font-bold">×</span>
+                </button>
+              </div>
+              {itemHistory.length > 0 ? (() => {
+                // Find lowest and highest price records
+                const sortedByPrice = [...itemHistory].sort((a, b) => a.unit_price - b.unit_price);
+                const lowest = sortedByPrice[0];
+                const highest = sortedByPrice[sortedByPrice.length - 1];
+
+                // Remove lowest and highest from the rest (if same record, only show once)
+                const rest = itemHistory
+                  .filter(
+                    r =>
+                      r !== lowest &&
+                      r !== highest
+                  )
+                  .sort((a, b) => new Date(b.purchase_date) - new Date(a.purchase_date));
+
+                return (
+                  <div className="space-y-5">
+                    {/* Lowest Price */}
+                    <div className="border border-green-300 rounded-lg p-5 bg-green-50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <span className="font-semibold text-green-800 text-lg">Lowest Price</span>
+                        <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+                          <div>
+                            <span className="font-medium">Supplier:</span> {lowest.supplier_name}
+                          </div>
+                          <div>
+                            <span className="font-medium">Date:</span> {new Date(lowest.purchase_date).toLocaleDateString()}
+                          </div>
+                          <div>
+                            <span className="font-medium">Quantity:</span> {lowest.quantity}
+                          </div>
+                          <div>
+                            <span className="font-medium">Price:</span> <span className="text-green-700 font-bold">₹{lowest.unit_price}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Highest Price (only if different from lowest) */}
+                    {highest !== lowest && (
+                      <div className="border border-red-300 rounded-lg p-5 bg-red-50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          <span className="font-semibold text-red-800 text-lg">Highest Price</span>
+                          <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+                            <div>
+                              <span className="font-medium">Supplier:</span> {highest.supplier_name}
+                            </div>
+                            <div>
+                              <span className="font-medium">Date:</span> {new Date(highest.purchase_date).toLocaleDateString()}
+                            </div>
+                            <div>
+                              <span className="font-medium">Quantity:</span> {highest.quantity}
+                            </div>
+                            <div>
+                              <span className="font-medium">Price:</span> <span className="text-red-700 font-bold">₹{highest.unit_price}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Rest of the history, sorted by date (recent first) */}
+                    {rest.length > 0 && rest.map((record, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-5">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium">Supplier:</span> {record.supplier_name}
+                          </div>
+                          <div>
+                            <span className="font-medium">Date:</span> {new Date(record.purchase_date).toLocaleDateString()}
+                          </div>
+                          <div>
+                            <span className="font-medium">Quantity:</span> {record.quantity}
+                          </div>
+                          <div>
+                            <span className="font-medium">Price:</span> ₹{record.unit_price}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })() : (
+                <p className="text-gray-600 text-center py-8">No purchase history available</p>
+              )}
+            </div>
+            {/* Custom scrollbar styles */}
+            <style>
+              {`
               .custom-scroll::-webkit-scrollbar {
                 width: 10px;
               }
@@ -1174,31 +1179,31 @@ console.log('Purchase saved successfully',purchaseForm);
                 background: transparent;
               }
             `}
-          </style>
-        </div>
-      )}
+            </style>
+          </div>
+        )}
 
-      <ProductFormModal
-        isOpen={showProductForm}
-        isEditing={false}
-        productForm={productForm}
-        productErrors={productErrors}
-        units={units}
-        categories={categories}
-        gstRates={gstRates}
-        setProductForm={setProductForm}
-        setProductErrors={setProductErrors}
-        onGenerateSku={handleGenerateSku}
-        onSubmit={handleAddProduct}
-        onClose={() => {
-          setShowProductForm(false);
-          setProductForm(initialProductForm);
-          setProductErrors({});
-        }}
-      />
+        <ProductFormModal
+          isOpen={showProductForm}
+          isEditing={false}
+          productForm={productForm}
+          productErrors={productErrors}
+          units={units}
+          categories={categories}
+          gstRates={gstRates}
+          setProductForm={setProductForm}
+          setProductErrors={setProductErrors}
+          onGenerateSku={handleGenerateSku}
+          onSubmit={handleAddProduct}
+          onClose={() => {
+            setShowProductForm(false);
+            setProductForm(initialProductForm);
+            setProductErrors({});
+          }}
+        />
 
-      {/* <ToastContainer position="top-right" autoClose={3000} /> */}
-    </div>
+        {/* <ToastContainer position="top-right" autoClose={3000} /> */}
+      </div>
 
     </PinProtected>
   );

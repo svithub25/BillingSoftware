@@ -135,6 +135,7 @@ const SupplierFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={supplierForm.credit_days || ''}
               onChange={e => setSupplierForm({ ...supplierForm, credit_days: e.target.value })}
               className={getFieldClass(supplierErrors.credit_days)}

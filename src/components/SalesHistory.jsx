@@ -728,7 +728,9 @@ const SalesHistory = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total Amount
                 </th>
-
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -774,6 +776,21 @@ const SalesHistory = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     ₹{sale.total_amount.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <div className="flex flex-col items-start">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${sale.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                        sale.payment_status === 'partially_paid' ? 'bg-purple-100 text-purple-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        {sale.payment_status ? sale.payment_status.replace('_', ' ').toUpperCase() : 'PENDING'}
+                      </span>
+                      {sale.payment_status === 'partially_paid' && (
+                        <span className="text-xs text-gray-500 mt-1 ml-1 font-medium">
+                          Paid: ₹{(sale.paid_amount || 0).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
                     <button

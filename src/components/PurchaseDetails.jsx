@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Package, User, Calendar, DollarSign, FileText, Phone, MapPin, BadgePercent } from 'lucide-react';
+import { ArrowLeft, Package, User, Calendar, IndianRupee, FileText, Phone, MapPin, BadgePercent } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PurchaseDetails = () => {
@@ -30,12 +30,12 @@ const PurchaseDetails = () => {
 
   const loadPurchaseDetails = async () => {
     try {
-     
-        const result = await window.electronAPI.getPurchaseDetails(parseInt(id));
-        setPurchase(result.purchase);
-        setItems(result.items);
-        setGst(result.gst || { cgst_total: 0, sgst_total: 0, gst_total: 0 });
-     
+
+      const result = await window.electronAPI.getPurchaseDetails(parseInt(id));
+      setPurchase(result.purchase);
+      setItems(result.items);
+      setGst(result.gst || { cgst_total: 0, sgst_total: 0, gst_total: 0 });
+
     } catch (error) {
       setPurchase(null);
       setItems([]);
@@ -64,7 +64,7 @@ const PurchaseDetails = () => {
   }
 
   return (
-    <div className="p-6"> 
+    <div className="p-6">
       <div className="flex items-center mb-6">
         <button
           onClick={() => navigate('/purchase-history')}
@@ -80,12 +80,12 @@ const PurchaseDetails = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="flex items-center">
             <FileText className="w-5 h-5 text-gray-500 mr-2" />
-            <div> 
+            <div>
               <p className="text-sm text-gray-500">Purchase ID</p>
               <p className="font-semibold">#{purchase.id}</p>
             </div>
           </div>
-          <div className="flex items-center"> 
+          <div className="flex items-center">
             <FileText className="w-5 h-5 text-gray-500 mr-2" />
             <div>
               <p className="text-sm text-gray-500">Invoice Number</p>
@@ -122,10 +122,29 @@ const PurchaseDetails = () => {
             </div>
           </div>
           <div className="flex items-center">
-            <DollarSign className="w-5 h-5 text-gray-500 mr-2" />
+            <IndianRupee className="w-5 h-5 text-gray-500 mr-2" />
             <div>
               <p className="text-sm text-gray-500">Total Amount</p>
               <p className="font-semibold text-green-600">₹{purchase.total_amount?.toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="flex items-center">
+            <IndianRupee className="w-5 h-5 text-gray-500 mr-2" />
+            <div>
+              <p className="text-sm text-gray-500">Payment Status</p>
+              <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${purchase.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                purchase.payment_status === 'partially_paid' ? 'bg-purple-100 text-purple-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                {purchase.payment_status ? purchase.payment_status.replace('_', ' ').toUpperCase() : 'PENDING'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center">
+            <IndianRupee className="w-5 h-5 text-gray-500 mr-2" />
+            <div>
+              <p className="text-sm text-gray-500">Amount Paid</p>
+              <p className="font-semibold text-green-600">₹{(purchase.paid_amount || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -172,8 +191,8 @@ const PurchaseDetails = () => {
                       <td className="px-4 py-2">₹{item.cgst_amount?.toFixed(2)}</td>
                       <td className="px-4 py-2">₹{item.sgst_amount?.toFixed(2)}</td>
                       <td className="px-4 py-2 font-semibold">
-                      ₹{(discountedAmount + (item.cgst_amount || 0) + (item.sgst_amount || 0)).toFixed(2)}
-                    </td>
+                        ₹{(discountedAmount + (item.cgst_amount || 0) + (item.sgst_amount || 0)).toFixed(2)}
+                      </td>
                     </tr>
                   );
                 })}
@@ -249,7 +268,7 @@ const PurchaseDetails = () => {
           </div> */}
         </div>
 
-    
+
       </div>
     </div>
   );

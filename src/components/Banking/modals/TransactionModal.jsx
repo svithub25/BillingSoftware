@@ -66,16 +66,34 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
 
   const fetchPendingBills = async (contactId, type) => {
     try {
+      let bills = [];
       if (type === 'Receipt') {
         const sales = await window.electronAPI.getPendingSales(contactId);
-        setPendingBills(sales || []);
+        bills = sales || [];
       } else if (type === 'Payment') {
         const purchases = await window.electronAPI.getPendingPurchases(contactId);
-        setPendingBills(purchases || []);
-      } else {
-        setPendingBills([]);
+        bills = purchases || [];
       }
-      setBillAdjustments({});
+      setPendingBills(bills);
+
+      if (bills.length > 0 && !isEditMode && transactionForm.amount) {
+        let remainingAmount = parseFloat(transactionForm.amount) || 0;
+        const newAdjustments = {};
+
+        bills.forEach(bill => {
+          const balance = bill.total_amount - (bill.paid_amount || 0);
+          if (remainingAmount > 0) {
+            const adjustAmt = Math.min(balance, remainingAmount);
+            if (adjustAmt > 0) {
+              newAdjustments[bill.id] = parseFloat(adjustAmt.toFixed(2));
+              remainingAmount -= adjustAmt;
+            }
+          }
+        });
+        setBillAdjustments(newAdjustments);
+      } else {
+        setBillAdjustments({});
+      }
     } catch (error) {
       console.error('Error fetching pending bills:', error);
       setPendingBills([]);
@@ -108,7 +126,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       if (!transactionForm.to_account_id) {
         newErrors.to_account_id = 'Please select destination account';
       }
-      
+
       if (transactionForm.bank_account_id === transactionForm.to_account_id) {
         newErrors.to_account_id = 'Source and destination accounts cannot be the same';
       }
@@ -131,9 +149,31 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleAmountChange = (e) => {
+    const newAmount = e.target.value;
+    setTransactionForm({ ...transactionForm, amount: newAmount });
+
+    if (pendingBills.length > 0 && !isEditMode) {
+      let remainingAmount = parseFloat(newAmount) || 0;
+      const newAdjustments = {};
+
+      pendingBills.forEach(bill => {
+        const balance = bill.total_amount - (bill.paid_amount || 0);
+        if (remainingAmount > 0) {
+          const adjustAmt = Math.min(balance, remainingAmount);
+          if (adjustAmt > 0) {
+            newAdjustments[bill.id] = parseFloat(adjustAmt.toFixed(2));
+            remainingAmount -= adjustAmt;
+          }
+        }
+      });
+      setBillAdjustments(newAdjustments);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fill all required fields correctly');
       return;
@@ -148,12 +188,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
           amount: parseFloat(transactionForm.amount),
           created_by: 'admin'
         });
-        
+
         if (result.success) {
-          const transactionTypeText = 
+          const transactionTypeText =
             transactionForm.voucher_type === 'Payment' ? 'Payment' :
-            transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
-            'Bank Transfer';
+              transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
+                'Bank Transfer';
           toast.success(`${transactionTypeText} updated successfully!`);
           onSuccess();
           handleClose();
@@ -161,7 +201,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       } else {
         // CREATE new transaction
         const voucherNumber = await window.electronAPI.generateVoucherNumber(transactionForm.voucher_type);
-        
+
         const adjustmentsToSave = Object.entries(billAdjustments)
           .map(([id, amt]) => ({
             [transactionForm.voucher_type === 'Receipt' ? 'invoice_id' : 'purchase_id']: parseInt(id),
@@ -176,12 +216,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
           created_by: 'admin',
           billAdjustments: adjustmentsToSave
         });
-        
+
         if (result.success) {
-          const transactionTypeText = 
+          const transactionTypeText =
             transactionForm.voucher_type === 'Payment' ? 'Payment' :
-            transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
-            'Bank Transfer';
+              transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
+                'Bank Transfer';
           toast.success(`${transactionTypeText} saved successfully!`);
           onSuccess();
           handleClose();
@@ -247,7 +287,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -270,11 +310,10 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                     key={type.value}
                     type="button"
                     onClick={() => handleVoucherTypeChange(type.value)}
-                    className={`p-3 rounded-lg border-2 font-medium transition-all ${
-                      transactionForm.voucher_type === type.value
-                        ? `border-${type.color}-500 bg-${type.color}-50 text-${type.color}-700`
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-3 rounded-lg border-2 font-medium transition-all ${transactionForm.voucher_type === type.value
+                      ? `border-${type.color}-500 bg-${type.color}-50 text-${type.color}-700`
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     {type.label}
                   </button>
@@ -305,9 +344,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 <select
                   value={transactionForm.bank_account_id}
                   onChange={(e) => setTransactionForm({ ...transactionForm, bank_account_id: e.target.value })}
-                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
-                    errors.bank_account_id ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${errors.bank_account_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   required
                 >
                   <option value="">Select Account</option>
@@ -331,9 +369,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                   <select
                     value={transactionForm.to_account_id}
                     onChange={(e) => setTransactionForm({ ...transactionForm, to_account_id: e.target.value })}
-                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
-                      errors.to_account_id ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${errors.to_account_id ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     required
                   >
                     <option value="">Select Destination Account</option>
@@ -360,11 +397,11 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                   <PartyComboBox
                     value={transactionForm.party_name}
                     onChange={(value, party) => {
-                      setTransactionForm({ 
-                        ...transactionForm, 
-                        party_name: value, 
-                        party_id: party?.id || null, 
-                        party_type: party?.source_type || 'contact' 
+                      setTransactionForm({
+                        ...transactionForm,
+                        party_name: value,
+                        party_id: party?.id || null,
+                        party_type: party?.source_type || 'contact'
                       });
                       if (party && party.source_type === 'contact') {
                         fetchPendingBills(party.id, transactionForm.voucher_type);
@@ -387,12 +424,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 </label>
                 <input
                   type="number"
+                  onWheel={e => e.target.blur()}
                   step="0.01"
                   value={transactionForm.amount}
-                  onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
-                    errors.amount ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  onChange={handleAmountChange}
+                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${errors.amount ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="0.00"
                   required
                 />
@@ -422,6 +459,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                           <div>
                             <input
                               type="number"
+                              onWheel={e => e.target.blur()}
                               step="0.01"
                               min="0"
                               max={balance}
@@ -443,7 +481,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                   </div>
                 </div>
               )}
-              
+
               {/* Narration */}
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Narration</label>
@@ -469,7 +507,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 </ul>
               </div>
             </div>
-            
+
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
@@ -481,7 +519,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300"
                 disabled={saving}
               >
                 {saving ? 'Saving...' : isEditMode ? 'Update Transaction' : 'Save Transaction'}

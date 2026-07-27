@@ -134,6 +134,7 @@ const CustomerFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Limit</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={customerForm.credit_limit || ''}
               onChange={e => handleInputChange('credit_limit', e.target.value)}
               className={getFieldClass(customerErrors.credit_limit)}
@@ -143,6 +144,7 @@ const CustomerFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={customerForm.credit_days || ''}
               onChange={e => handleInputChange('credit_days', e.target.value)}
               className={getFieldClass(customerErrors.credit_days)}

@@ -183,6 +183,7 @@ function BankingReconciliation({ bankAccounts, onRefresh }) {
                 </label>
                 <input
                   type="number"
+                  onWheel={e => e.target.blur()}
                   step="0.01"
                   value={statementBalance}
                   onChange={(e) => setStatementBalance(e.target.value)}
@@ -192,9 +193,8 @@ function BankingReconciliation({ bankAccounts, onRefresh }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Difference</label>
-                <div className={`w-full border rounded-lg px-3 py-2 font-semibold ${
-                  Math.abs(getDifference()) < 0.01 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'
-                }`}>
+                <div className={`w-full border rounded-lg px-3 py-2 font-semibold ${Math.abs(getDifference()) < 0.01 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'
+                  }`}>
                   ₹{getDifference().toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </div>
               </div>
@@ -237,7 +237,7 @@ function BankingReconciliation({ bankAccounts, onRefresh }) {
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Unreconciled Transactions</h3>
             </div>
-            
+
             {loading ? (
               <div className="p-8 text-center">
                 <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
@@ -274,8 +274,8 @@ function BankingReconciliation({ bankAccounts, onRefresh }) {
                       </tr>
                     ) : (
                       unreconciledTxns.map((txn) => (
-                        <tr 
-                          key={txn.id} 
+                        <tr
+                          key={txn.id}
                           className={`hover:bg-gray-50 cursor-pointer ${selectedTxns.includes(txn.id) ? 'bg-blue-50' : ''}`}
                           onClick={() => handleSelectTransaction(txn.id)}
                         >
@@ -378,7 +378,7 @@ function BankingReconciliation({ bankAccounts, onRefresh }) {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(rec.created_at).toLocaleDateString('en-IN')}
                           </td>
-                        </tr> 
+                        </tr>
                       ))
                     )}
                   </tbody>

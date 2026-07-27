@@ -315,6 +315,7 @@ const Contacts = () => {
                   <div className="flex space-x-2">
                     <input
                       type="number"
+                      onWheel={e => e.target.blur()}
                       step="0.01"
                       min="0"
                       className="flex-1 p-2 border rounded-md"
@@ -336,6 +337,7 @@ const Contacts = () => {
                   <div className="flex space-x-2">
                     <input
                       type="number"
+                      onWheel={e => e.target.blur()}
                       placeholder="Limit (₹)"
                       className="w-1/2 p-2 border rounded-md"
                       value={formData.credit_limit}
@@ -343,6 +345,7 @@ const Contacts = () => {
                     />
                     <input
                       type="number"
+                      onWheel={e => e.target.blur()}
                       placeholder="Days"
                       className="w-1/2 p-2 border rounded-md"
                       value={formData.credit_period}

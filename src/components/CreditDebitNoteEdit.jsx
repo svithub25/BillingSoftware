@@ -68,9 +68,9 @@ const initialForm = {
 const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-const CreditDebitNoteEdit = () => { 
-  const { id } = useParams(); 
- 
+const CreditDebitNoteEdit = () => {
+  const { id } = useParams();
+
   const navigate = useNavigate();
   const isEdit = id && id !== 'new';
 
@@ -91,8 +91,8 @@ const CreditDebitNoteEdit = () => {
   const getFiltered = (list, search) =>
     list.filter(item => item.name?.toLowerCase().includes((search || '').toLowerCase()));
 
-  useEffect(() => { 
-     
+  useEffect(() => {
+
     loadInitialData();
     // eslint-disable-next-line
   }, []);
@@ -310,7 +310,7 @@ const CreditDebitNoteEdit = () => {
             const maxFromPurchase = Math.max(0, (item.quantity || 0) - (item.already_returned || 0));
             // Since this is a new debit note, the max we can return is also constrained by current stock
             const maxReturnable = Math.min(maxFromPurchase, item.current_stock || 0);
-            
+
             return {
               item_id: item.item_id || item.id,
               item_name: item.item_name,
@@ -390,12 +390,12 @@ const CreditDebitNoteEdit = () => {
         if (items[idx].original_sale_item_id || items[idx].original_purchase_item_id) {
           const maxFromInvoice = Number(items[idx].original_quantity || 0) - Number(items[idx].already_returned || 0);
           let maxAllowed = maxFromInvoice;
-          
+
           if (prev.note_type === 'debit') {
             const physicalMax = Number(items[idx].current_stock || 0) + Number(items[idx].saved_return_quantity || 0);
             maxAllowed = Math.min(maxFromInvoice, physicalMax);
           }
-          
+
           if (valNum > maxAllowed) {
             toast.warning(`Maximum allowed return quantity is ${maxAllowed}`);
             value = maxAllowed;
@@ -536,7 +536,7 @@ const CreditDebitNoteEdit = () => {
               <label className={labelClass}>Note Number *</label>
               <input
                 type="text"
-                name="note_number" 
+                name="note_number"
                 value={formData.note_number}
                 onChange={handleChange}
                 className={`${inputClass} ${!isEdit ? 'bg-gray-100' : ''}`}
@@ -730,19 +730,19 @@ const CreditDebitNoteEdit = () => {
                           <input type="text" name="hsn_code" value={item.hsn_code} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100" readOnly />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="original_quantity" value={item.original_quantity} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100" readOnly />
+                          <input type="number" onWheel={e => e.target.blur()} name="original_quantity" value={item.original_quantity} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100" readOnly />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="return_quantity" value={item.return_quantity} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50" />
+                          <input type="number" onWheel={e => e.target.blur()} name="return_quantity" value={item.return_quantity} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50" />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="unit_price" value={item.unit_price} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          <input type="number" onWheel={e => e.target.blur()} name="unit_price" value={item.unit_price} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="discount" value={item.discount} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          <input type="number" onWheel={e => e.target.blur()} name="discount" value={item.discount} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="gst_percentage" value={item.gst_percentage} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          <input type="number" onWheel={e => e.target.blur()} name="gst_percentage" value={item.gst_percentage} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                         </td>
                         <td className="px-2 py-2">
                           <input type="text" value={summary?.taxableAmount.toFixed(2) || '0.00'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 font-semibold" readOnly />
@@ -767,31 +767,31 @@ const CreditDebitNoteEdit = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelClass}>Subtotal</label>
-              <input type="number" value={formData.subtotal.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.subtotal.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>CGST</label>
-              <input type="number" value={formData.cgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.cgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>SGST</label>
-              <input type="number" value={formData.sgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.sgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>IGST</label>
-              <input type="number" name="igst_total" value={formData.igst_total} onChange={handleChange} className={inputClass} />
+              <input type="number" onWheel={e => e.target.blur()} name="igst_total" value={formData.igst_total} onChange={handleChange} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Rounding Off</label>
-              <input type="number" value={formData.rounding_off.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.rounding_off.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>Other Charges</label>
-              <input type="number" name="other_charges" value={formData.other_charges} onChange={handleChange} className={inputClass} />
+              <input type="number" onWheel={e => e.target.blur()} name="other_charges" value={formData.other_charges} onChange={handleChange} className={inputClass} />
             </div>
             <div className="md:col-span-2">
               <label className={labelClass}>Total Amount</label>
-              <input type="number" value={formData.total_amount} className="w-full px-3 py-2 border border-blue-300 rounded-md bg-blue-50 text-lg font-bold text-blue-700" readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.total_amount} className="w-full px-3 py-2 border border-blue-300 rounded-md bg-blue-50 text-lg font-bold text-blue-700" readOnly />
             </div>
           </div>
         </div>

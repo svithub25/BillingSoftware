@@ -17,7 +17,7 @@ function AddAccountModal({ onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!accountForm.account_name || !accountForm.account_number || !accountForm.bank_name) {
       toast.error('Please fill all required fields');
       return;
@@ -52,7 +52,7 @@ function AddAccountModal({ onClose, onSuccess }) {
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
@@ -68,7 +68,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Bank Name <span className="text-red-500">*</span>
@@ -82,7 +82,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Account Number <span className="text-red-500">*</span>
@@ -96,7 +96,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name</label>
               <input
@@ -107,7 +107,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 placeholder="Branch name"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">IFSC Code</label>
               <input
@@ -119,7 +119,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 maxLength={11}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
               <select
@@ -133,11 +133,12 @@ function AddAccountModal({ onClose, onSuccess }) {
                 <option value="Overdraft">Overdraft</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Opening Balance</label>
               <input
                 type="number"
+                onWheel={e => e.target.blur()}
                 step="0.01"
                 value={accountForm.opening_balance}
                 onChange={(e) => setAccountForm({ ...accountForm, opening_balance: parseFloat(e.target.value) || 0 })}
@@ -145,7 +146,7 @@ function AddAccountModal({ onClose, onSuccess }) {
                 placeholder="0.00"
               />
             </div>
-            
+
             {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Balance Type</label>
               <select
@@ -161,11 +162,11 @@ function AddAccountModal({ onClose, onSuccess }) {
 
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Opening balance represents the starting amount in this account. 
+              <strong>Note:</strong> Opening balance represents the starting amount in this account.
               Select 'Debit (Positive)' if you have money in the account, or 'Credit (Negative)' if the account is overdrawn.
             </p>
           </div>
-          
+
           <div className="mt-6 flex justify-end space-x-3">
             <button
               type="button"

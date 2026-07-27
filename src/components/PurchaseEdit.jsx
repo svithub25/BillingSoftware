@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Save, History ,ArrowLeft} from 'lucide-react';
+import { Plus, Trash2, Save, History, ArrowLeft } from 'lucide-react';
 import { toast } from 'react-toastify';
-import ReactDOM from 'react-dom'; 
+import ReactDOM from 'react-dom';
 
 const DropdownPortal = ({ children, anchorRef, show }) => {
   const [style, setStyle] = useState({});
@@ -87,25 +87,25 @@ const PurchaseEdit = () => {
         const [suppliersData, itemsData, purchaseData] = await Promise.all([
           window.electronAPI.getSuppliers(),
           window.electronAPI.getInventory(),
-          window.electronAPI.getPurchaseDetails(parseInt(id)) 
+          window.electronAPI.getPurchaseDetails(parseInt(id))
         ]);
         setSuppliers(suppliersData);
         setItems(itemsData);
-       // When loading purchase data
-          setPurchaseForm({
-            supplier_id: purchaseData.purchase.supplier_id,
-            invoice_number: purchaseData.purchase.invoice_number,
-            purchase_date: purchaseData.purchase.purchase_date,
-            discount: purchaseData.purchase.discount || 0, // <-- add this line
-            items: purchaseData.items.map(item => ({
-              id: item.item_id,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              gst_percentage: item.gst_percentage,
-              discount: item.discount || 0, // <-- add this line
-              total_price: item.total_price
-            }))
-          });  
+        // When loading purchase data
+        setPurchaseForm({
+          supplier_id: purchaseData.purchase.supplier_id,
+          invoice_number: purchaseData.purchase.invoice_number,
+          purchase_date: purchaseData.purchase.purchase_date,
+          discount: purchaseData.purchase.discount || 0, // <-- add this line
+          items: purchaseData.items.map(item => ({
+            id: item.item_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            gst_percentage: item.gst_percentage,
+            discount: item.discount || 0, // <-- add this line
+            total_price: item.total_price
+          }))
+        });
         setSupplierSearch(
           suppliersData.find(s => s.id === purchaseData.purchase.supplier_id)?.name || ''
         );
@@ -153,12 +153,12 @@ const PurchaseEdit = () => {
   };
 
   // Item dropdown logic
-const getFilteredItems = (search) =>
-  items.filter(i =>
-    i.name.toLowerCase().includes((search || '').toLowerCase()) ||
-    (i.sku && i.sku.toLowerCase().includes((search || '').toLowerCase()))
-  ); 
-   
+  const getFilteredItems = (search) =>
+    items.filter(i =>
+      i.name.toLowerCase().includes((search || '').toLowerCase()) ||
+      (i.sku && i.sku.toLowerCase().includes((search || '').toLowerCase()))
+    );
+
   const handleItemInputKeyDown = (e, rowIdx) => {
     const filtered = getFilteredItems(itemSearch[rowIdx]);
     if (showItemList[rowIdx] && filtered.length > 0) {
@@ -327,8 +327,8 @@ const getFilteredItems = (search) =>
 
     // --- NEW: Check if stock will go negative ---
     const check = await window.electronAPI.checkPurchaseEditStock(id, itemsWithGST);
-    console.log(id , itemsWithGST)
-    console.log(check) 
+    console.log(id, itemsWithGST)
+    console.log(check)
     if (!check.ok) {
       toast.error(check.message || 'Stock will go negative for one or more items.');
       return;
@@ -336,7 +336,7 @@ const getFilteredItems = (search) =>
     // --- END NEW ---
 
     try {
-      const data =  await window.electronAPI.updatePurchase(id, {
+      const data = await window.electronAPI.updatePurchase(id, {
         ...purchaseForm,
         items: itemsWithGST,
         cgst_total,
@@ -344,12 +344,12 @@ const getFilteredItems = (search) =>
         rounding_off,
         total_amount: grandTotal
       });
-      console.log('the saadasdasdad',data);
-      toast.success('Purchase updated successfully!'); 
+      console.log('the saadasdasdad', data);
+      toast.success('Purchase updated successfully!');
       navigate('/purchase-history');
     } catch (error) {
       toast.error('Error updating purchase: ' + error);
-      
+
     }
   };
 
@@ -360,8 +360,8 @@ const getFilteredItems = (search) =>
   return (
     <div className="space-y-6">
       {/* Header */}
-      
-          <div className="flex items-center mb-6">
+
+      <div className="flex items-center mb-6">
         <button
           onClick={() => navigate('/purchase-history')}
           className="flex items-center text-blue-600 hover:text-blue-800 mr-4"
@@ -370,10 +370,10 @@ const getFilteredItems = (search) =>
           Back to Purchase
         </button>
         <h1 className="text-2xl font-bold text-gray-800">Edit Purchase</h1>
-         
+
       </div>
-      
-    
+
+
 
       {/* Purchase Edit Form */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -462,15 +462,15 @@ const getFilteredItems = (search) =>
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                    
+
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">MRP</th>
-                   
+
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount (%)</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discounted Amount</th>
-                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST %</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST %</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total (With GST)</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -591,7 +591,7 @@ const getFilteredItems = (search) =>
                         <td className="px-4 py-3 text-center">
                           <span className="font-medium">₹{MRP}</span>
                         </td>
-                        
+
                         <td className="px-4 py-3">
                           <span className="font-medium">
                             ₹{baseAmount.toFixed(2)}
@@ -600,6 +600,7 @@ const getFilteredItems = (search) =>
                         <td className="px-4 py-3">
                           <input
                             type="number"
+                            onWheel={e => e.target.blur()}
                             value={item.discount || 0}
                             onChange={e => updatePurchaseItem(index, 'discount', parseFloat(e.target.value) || 0)}
                             className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
@@ -651,6 +652,7 @@ const getFilteredItems = (search) =>
             <label className="block text-sm font-medium text-gray-700 mb-2">Overall Discount (%)</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={purchaseForm.discount || 0}
               onChange={e => setPurchaseForm({ ...purchaseForm, discount: parseFloat(e.target.value) || 0 })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
