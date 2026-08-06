@@ -151,8 +151,8 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
           )
           .run(
             purchase_date,
-            invoice_number,
-            invoice_number,
+            parseInt(purchaseId),
+            parseInt(purchaseId) || "",
             contact_id,
           );
         const txnId = txnResult.lastInsertRowid;
@@ -341,7 +341,11 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         ).run(item.id);
       });
 
-      const purchaseInfo = db.prepare('SELECT contact_id, invoice_number FROM purchases WHERE id = ?').get(purchaseId);
+      const purchaseInfo = db
+        .prepare(
+          "SELECT contact_id, invoice_number FROM purchases WHERE id = ?",
+        )
+        .get(purchaseId);
 
       db.prepare("UPDATE purchases SET status_code = 1 WHERE id = ?").run(
         purchaseId,
@@ -353,15 +357,26 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
       // ---------------------------------------------------------
       // Unified Accounting: Soft Delete Purchase Transaction
       // ---------------------------------------------------------
-      const transaction = db.prepare('SELECT id FROM transactions WHERE reference_no = ? AND voucher_type = ?').get(purchaseInfo.invoice_number, 'purchase');
+      const transaction = db
+        .prepare(
+          "SELECT id FROM transactions WHERE reference_no = ? AND voucher_type = ?",
+        )
+        .get(purchaseInfo.invoice_number, "purchase");
       if (transaction && purchaseInfo?.contact_id) {
-        const creditLine = db.prepare("SELECT credit FROM transaction_lines WHERE transaction_id = ? AND ledger_type = 'contact' AND ledger_id = ?").get(transaction.id, purchaseInfo.contact_id);
+        const creditLine = db
+          .prepare(
+            "SELECT credit FROM transaction_lines WHERE transaction_id = ? AND ledger_type = 'contact' AND ledger_id = ?",
+          )
+          .get(transaction.id, purchaseInfo.contact_id);
         if (creditLine && creditLine.credit > 0) {
-           // Reverse the credit to supplier by adding it back
-           db.prepare('UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?')
-             .run(creditLine.credit, purchaseInfo.contact_id);
+          // Reverse the credit to supplier by adding it back
+          db.prepare(
+            "UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?",
+          ).run(creditLine.credit, purchaseInfo.contact_id);
         }
-        db.prepare('UPDATE transactions SET is_deleted = 1 WHERE id = ?').run(transaction.id);
+        db.prepare("UPDATE transactions SET is_deleted = 1 WHERE id = ?").run(
+          transaction.id,
+        );
       }
 
       db.prepare("COMMIT").run();
@@ -395,7 +410,9 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
 
         // Get the purchase date and contact to know which sales to recalculate and to update accounting
         const purchaseInfo = db
-          .prepare("SELECT purchase_date, contact_id, invoice_number FROM purchases WHERE id = ?")
+          .prepare(
+            "SELECT purchase_date, contact_id, invoice_number FROM purchases WHERE id = ?",
+          )
           .get(purchaseId);
 
         // STEP 1: Delete all cost allocations related to this purchase
@@ -688,39 +705,89 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
         // Unified Accounting: Update Purchase Transaction
         // ---------------------------------------------------------
         if (updatedPurchase.contact_id) {
-          const transaction = db.prepare('SELECT id FROM transactions WHERE reference_no = ? AND voucher_type = ?').get(purchaseInfo.invoice_number, 'purchase');
+          const transaction = db
+            .prepare(
+              "SELECT id FROM transactions WHERE reference_no = ? AND voucher_type = ?",
+            )
+            .get(purchaseInfo.invoice_number, "purchase");
           const newTotalAmount = updatedPurchase.total_amount || 0;
-          
+
           if (transaction) {
             // Revert old contact balance first
             if (purchaseInfo.contact_id) {
-              const creditLine = db.prepare("SELECT credit FROM transaction_lines WHERE transaction_id = ? AND ledger_type = 'contact' AND ledger_id = ?").get(transaction.id, purchaseInfo.contact_id);
+              const creditLine = db
+                .prepare(
+                  "SELECT credit FROM transaction_lines WHERE transaction_id = ? AND ledger_type = 'contact' AND ledger_id = ?",
+                )
+                .get(transaction.id, purchaseInfo.contact_id);
               if (creditLine && creditLine.credit > 0) {
-                db.prepare('UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?').run(creditLine.credit, purchaseInfo.contact_id);
+                db.prepare(
+                  "UPDATE contacts SET current_balance = current_balance + ? WHERE id = ?",
+                ).run(creditLine.credit, purchaseInfo.contact_id);
               }
             }
-            
+
             // Delete old transaction lines
-            db.prepare('DELETE FROM transaction_lines WHERE transaction_id = ?').run(transaction.id);
-            
+            db.prepare(
+              "DELETE FROM transaction_lines WHERE transaction_id = ?",
+            ).run(transaction.id);
+
             // Update transaction header
-            db.prepare('UPDATE transactions SET amount = ?, contact_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newTotalAmount, updatedPurchase.contact_id, transaction.id);
-            
+            db.prepare(
+              "UPDATE transactions SET amount = ?, contact_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            ).run(newTotalAmount, updatedPurchase.contact_id, transaction.id);
+
             // Insert new lines
-            const insertLineStmt = db.prepare("INSERT INTO transaction_lines (transaction_id, ledger_type, ledger_id, debit, credit) VALUES (?, ?, ?, ?, ?)");
-            insertLineStmt.run(transaction.id, 'account_group', 20, newTotalAmount, 0); // Dr Purchase Accounts
-            insertLineStmt.run(transaction.id, 'contact', updatedPurchase.contact_id, 0, newTotalAmount); // Cr Supplier
-            
+            const insertLineStmt = db.prepare(
+              "INSERT INTO transaction_lines (transaction_id, ledger_type, ledger_id, debit, credit) VALUES (?, ?, ?, ?, ?)",
+            );
+            insertLineStmt.run(
+              transaction.id,
+              "account_group",
+              20,
+              newTotalAmount,
+              0,
+            ); // Dr Purchase Accounts
+            insertLineStmt.run(
+              transaction.id,
+              "contact",
+              updatedPurchase.contact_id,
+              0,
+              newTotalAmount,
+            ); // Cr Supplier
+
             // Apply new contact balance
-            db.prepare('UPDATE contacts SET current_balance = current_balance - ? WHERE id = ?').run(newTotalAmount, updatedPurchase.contact_id);
+            db.prepare(
+              "UPDATE contacts SET current_balance = current_balance - ? WHERE id = ?",
+            ).run(newTotalAmount, updatedPurchase.contact_id);
           } else {
             // Create transaction if it didn't exist for some reason
-            const txnResult = db.prepare("INSERT INTO transactions (transaction_date, voucher_type, voucher_no, reference_no, contact_id, amount) VALUES (?, 'purchase', ?, ?, ?, ?)").run(updatedPurchase.purchase_date, updatedPurchase.invoice_number, updatedPurchase.invoice_number, updatedPurchase.contact_id, newTotalAmount);
+            const txnResult = db
+              .prepare(
+                "INSERT INTO transactions (transaction_date, voucher_type, voucher_no, reference_no, contact_id, amount) VALUES (?, 'purchase', ?, ?, ?, ?)",
+              )
+              .run(
+                updatedPurchase.purchase_date,
+                updatedPurchase.invoice_number,
+                updatedPurchase.invoice_number,
+                updatedPurchase.contact_id,
+                newTotalAmount,
+              );
             const txnId = txnResult.lastInsertRowid;
-            const insertLineStmt = db.prepare("INSERT INTO transaction_lines (transaction_id, ledger_type, ledger_id, debit, credit) VALUES (?, ?, ?, ?, ?)");
-            insertLineStmt.run(txnId, 'account_group', 20, newTotalAmount, 0); // Dr
-            insertLineStmt.run(txnId, 'contact', updatedPurchase.contact_id, 0, newTotalAmount); // Cr
-            db.prepare('UPDATE contacts SET current_balance = current_balance - ? WHERE id = ?').run(newTotalAmount, updatedPurchase.contact_id);
+            const insertLineStmt = db.prepare(
+              "INSERT INTO transaction_lines (transaction_id, ledger_type, ledger_id, debit, credit) VALUES (?, ?, ?, ?, ?)",
+            );
+            insertLineStmt.run(txnId, "account_group", 20, newTotalAmount, 0); // Dr
+            insertLineStmt.run(
+              txnId,
+              "contact",
+              updatedPurchase.contact_id,
+              0,
+              newTotalAmount,
+            ); // Cr
+            db.prepare(
+              "UPDATE contacts SET current_balance = current_balance - ? WHERE id = ?",
+            ).run(newTotalAmount, updatedPurchase.contact_id);
           }
         }
 

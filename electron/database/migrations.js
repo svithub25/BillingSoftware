@@ -7,6 +7,7 @@ import { migration_011_unified_accounting_migration } from "./migrations/011_uni
 import { migration_012_cleanup_legacy_schema } from "./migrations/012_cleanup_legacy_schema.js";
 import { migration_013_add_bill_adjustments } from "./migrations/013_add_bill_adjustments.js";
 import { migration_014_add_discounts_and_types } from "./migrations/014_add_discounts_and_types.js";
+import { migration_015_migrate_invoices_to_ledger } from "./migrations/015_migrate_invoices_to_ledger.js";
 
 const migrations = [
   migration_006_add_shipped_to_sales,
@@ -18,6 +19,7 @@ const migrations = [
   migration_012_cleanup_legacy_schema,
   migration_013_add_bill_adjustments,
   migration_014_add_discounts_and_types,
+  migration_015_migrate_invoices_to_ledger,
 ];
 
 export function runMigrations(db) {
