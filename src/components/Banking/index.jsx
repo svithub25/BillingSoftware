@@ -51,7 +51,7 @@ function Banking() {
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: Banknote },
     { id: 'transactions', name: 'Transactions', icon: FileText },
-    { id: 'reports', name: 'Reports', icon: TrendingUp },
+    // { id: 'reports', name: 'Reports', icon: TrendingUp },
     // { id: 'bank_settings', name: 'Settings', icon: Settings }
   ];
 

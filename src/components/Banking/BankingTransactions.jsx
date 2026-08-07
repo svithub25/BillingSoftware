@@ -6,6 +6,15 @@ import TransactionDetailsModal from './modals/TransactionDetailsModal';
 import ChequeStatusModal from './modals/ChequeStatusModal';
 import ConfirmModal from './modals/ConfirmModal';
 
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
 const BankingTransactions = ({ onTransactionChange }) => {
   const [transactions, setTransactions] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -20,8 +29,8 @@ const BankingTransactions = ({ onTransactionChange }) => {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [filters, setFilters] = useState({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    startDate: null,
+    endDate: null,
     bank_account_id: '',
     voucher_type: '',
     cleared_status: ''
@@ -377,7 +386,7 @@ const BankingTransactions = ({ onTransactionChange }) => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date <br /> (dd / mm / yyyy)</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Voucher No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Party</th>
@@ -407,15 +416,15 @@ const BankingTransactions = ({ onTransactionChange }) => {
                 currentTransactions.map((txn) => (
                   <tr key={txn.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(txn.transaction_date).toLocaleDateString()}
+                      {formatDate(txn.transaction_date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {highlightText(txn.voucher_number, searchTerm)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${txn.voucher_type === 'Payment' ? 'bg-red-100 text-red-800' :
-                          txn.voucher_type === 'Receipt' ? 'bg-green-100 text-green-800' :
-                            'bg-blue-100 text-blue-800'
+                        txn.voucher_type === 'Receipt' ? 'bg-green-100 text-green-800' :
+                          'bg-blue-100 text-blue-800'
                         }`}>
                         {txn.voucher_type}
                       </span>
@@ -514,8 +523,8 @@ const BankingTransactions = ({ onTransactionChange }) => {
                     key={page}
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-2 rounded-lg ${currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-blue-600 text-white'
+                      : 'border border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {page}

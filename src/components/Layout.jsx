@@ -61,7 +61,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Credit & Debit Note', href: '/credit-debit-note', icon: ArrowRightLeft },
 
     // --- Finance & Accounts ---
-    { name: 'Ledger', href: '/ledger', icon: BookOpen },
+    // { name: 'Ledger', href: '/ledger', icon: BookOpen },
     { name: 'Banking', href: '/banking', icon: Landmark }, // Changed to Landmark (Bank building)
 
     // --- Intelligence & Data ---
