@@ -447,7 +447,13 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                       return (
                         <div key={bill.id} className="flex items-center justify-between bg-white p-3 rounded border">
                           <div>
-                            <p className="font-medium text-sm text-gray-800">{bill.bill_number || bill.invoice_number}</p>
+                            <p className="font-medium text-sm text-gray-800">
+                              {bill.bill_number || `PUR-${bill.id} `}
+                            </p>
+                            <p className="text-xs text-gray-800">
+
+                              {bill.invoice_number ? 'Invoice Number : ' + bill.invoice_number : null}
+                            </p>
                             <p className="text-xs text-gray-500">
                               Date: {new Date(bill.sale_date || bill.purchase_date).toLocaleDateString()}
                             </p>

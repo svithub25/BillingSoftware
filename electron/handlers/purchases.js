@@ -151,8 +151,8 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
           )
           .run(
             purchase_date,
-            parseInt(purchaseId),
-            parseInt(purchaseId) || "",
+            `PUR-${purchaseId}`,
+            invoice_number || "",
             contact_id,
           );
         const txnId = txnResult.lastInsertRowid;
@@ -768,8 +768,8 @@ export function registerPurchaseHandlers({ ipcMain, getDb }) {
               )
               .run(
                 updatedPurchase.purchase_date,
-                updatedPurchase.invoice_number,
-                updatedPurchase.invoice_number,
+                `PUR-${purchaseId}`,
+                updatedPurchase.invoice_number || "",
                 updatedPurchase.contact_id,
                 newTotalAmount,
               );
