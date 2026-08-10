@@ -47,9 +47,13 @@ const SaleEdit = () => {
   const [salesmen, setSalesmen] = useState([]);
   const [selectedSalesman, setSelectedSalesman] = useState('');
 
+  // --- Customers state ---
+  const [customers, setCustomers] = useState([]);
+
   // Editable fields
   const [form, setForm] = useState({
     bill_number: '',
+    contact_id: '',
     customer_name: '',
     customer_contact: '',
     customer_address: '',
@@ -79,6 +83,8 @@ const SaleEdit = () => {
     window.electronAPI.getInventory().then(setItems);
     // Load salesmen
     window.electronAPI.getSalesmen().then(list => setSalesmen(list));
+    // Load customers
+    window.electronAPI.getCustomers().then(list => setCustomers(list || []));
     // eslint-disable-next-line
   }, [id]);
 
@@ -91,6 +97,7 @@ const SaleEdit = () => {
       setSale(result); 
       setForm({
         bill_number: result.bill_number,
+        contact_id: result.contact_id || '',
         customer_name: result.customer_name || '',
         customer_contact: result.customer_contact || '',
         customer_address: result.customer_address || '',
@@ -666,41 +673,40 @@ const SaleEdit = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-              <input
-                type="text"
-                value={form.customer_name}
-                onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contact</label>
-              <input
-                type="text"
-                value={form.customer_contact}
-                onChange={e => setForm(f => ({ ...f, customer_contact: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-              <input
-                type="text"
-                value={form.customer_address}
-                onChange={e => setForm(f => ({ ...f, customer_address: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN</label>
-              <input
-                type="text"
-                value={form.customer_gstin}
-                onChange={e => setForm(f => ({ ...f, customer_gstin: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+              <select
+                value={form.contact_id || ''}
+                onChange={e => {
+                  const selectedId = e.target.value;
+                  const selectedCustomer = customers.find(c => String(c.id) === String(selectedId));
+                  if (selectedCustomer) {
+                    setForm(f => ({
+                      ...f,
+                      contact_id: selectedCustomer.id,
+                      customer_name: selectedCustomer.name || '',
+                      customer_contact: selectedCustomer.contact || '',
+                      customer_address: selectedCustomer.address || '',
+                      customer_gstin: selectedCustomer.gstin || ''
+                    }));
+                  } else {
+                    setForm(f => ({
+                      ...f,
+                      contact_id: '',
+                      customer_name: '',
+                      customer_contact: '',
+                      customer_address: '',
+                      customer_gstin: ''
+                    }));
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select Customer</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.contact})</option>
+                ))}
+              </select>
             </div>
               {/* Shipped To Section */}
           <div className="col-span-2 mt-4">
