@@ -141,11 +141,14 @@ export const migration_011_unified_accounting_migration = {
     // ================================================================
     // STEP 3: Migrate transaction_categories → account_groups
     // ================================================================
-    const existingCategories = db.prepare(`
-      SELECT category_name, category_type, description
-      FROM transaction_categories
-      WHERE is_active = 1
-    `).all();
+    let existingCategories = [];
+    try {
+      existingCategories = db.prepare(`
+        SELECT category_name, category_type, description
+        FROM transaction_categories
+        WHERE is_active = 1
+      `).all();
+    } catch (e) {}
 
     const insertGroupStmt = db.prepare(`
       INSERT OR IGNORE INTO account_groups (name, master_account_id, parent_group_id, description, is_primary)
@@ -179,9 +182,12 @@ export const migration_011_unified_accounting_migration = {
       );
     `);
 
-    const customers = db.prepare(`
-      SELECT * FROM customer WHERE (status_code = 0 OR status_code IS NULL)
-    `).all();
+    let customers = [];
+    try {
+      customers = db.prepare(`
+        SELECT * FROM customer WHERE (status_code = 0 OR status_code IS NULL)
+      `).all();
+    } catch (e) {}
 
     const insertContactStmt = db.prepare(`
       INSERT INTO contacts (account_group_id, name, phone, email, gstin, state, city, country, address, pincode, credit_limit, credit_days, is_active, is_deleted, created_at)
@@ -211,9 +217,12 @@ export const migration_011_unified_accounting_migration = {
     }
 
     // Also migrate soft-deleted customers
-    const deletedCustomers = db.prepare(`
-      SELECT * FROM customer WHERE status_code = 1
-    `).all();
+    let deletedCustomers = [];
+    try {
+      deletedCustomers = db.prepare(`
+        SELECT * FROM customer WHERE status_code = 1
+      `).all();
+    } catch (e) {}
     for (const c of deletedCustomers) {
       const result = insertContactStmt.run(
         13, c.name, c.contact, c.email || null, c.gstin || null,
@@ -236,9 +245,12 @@ export const migration_011_unified_accounting_migration = {
       );
     `);
 
-    const suppliers = db.prepare(`
-      SELECT * FROM suppliers WHERE (status_code = 0 OR status_code IS NULL)
-    `).all();
+    let suppliers = [];
+    try {
+      suppliers = db.prepare(`
+        SELECT * FROM suppliers WHERE (status_code = 0 OR status_code IS NULL)
+      `).all();
+    } catch (e) {}
 
     const insertSupplierMapStmt = db.prepare(`
       INSERT INTO _migration_supplier_map (old_id, new_contact_id) VALUES (?, ?)
@@ -264,9 +276,12 @@ export const migration_011_unified_accounting_migration = {
     }
 
     // Also migrate soft-deleted suppliers
-    const deletedSuppliers = db.prepare(`
-      SELECT * FROM suppliers WHERE status_code = 1
-    `).all();
+    let deletedSuppliers = [];
+    try {
+      deletedSuppliers = db.prepare(`
+        SELECT * FROM suppliers WHERE status_code = 1
+      `).all();
+    } catch (e) {}
     for (const s of deletedSuppliers) {
       const result = insertContactStmt.run(
         5, s.name, s.contact, s.email || null, s.gstin || null,
@@ -289,7 +304,10 @@ export const migration_011_unified_accounting_migration = {
     }
 
     // Match sales to contacts by customer_name + customer_contact
-    const allSales = db.prepare(`SELECT id, customer_name, customer_contact FROM sales`).all();
+    let allSales = [];
+    try {
+      allSales = db.prepare(`SELECT id, customer_name, customer_contact FROM sales`).all();
+    } catch (e) {}
     const updateSaleContactStmt = db.prepare(`UPDATE sales SET contact_id = ? WHERE id = ?`);
 
     for (const sale of allSales) {
@@ -328,7 +346,10 @@ export const migration_011_unified_accounting_migration = {
       db.exec(`ALTER TABLE purchases ADD COLUMN contact_id INTEGER REFERENCES contacts(id);`);
     }
 
-    const allPurchases = db.prepare(`SELECT id, supplier_id FROM purchases`).all();
+    let allPurchases = [];
+    try {
+      allPurchases = db.prepare(`SELECT id, supplier_id FROM purchases`).all();
+    } catch (e) {}
     const updatePurchaseContactStmt = db.prepare(`UPDATE purchases SET contact_id = ? WHERE id = ?`);
 
     for (const purchase of allPurchases) {
@@ -350,9 +371,12 @@ export const migration_011_unified_accounting_migration = {
       db.exec(`ALTER TABLE items ADD COLUMN last_contact_id INTEGER REFERENCES contacts(id);`);
     }
 
-    const itemsWithSupplier = db.prepare(`
-      SELECT id, last_supplier_id FROM items WHERE last_supplier_id IS NOT NULL
-    `).all();
+    let itemsWithSupplier = [];
+    try {
+      itemsWithSupplier = db.prepare(`
+        SELECT id, last_supplier_id FROM items WHERE last_supplier_id IS NOT NULL
+      `).all();
+    } catch (e) {}
     const updateItemContactStmt = db.prepare(`UPDATE items SET last_contact_id = ? WHERE id = ?`);
 
     for (const item of itemsWithSupplier) {
@@ -382,12 +406,15 @@ export const migration_011_unified_accounting_migration = {
       );
     `);
 
-    const bankTxns = db.prepare(`
-      SELECT bt.*, ba.account_name as bank_name
-      FROM bank_transactions bt
-      LEFT JOIN bank_accounts ba ON bt.bank_account_id = ba.id
-      WHERE bt.status_code = 0
-    `).all();
+    let bankTxns = [];
+    try {
+      bankTxns = db.prepare(`
+        SELECT bt.*, ba.account_name as bank_name
+        FROM bank_transactions bt
+        LEFT JOIN bank_accounts ba ON bt.bank_account_id = ba.id
+        WHERE bt.status_code = 0
+      `).all();
+    } catch (e) {}
 
     const insertTxnStmt = db.prepare(`
       INSERT INTO transactions (transaction_date, voucher_type, voucher_no, reference_no, notes, contact_id, bank_account_id, amount, cheque_number, cheque_date, cleared_status, cleared_date, reconciled, reconciled_date, is_deleted, created_at, updated_at)
@@ -499,11 +526,19 @@ export const migration_011_unified_accounting_migration = {
     // ================================================================
     // STEP 11: Rename old tables (safety backup)
     // ================================================================
-    db.exec(`
-      ALTER TABLE bank_transactions RENAME TO bank_transactions_old;
-      ALTER TABLE bank_ledger_entries RENAME TO bank_ledger_entries_old;
-      ALTER TABLE transaction_categories RENAME TO transaction_categories_old;
-    `);
+    const renameTable = (oldName, newName) => {
+      try {
+        db.exec(`ALTER TABLE ${oldName} RENAME TO ${newName};`);
+      } catch (e) {
+        if (!e.message.includes("no such table")) {
+          console.warn(`Could not rename ${oldName} to ${newName}:`, e.message);
+        }
+      }
+    };
+
+    renameTable('bank_transactions', 'bank_transactions_old');
+    renameTable('bank_ledger_entries', 'bank_ledger_entries_old');
+    renameTable('transaction_categories', 'transaction_categories_old');
 
     // ================================================================
     // STEP 12: Create indexes on new tables

@@ -88,14 +88,24 @@ export const migration_012_cleanup_legacy_schema = {
       `);
 
       // 3. Drop old tables
-      db.exec("DROP TABLE items;");
-      db.exec("DROP TABLE purchases;");
-      db.exec("DROP TABLE sales;");
+      db.exec("DROP TABLE IF EXISTS items;");
+      db.exec("DROP TABLE IF EXISTS purchases;");
+      db.exec("DROP TABLE IF EXISTS sales;");
 
       // 4. Rename new tables
-      db.exec("ALTER TABLE new_items RENAME TO items;");
-      db.exec("ALTER TABLE new_purchases RENAME TO purchases;");
-      db.exec("ALTER TABLE new_sales RENAME TO sales;");
+      const renameTable = (oldName, newName) => {
+        try {
+          db.exec(`ALTER TABLE ${oldName} RENAME TO ${newName};`);
+        } catch (e) {
+          if (!e.message.includes("no such table")) {
+            console.warn(`Could not rename ${oldName} to ${newName}:`, e.message);
+          }
+        }
+      };
+
+      renameTable("new_items", "items");
+      renameTable("new_purchases", "purchases");
+      renameTable("new_sales", "sales");
 
       // 5. Recreate indexes from index.js for these 3 tables
       db.exec(`
