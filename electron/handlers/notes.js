@@ -76,6 +76,9 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
     );
     const noteId = result.lastInsertRowid;
 
+    const defaultGodown = db.prepare('SELECT id FROM godowns WHERE is_default = 1 LIMIT 1').get();
+    const defaultGodownId = defaultGodown?.id;
+
     // Insert note items and adjust stock
     if (Array.isArray(items)) {
       const itemStmt = db.prepare(`
@@ -122,6 +125,18 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
           // Update item stock
           db.prepare(`UPDATE items SET current_stock = ? WHERE id = ?`).run(newStock, item.item_id);
 
+          if (defaultGodownId) {
+            db.prepare(`
+              INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+              VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              ON CONFLICT(item_id, godown_id) DO UPDATE SET
+                current_stock = current_stock + excluded.current_stock,
+                available_stock = available_stock + excluded.available_stock,
+                last_movement_date = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            `).run(item.item_id, defaultGodownId, stockChange, stockChange);
+          }
+
           // Record stock adjustment
           stockAdjustStmt.run(
             noteItemId,
@@ -165,6 +180,9 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
     const oldNote = db.prepare(`SELECT note_type FROM credit_debit_notes WHERE id = ?`).get(id);
     const oldNoteType = oldNote ? oldNote.note_type : note_type;
 
+    const defaultGodown = db.prepare('SELECT id FROM godowns WHERE is_default = 1 LIMIT 1').get();
+    const defaultGodownId = defaultGodown?.id;
+
     // Reverse old stock adjustments
     oldItems.forEach(oldItem => {
       if (oldItem.item_id) {
@@ -177,6 +195,18 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
 
           const newStock = currentItem.current_stock + reverseChange;
           db.prepare(`UPDATE items SET current_stock = ? WHERE id = ?`).run(newStock, oldItem.item_id);
+
+          if (defaultGodownId) {
+            db.prepare(`
+              INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+              VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              ON CONFLICT(item_id, godown_id) DO UPDATE SET
+                current_stock = current_stock + excluded.current_stock,
+                available_stock = available_stock + excluded.available_stock,
+                last_movement_date = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            `).run(oldItem.item_id, defaultGodownId, reverseChange, reverseChange);
+          }
         }
       }
     });
@@ -252,6 +282,18 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
           // Update item stock
           db.prepare(`UPDATE items SET current_stock = ? WHERE id = ?`).run(newStock, item.item_id);
 
+          if (defaultGodownId) {
+            db.prepare(`
+              INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+              VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              ON CONFLICT(item_id, godown_id) DO UPDATE SET
+                current_stock = current_stock + excluded.current_stock,
+                available_stock = available_stock + excluded.available_stock,
+                last_movement_date = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            `).run(item.item_id, defaultGodownId, stockChange, stockChange);
+          }
+
           // Record stock adjustment
           stockAdjustStmt.run(
             noteItemId,
@@ -276,6 +318,9 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
     // Get note details
     const note = db.prepare(`SELECT note_type FROM credit_debit_notes WHERE id = ?`).get(noteId);
 
+    const defaultGodown = db.prepare('SELECT id FROM godowns WHERE is_default = 1 LIMIT 1').get();
+    const defaultGodownId = defaultGodown?.id;
+
     if (note) {
       // Get all items to reverse stock adjustments
       const items = db.prepare(`
@@ -296,6 +341,18 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
 
             const newStock = currentItem.current_stock + reverseChange;
             db.prepare(`UPDATE items SET current_stock = ? WHERE id = ?`).run(newStock, item.item_id);
+
+            if (defaultGodownId) {
+              db.prepare(`
+                INSERT INTO item_location_stock (item_id, godown_id, current_stock, available_stock, last_movement_date, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(item_id, godown_id) DO UPDATE SET
+                  current_stock = current_stock + excluded.current_stock,
+                  available_stock = available_stock + excluded.available_stock,
+                  last_movement_date = CURRENT_TIMESTAMP,
+                  updated_at = CURRENT_TIMESTAMP
+              `).run(item.item_id, defaultGodownId, reverseChange, reverseChange);
+            }
           }
         }
 
@@ -337,7 +394,25 @@ export function registerNotesHandlers({ ipcMain, getDb }) {
     const notes = db.prepare(query).all(...params);
 
     // Fetch items for each note
-    const itemStmt = db.prepare(`SELECT * FROM credit_debit_note_items WHERE note_id=?`);
+    const itemStmt = db.prepare(`
+      SELECT cdni.*, 
+             (SELECT COALESCE(SUM(return_quantity), 0) 
+              FROM credit_debit_note_items other_cdni 
+              JOIN credit_debit_notes cdn ON cdn.id = other_cdni.note_id
+              WHERE 
+                (
+                  (other_cdni.original_sale_item_id = cdni.original_sale_item_id AND cdni.original_sale_item_id IS NOT NULL)
+                  OR 
+                  (other_cdni.original_purchase_item_id = cdni.original_purchase_item_id AND cdni.original_purchase_item_id IS NOT NULL)
+                )
+                AND other_cdni.note_id != cdni.note_id 
+                AND cdn.status_code = 0
+             ) as already_returned,
+             i.current_stock
+      FROM credit_debit_note_items cdni 
+      LEFT JOIN items i ON i.id = cdni.item_id
+      WHERE cdni.note_id=?
+    `);
     notes.forEach(note => {
       note.items = itemStmt.all(note.id);
     });

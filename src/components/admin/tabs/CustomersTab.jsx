@@ -9,7 +9,7 @@ const initialFilters = { name: '', contact: '' };
 const validateCustomerForm = (form) => {
   const errors = {};
   if (!form.name || form.name.trim().length < 2) errors.name = 'Name is required';
-  if (!form.contact || form.contact.trim().length < 5) errors.contact = 'Contact is required';
+  // if (!form.contact || form.contact.trim().length < 5) errors.contact = 'Contact is required';
   return errors;
 };
 
@@ -17,14 +17,14 @@ const CustomersTab = () => {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [filters, setFilters] = useState(initialFilters);
-  const [customerForm, setCustomerForm] = useState({ name: '', contact: '', address: '' });
+  const [customerForm, setCustomerForm] = useState({ name: '', contact: null, address: null });
   const [customerErrors, setCustomerErrors] = useState({});
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [confirmState, setConfirmState] = useState({
     open: false,
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const fetchCustomers = useCallback(async () => {
@@ -51,6 +51,23 @@ const CustomersTab = () => {
     setCustomerForm({ name: '', contact: '', address: '' });
     setCustomerErrors({});
   };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setCustomerForm({ name: '', contact: '', address: '' });
+        setShowCustomerForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showCustomerForm || editingCustomer) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showCustomerForm, editingCustomer]);
 
   const handleAddCustomer = async () => {
     const errors = validateCustomerForm(customerForm);
@@ -108,7 +125,7 @@ const CustomersTab = () => {
           toast.error('Error deleting customer');
           console.error('Error deleting customer:', error);
         } finally {
-          setConfirmState({ open: false, message: '', onConfirm: () => {} });
+          setConfirmState({ open: false, message: '', onConfirm: () => { } });
         }
       }
     });
@@ -232,7 +249,7 @@ const CustomersTab = () => {
         open={confirmState.open}
         message={confirmState.message}
         onConfirm={confirmState.onConfirm}
-        onCancel={() => setConfirmState({ open: false, message: '', onConfirm: () => {} })}
+        onCancel={() => setConfirmState({ open: false, message: '', onConfirm: () => { } })}
       />
     </div>
   );

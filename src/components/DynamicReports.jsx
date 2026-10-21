@@ -496,6 +496,7 @@ const DynamicReports = () => {
             </label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               min="0"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={filters.ageingDays || ''}
@@ -600,11 +601,10 @@ const DynamicReports = () => {
                 setReportColumns([]);
                 setFilters({});
               }}
-              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'predefined'
+              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'predefined'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               Predefined Reports
             </button>
@@ -615,11 +615,10 @@ const DynamicReports = () => {
                 setReportColumns([]);
                 setFilters({});
               }}
-              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'complex'
+              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'complex'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               Complex Reports
             </button>
@@ -715,11 +714,10 @@ const DynamicReports = () => {
                 <div
                   key={report.id}
                   onClick={() => setComplexReportType(report.id)}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    complexReportType === report.id
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${complexReportType === report.id
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <h3 className="font-semibold text-gray-900 mb-1">{report.name}</h3>
                   <p className="text-sm text-gray-600">{report.description}</p>
@@ -863,11 +861,10 @@ const DynamicReports = () => {
                         <button
                           key={i}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-1 border rounded-md ${
-                            currentPage === pageNum
+                          className={`px-3 py-1 border rounded-md ${currentPage === pageNum
                               ? 'bg-blue-600 text-white border-blue-600'
                               : 'bg-white border-gray-300 hover:bg-gray-50'
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
@@ -912,7 +909,7 @@ const DynamicReports = () => {
             <p className="text-gray-600">Select a complex report to get started</p>
           </div>
         )}
-      </div>  
+      </div>
     </div>
   );
 };

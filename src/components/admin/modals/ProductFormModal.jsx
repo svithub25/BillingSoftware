@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 const ProductFormModal = ({
   isOpen,
@@ -8,6 +8,7 @@ const ProductFormModal = ({
   units,
   categories,
   gstRates,
+  products = [],
   setProductForm,
   setProductErrors,
   onGenerateSku,
@@ -16,9 +17,70 @@ const ProductFormModal = ({
 }) => {
   if (!isOpen) return null;
 
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+  const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
+  const nameInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && nameInputRef.current) {
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isOpen]);
+
+  const nameSuggestions = useMemo(() => {
+    if (!productForm.name || productForm.name.length < 2) return [];
+    const lowerInput = productForm.name.toLowerCase();
+    const matches = new Set();
+    products.forEach(p => {
+      if (p.name && p.name.toLowerCase().includes(lowerInput) && p.name !== productForm.name) {
+        matches.add(p.name);
+      }
+    });
+    return Array.from(matches).slice(0, 10);
+  }, [productForm.name, products]);
+
+  const renderHighlightedText = (text, highlight) => {
+    if (!highlight) return text;
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <span key={i} className="bg-yellow-200 text-black font-semibold rounded-sm px-[2px]">
+              {part}
+            </span>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </span>
+    );
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showNameSuggestions || nameSuggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedSuggestionIndex((prev) => (prev < nameSuggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (focusedSuggestionIndex >= 0 && focusedSuggestionIndex < nameSuggestions.length) {
+        e.preventDefault();
+        setProductForm({ ...productForm, name: nameSuggestions[focusedSuggestionIndex] });
+        setShowNameSuggestions(false);
+        setFocusedSuggestionIndex(-1);
+        if (productErrors.name) setProductErrors({ ...productErrors, name: undefined });
+      }
+    }
+  };
+
   const getFieldClass = (error) =>
-    `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-      error ? 'border-red-500' : 'border-gray-300'
+    `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-500' : 'border-gray-300'
     }`;
 
   return (
@@ -27,17 +89,46 @@ const ProductFormModal = ({
         <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Product' : 'Add New Product'}</h2>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <input
+              ref={nameInputRef}
               type="text"
               value={productForm.name}
+              onFocus={() => setShowNameSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowNameSuggestions(false), 150)}
+              onKeyDown={handleKeyDown}
               onChange={(e) => {
                 setProductForm({ ...productForm, name: e.target.value });
+                setShowNameSuggestions(true);
+                setFocusedSuggestionIndex(-1);
                 if (productErrors.name) setProductErrors({ ...productErrors, name: undefined });
               }}
               className={getFieldClass(productErrors.name)}
+              autoComplete="off"
             />
+            {showNameSuggestions && nameSuggestions.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                {nameSuggestions.map((suggestion, idx) => (
+                  <li
+                    key={idx}
+                    className={`px-4 py-2 cursor-pointer text-sm ${
+                      idx === focusedSuggestionIndex ? 'bg-blue-100' : 'hover:bg-gray-100'
+                    }`}
+                    onMouseEnter={() => setFocusedSuggestionIndex(idx)}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // prevent input blur
+                      setProductForm({ ...productForm, name: suggestion });
+                      setShowNameSuggestions(false);
+                      setFocusedSuggestionIndex(-1);
+                      if (productErrors.name) setProductErrors({ ...productErrors, name: undefined });
+                    }}
+                  >
+                    {renderHighlightedText(suggestion, productForm.name)}
+                  </li>
+                ))}
+              </ul>
+            )}
             {productErrors.name && <p className="text-red-600 text-xs mt-1">{productErrors.name}</p>}
           </div>
 
@@ -191,7 +282,7 @@ const ProductFormModal = ({
             )}
           </div>
 
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Customer Rate</label>
             <input
               type="number"
@@ -229,7 +320,7 @@ const ProductFormModal = ({
             {productErrors.salesman_rate && (
               <p className="text-red-600 text-xs mt-1">{productErrors.salesman_rate}</p>
             )}
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">GST %</label>

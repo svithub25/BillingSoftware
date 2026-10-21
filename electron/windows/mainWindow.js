@@ -13,6 +13,7 @@ export function createMainWindow({
     height: 900,
     focusable: true,
     show: false,
+    autoHideMenuBar: true,
     icon: iconPath || path.join(baseDir, 'favicon.ico'),
     webPreferences: {
       nodeIntegration: false,
@@ -21,6 +22,8 @@ export function createMainWindow({
     }
   });
 
+  win.setMenu(null);
+  
   win.loadURL(startUrl);
 
   win.once('ready-to-show', () => win.show());

@@ -20,12 +20,13 @@ export function registerTransactionHandlers({ ipcMain, getDb }) {
           s.bill_number,
           s.sale_date,
           s.total_amount,
-          s.customer_name,
+          c.name as customer_name,
           s.cgst_total,
           s.sgst_total,
           s.discount,
           s.rounding_off
         FROM sales s
+        LEFT JOIN contacts c ON s.contact_id = c.id
         WHERE s.sale_date BETWEEN ? AND ?
         AND (s.status_code = 0 OR s.status_code IS NULL)
         ORDER BY s.sale_date DESC
@@ -143,7 +144,7 @@ export function registerTransactionHandlers({ ipcMain, getDb }) {
           p.sgst_total,
           s.name as supplier_name
         FROM purchases p
-        LEFT JOIN suppliers s ON p.supplier_id = s.id
+        LEFT JOIN contacts s ON p.contact_id = s.id
         WHERE p.purchase_date BETWEEN ? AND ?
         AND (p.status_code = 0 OR p.status_code IS NULL)
         ORDER BY p.purchase_date DESC
@@ -332,18 +333,17 @@ export function registerAnalyticsHandlers({ ipcMain, getDb }) {
 
       const topCustomer = db.prepare(`
         SELECT
-          COALESCE(c.name, s.customer_name, 'N/A') AS customer_name,
-          COALESCE(c.contact, s.customer_contact, '') AS customer_contact,
+          c.name AS customer_name,
+          c.phone AS customer_contact,
           SUM(s.total_amount) AS revenue
         FROM sales s
-        LEFT JOIN customer c ON c.contact = s.customer_contact
+        LEFT JOIN contacts c ON s.contact_id = c.id
         WHERE
-          s.customer_contact IS NOT NULL
-          AND LENGTH(TRIM(s.customer_contact)) = 10
-          AND s.customer_contact GLOB '[0-9]*'
+          s.contact_id IS NOT NULL
+          AND LENGTH(TRIM(c.phone)) >= 10
           AND DATE(s.sale_date) BETWEEN ? AND ?
           AND (s.status_code = 0 OR s.status_code IS NULL)
-        GROUP BY s.customer_contact
+        GROUP BY s.contact_id
         ORDER BY revenue DESC
         LIMIT 1
       `).get(startDate, endDate);
@@ -450,17 +450,16 @@ export function registerAnalyticsHandlers({ ipcMain, getDb }) {
       const customerAnalysis = db.prepare(`
         WITH per_customer AS (
           SELECT
-            COALESCE(c.name, s.customer_name, 'N/A') AS customer_name,
-            COALESCE(c.contact, s.customer_contact, '') AS customer_contact,
+            c.name AS customer_name,
+            c.phone AS customer_contact,
             SUM(s.total_amount) AS total
           FROM sales s
-          LEFT JOIN customer c ON c.contact = s.customer_contact
+          LEFT JOIN contacts c ON s.contact_id = c.id
           WHERE
-            s.customer_contact IS NOT NULL
-            AND LENGTH(TRIM(s.customer_contact)) = 10
-            AND s.customer_contact GLOB '[0-9]*'
+            s.contact_id IS NOT NULL
+            AND LENGTH(TRIM(c.phone)) >= 10
             AND DATE(s.sale_date) BETWEEN ? AND ?
-          GROUP BY s.customer_contact
+          GROUP BY s.contact_id
         )
         SELECT
           CASE

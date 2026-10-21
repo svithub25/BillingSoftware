@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import PartyComboBox from './PartyComboBox';
+import ContactModal from '../../reusables/ContactModal';
 
 function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [pendingBills, setPendingBills] = useState([]);
+  const [billAdjustments, setBillAdjustments] = useState({});
+
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+  const partyComboBoxRef = useRef(null);
 
   const [transactionForm, setTransactionForm] = useState({
     voucher_type: 'Payment',
@@ -62,6 +69,55 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
     }
   };
 
+  const fetchPendingBills = async (contactId, type) => {
+    try {
+      let bills = [];
+      if (type === 'Receipt') {
+        const sales = await window.electronAPI.getPendingSales(contactId);
+        bills = sales || [];
+      } else if (type === 'Payment') {
+        const purchases = await window.electronAPI.getPendingPurchases(contactId);
+        bills = purchases || [];
+      }
+      setPendingBills(bills);
+      setBillAdjustments({});
+    } catch (error) {
+      console.error('Error fetching pending bills:', error);
+      setPendingBills([]);
+      setBillAdjustments({});
+    }
+  };
+
+  const handleAdjustmentChange = (billId, value, maxBalance) => {
+    if (value === '') {
+      setBillAdjustments(prev => {
+        const next = { ...prev };
+        delete next[billId];
+        return next;
+      });
+      return;
+    }
+
+    let numericValue = parseFloat(value);
+    if (isNaN(numericValue) || numericValue < 0) {
+      numericValue = 0;
+    }
+
+    if (maxBalance !== undefined && numericValue > maxBalance) {
+      numericValue = maxBalance;
+      toast.warning(`Adjustment cannot exceed pending amount (₹${maxBalance.toFixed(2)})`);
+    }
+
+    setBillAdjustments(prev => ({
+      ...prev,
+      [billId]: numericValue
+    }));
+  };
+
+  const calculateTotalAdjustment = () => {
+    return Object.values(billAdjustments).reduce((sum, amt) => sum + (amt || 0), 0);
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -77,27 +133,41 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       if (!transactionForm.to_account_id) {
         newErrors.to_account_id = 'Please select destination account';
       }
-      
+
       if (transactionForm.bank_account_id === transactionForm.to_account_id) {
         newErrors.to_account_id = 'Source and destination accounts cannot be the same';
       }
     }
 
-    if (transactionForm.voucher_type !== 'Contra' && !transactionForm.party_name?.trim()) {
-      newErrors.party_name = 'Please enter To';
+    if (transactionForm.voucher_type !== 'Contra') {
+      if (!transactionForm.party_name?.trim()) {
+        newErrors.party_name = 'Please enter To';
+      } else if (!transactionForm.party_id && !isEditMode) {
+        newErrors.party_name = 'Please select an existing contact from the list or add a new one first';
+      }
     }
 
     if (transactionForm.cheque_number && !transactionForm.cheque_date) {
       newErrors.cheque_date = 'Cheque date is required when cheque number is provided';
     }
 
+    const totalAdjusted = calculateTotalAdjustment();
+    if (totalAdjusted > 0 && totalAdjusted > parseFloat(transactionForm.amount || 0)) {
+      newErrors.amount = 'Adjusted amount cannot exceed total amount';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleAmountChange = (e) => {
+    const newAmount = e.target.value;
+    setTransactionForm({ ...transactionForm, amount: newAmount });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fill all required fields correctly');
       return;
@@ -112,12 +182,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
           amount: parseFloat(transactionForm.amount),
           created_by: 'admin'
         });
-        
+
         if (result.success) {
-          const transactionTypeText = 
+          const transactionTypeText =
             transactionForm.voucher_type === 'Payment' ? 'Payment' :
-            transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
-            'Bank Transfer';
+              transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
+                'Bank Transfer';
           toast.success(`${transactionTypeText} updated successfully!`);
           onSuccess();
           handleClose();
@@ -125,19 +195,27 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       } else {
         // CREATE new transaction
         const voucherNumber = await window.electronAPI.generateVoucherNumber(transactionForm.voucher_type);
-        
+
+        const adjustmentsToSave = Object.entries(billAdjustments)
+          .map(([id, amt]) => ({
+            [transactionForm.voucher_type === 'Receipt' ? 'invoice_id' : 'purchase_id']: parseInt(id),
+            adjusted_amount: amt
+          }))
+          .filter(adj => adj.adjusted_amount > 0);
+
         const result = await window.electronAPI.saveBankTransaction({
           ...transactionForm,
           amount: parseFloat(transactionForm.amount),
           voucher_number: voucherNumber,
-          created_by: 'admin'
+          created_by: 'admin',
+          billAdjustments: adjustmentsToSave
         });
-        
+
         if (result.success) {
-          const transactionTypeText = 
+          const transactionTypeText =
             transactionForm.voucher_type === 'Payment' ? 'Payment' :
-            transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
-            'Bank Transfer';
+              transactionForm.voucher_type === 'Receipt' ? 'Receipt' :
+                'Bank Transfer';
           toast.success(`${transactionTypeText} saved successfully!`);
           onSuccess();
           handleClose();
@@ -166,6 +244,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
     });
     setErrors({});
     setIsEditMode(false);
+    setPendingBills([]);
+    setBillAdjustments({});
     onClose();
   };
 
@@ -175,9 +255,13 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
       voucher_type: type,
       category_type: type === 'Payment' ? 'Expense' : 'Income',
       party_name: '',
+      party_id: null,
+      party_type: 'contact',
       to_account_id: ''
     });
     setErrors({});
+    setPendingBills([]);
+    setBillAdjustments({});
   };
 
   if (!isOpen) return null;
@@ -197,7 +281,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -220,11 +304,10 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                     key={type.value}
                     type="button"
                     onClick={() => handleVoucherTypeChange(type.value)}
-                    className={`p-3 rounded-lg border-2 font-medium transition-all ${
-                      transactionForm.voucher_type === type.value
-                        ? `border-${type.color}-500 bg-${type.color}-50 text-${type.color}-700`
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-3 rounded-lg border-2 font-medium transition-all ${transactionForm.voucher_type === type.value
+                      ? `border-${type.color}-500 bg-${type.color}-50 text-${type.color}-700`
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     {type.label}
                   </button>
@@ -255,9 +338,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 <select
                   value={transactionForm.bank_account_id}
                   onChange={(e) => setTransactionForm({ ...transactionForm, bank_account_id: e.target.value })}
-                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
-                    errors.bank_account_id ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${errors.bank_account_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   required
                 >
                   <option value="">Select Account</option>
@@ -281,9 +363,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                   <select
                     value={transactionForm.to_account_id}
                     onChange={(e) => setTransactionForm({ ...transactionForm, to_account_id: e.target.value })}
-                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
-                      errors.to_account_id ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${errors.to_account_id ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     required
                   >
                     <option value="">Select Destination Account</option>
@@ -308,8 +389,26 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                     To <span className="text-red-500">*</span>
                   </label>
                   <PartyComboBox
+                    ref={partyComboBoxRef}
                     value={transactionForm.party_name}
-                    onChange={(value) => setTransactionForm({ ...transactionForm, party_name: value })}
+                    onChange={(value, party) => {
+                      setTransactionForm({
+                        ...transactionForm,
+                        party_name: value,
+                        party_id: party?.id || null,
+                        party_type: party?.source_type || 'contact'
+                      });
+                      if (party && party.source_type === 'contact') {
+                        fetchPendingBills(party.id, transactionForm.voucher_type);
+                      } else {
+                        setPendingBills([]);
+                        setBillAdjustments({});
+                      }
+                    }}
+                    onAddContact={(name) => {
+                      setNewContactName(name || '');
+                      setIsContactModalOpen(true);
+                    }}
                     voucherType={transactionForm.voucher_type}
                     disabled={saving}
                     error={errors.party_name}
@@ -324,12 +423,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 </label>
                 <input
                   type="number"
+                  onWheel={e => e.target.blur()}
                   step="0.01"
                   value={transactionForm.amount}
-                  onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
-                    errors.amount ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  onChange={handleAmountChange}
+                  className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 ${errors.amount ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="0.00"
                   required
                 />
@@ -338,9 +437,56 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 )}
               </div>
 
-             
-             
-              
+              {/* Bill Adjustments */}
+              {pendingBills.length > 0 && !isEditMode && (
+                <div className="col-span-2 mt-4 border rounded-lg p-4 bg-gray-50">
+                  <h4 className="text-md font-medium text-gray-800 mb-3">Adjust Against Pending Bills</h4>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {pendingBills.map(bill => {
+                      const balance = bill.total_amount - (bill.paid_amount || 0);
+                      return (
+                        <div key={bill.id} className="flex items-center justify-between bg-white p-3 rounded border">
+                          <div>
+                            <p className="font-medium text-sm text-gray-800">
+                              {bill.bill_number || `PUR-${bill.id} `}
+                            </p>
+                            <p className="text-xs text-gray-800">
+
+                              {bill.invoice_number ? 'Invoice Number : ' + bill.invoice_number : null}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Date: {new Date(bill.sale_date || bill.purchase_date).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Balance: ₹{balance.toFixed(2)} (Total: ₹{bill.total_amount.toFixed(2)})
+                            </p>
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              step="0.01"
+                              min="0"
+                              max={balance}
+                              value={billAdjustments[bill.id] !== undefined ? billAdjustments[bill.id] : ''}
+                              onChange={(e) => handleAdjustmentChange(bill.id, e.target.value, balance)}
+                              className="w-32 border rounded px-2 py-1 text-right focus:ring-2 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex justify-between items-center border-t pt-3">
+                    <span className="text-sm font-medium text-gray-700">Total Adjusted:</span>
+                    <span className={`text-sm font-bold ${calculateTotalAdjustment() > parseFloat(transactionForm.amount || 0) ? 'text-red-600' : 'text-green-600'}`}>
+                      ₹{calculateTotalAdjustment().toFixed(2)} / ₹{(parseFloat(transactionForm.amount) || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Narration */}
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Narration</label>
@@ -366,19 +512,19 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
                 </ul>
               </div>
             </div>
-            
+
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                 disabled={saving}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-blue-300"
                 disabled={saving}
               >
                 {saving ? 'Saving...' : isEditMode ? 'Update Transaction' : 'Save Transaction'}
@@ -386,6 +532,19 @@ function TransactionModal({ isOpen, onClose, onSuccess, editData = null }) {
             </div>
           </form>
         )}
+
+        {/* Reusable Contact Modal for adding a new party inline */}
+        <ContactModal
+          isOpen={isContactModalOpen}
+          onClose={() => setIsContactModalOpen(false)}
+          initialName={newContactName}
+          onSuccess={async (newContactId) => {
+            setIsContactModalOpen(false);
+            if (partyComboBoxRef.current && newContactId) {
+              await partyComboBoxRef.current.refreshAndSelect(newContactId);
+            }
+          }}
+        />
       </div>
     </div>
   );

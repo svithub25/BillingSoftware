@@ -1,16 +1,27 @@
 export const migration_009_add_salesman_fields = {
-  name: '009_add_salesman_fields',
+  name: "009_add_salesman_fields",
   up(db) {
-    db.exec(`
-      ALTER TABLE salesman ADD COLUMN email TEXT;
-      ALTER TABLE salesman ADD COLUMN state TEXT;
-      ALTER TABLE salesman ADD COLUMN city TEXT;
-      ALTER TABLE salesman ADD COLUMN country TEXT DEFAULT 'India';
-      ALTER TABLE salesman ADD COLUMN pincode TEXT;
-      ALTER TABLE salesman ADD COLUMN gstin TEXT;
-      ALTER TABLE salesman ADD COLUMN credit_limit REAL DEFAULT 0;
-      ALTER TABLE salesman ADD COLUMN credit_days INTEGER DEFAULT 0;
-      ALTER TABLE salesman ADD COLUMN working_area TEXT;
-    `);
-  }
+    const addCol = (table, colDef) => {
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${colDef};`);
+      } catch (e) {
+        if (!e.message.includes("duplicate column")) {
+          console.warn(
+            `Could not add column ${colDef} to ${table}:`,
+            e.message,
+          );
+        }
+      }
+    };
+
+    addCol("salesman", "email TEXT");
+    addCol("salesman", "state TEXT");
+    addCol("salesman", "city TEXT");
+    addCol("salesman", "country TEXT DEFAULT 'India'");
+    addCol("salesman", "pincode TEXT");
+    addCol("salesman", "gstin TEXT");
+    addCol("salesman", "credit_limit REAL DEFAULT 0");
+    addCol("salesman", "credit_days INTEGER DEFAULT 0");
+    addCol("salesman", "working_area TEXT");
+  },
 };

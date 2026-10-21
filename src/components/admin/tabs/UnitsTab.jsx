@@ -40,6 +40,23 @@ const UnitsTab = () => {
     setUnitErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setUnitForm({ name: '' });
+        setShowUnitForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showUnitForm) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showUnitForm]);
+
   const handleAddUnit = async () => {
     const nameValid = unitForm.name && unitForm.name.trim().length > 0;
     if (!nameValid) {

@@ -68,9 +68,9 @@ const initialForm = {
 const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-const CreditDebitNoteEdit = () => { 
-  const { id } = useParams(); 
- 
+const CreditDebitNoteEdit = () => {
+  const { id } = useParams();
+
   const navigate = useNavigate();
   const isEdit = id && id !== 'new';
 
@@ -80,8 +80,7 @@ const CreditDebitNoteEdit = () => {
   const [purchaseList, setPurchaseList] = useState([]);
   const [itemsList, setItemsList] = useState([]);
   const [parties, setParties] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [salesmen, setSalesmen] = useState([]);
 
   // Item search states
@@ -92,8 +91,8 @@ const CreditDebitNoteEdit = () => {
   const getFiltered = (list, search) =>
     list.filter(item => item.name?.toLowerCase().includes((search || '').toLowerCase()));
 
-  useEffect(() => { 
-     
+  useEffect(() => {
+
     loadInitialData();
     // eslint-disable-next-line
   }, []);
@@ -139,13 +138,12 @@ const CreditDebitNoteEdit = () => {
 
   const loadInitialData = async () => {
     try {
-      const [salesRes, purchaseRes, itemsRes, partiesRes, customersRes, suppliersRes, salesmenRes] = await Promise.all([
+      const [salesRes, purchaseRes, itemsRes, partiesRes, contactsRes, salesmenRes] = await Promise.all([
         window.electronAPI.getSalesHistory?.() || Promise.resolve([]),
         window.electronAPI.getPurchaseHistory?.() || Promise.resolve([]),
         window.electronAPI.getInventory?.() || Promise.resolve([]),
         window.electronAPI.getAllParties?.() || Promise.resolve([]),
-        window.electronAPI.getCustomers?.() || Promise.resolve([]),
-        window.electronAPI.getSuppliers?.() || Promise.resolve([]),
+        window.electronAPI.getContacts?.() || Promise.resolve([]),
         window.electronAPI.getSalesmen?.() || Promise.resolve([])
       ]);
 
@@ -153,8 +151,7 @@ const CreditDebitNoteEdit = () => {
       setPurchaseList(purchaseRes);
       setItemsList(itemsRes);
       setParties(partiesRes);
-      setCustomers(customersRes);
-      setSuppliers(suppliersRes);
+      setContacts(contactsRes);
       setSalesmen(salesmenRes);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -177,7 +174,11 @@ const CreditDebitNoteEdit = () => {
       if (note) {
         setFormData({
           ...note,
-          items: note.items || []
+          items: note.items?.map(item => ({
+            ...item,
+            saved_return_quantity: item.return_quantity || 0,
+            current_stock: item.current_stock || 0
+          })) || []
         });
       } else {
         toast.error('Note not found');
@@ -267,25 +268,29 @@ const CreditDebitNoteEdit = () => {
           party_state: saleDetails.customer_state || '',
           party_city: saleDetails.customer_city || '',
           salesman_id: saleDetails.salesman_id || '',
-          items: saleDetails.items?.map(item => ({
-            item_id: item.item_id || item.id,
-            item_name: item.item_name,
-            hsn_code: item.hsn_code || '',
-            original_quantity: item.quantity || 0,
-            return_quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            discount: item.discount || 0,
-            taxable_amount: item.total_price || 0,
-            gst_percentage: item.gst_percentage || 0,
-            cgst_amount: item.cgst_amount || 0,
-            sgst_amount: item.sgst_amount || 0,
-            igst_amount: item.igst_amount || 0,
-            total_amount: item.total_price || 0,
-            item_condition: '',
-            remarks: '',
-            status_code: 0,
-            original_sale_item_id: item.id || null,
-          })) || [],
+          items: saleDetails.items?.map(item => {
+            const maxReturnable = Math.max(0, (item.quantity || 0) - (item.already_returned || 0));
+            return {
+              item_id: item.item_id || item.id,
+              item_name: item.item_name,
+              hsn_code: item.hsn_code || '',
+              original_quantity: item.quantity || 0,
+              return_quantity: 0,
+              already_returned: item.already_returned || 0,
+              unit_price: item.unit_price || 0,
+              discount: item.discount || 0,
+              taxable_amount: item.total_price || 0,
+              gst_percentage: item.gst_percentage || 0,
+              cgst_amount: item.cgst_amount || 0,
+              sgst_amount: item.sgst_amount || 0,
+              igst_amount: item.igst_amount || 0,
+              total_amount: item.total_price || 0,
+              item_condition: '',
+              remarks: '',
+              status_code: 0,
+              original_sale_item_id: item.id || null,
+            };
+          }) || [],
         }));
       }
     } else if (formData.reference_type === 'purchase' && value) {
@@ -301,25 +306,34 @@ const CreditDebitNoteEdit = () => {
           party_gstin: p.supplier_gstin || '',
           party_state: p.supplier_state || '',
           party_city: p.supplier_city || '',
-          items: purchaseDetails.items?.map(item => ({
-            item_id: item.item_id || item.id,
-            item_name: item.item_name,
-            hsn_code: item.hsn_code || '',
-            original_quantity: item.quantity || 0,
-            return_quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            discount: item.discount || 0,
-            taxable_amount: item.total_price || 0,
-            gst_percentage: item.gst_percentage || 0,
-            cgst_amount: item.cgst_amount || 0,
-            sgst_amount: item.sgst_amount || 0,
-            igst_amount: item.igst_amount || 0,
-            total_amount: item.total_price || 0,
-            item_condition: '',
-            remarks: '',
-            status_code: 0,
-            original_purchase_item_id: item.id || null,
-          })) || [],
+          items: purchaseDetails.items?.map(item => {
+            const maxFromPurchase = Math.max(0, (item.quantity || 0) - (item.already_returned || 0));
+            // Since this is a new debit note, the max we can return is also constrained by current stock
+            const maxReturnable = Math.min(maxFromPurchase, item.current_stock || 0);
+
+            return {
+              item_id: item.item_id || item.id,
+              item_name: item.item_name,
+              hsn_code: item.hsn_code || '',
+              original_quantity: item.quantity || 0,
+              return_quantity: 0,
+              already_returned: item.already_returned || 0,
+              current_stock: item.current_stock || 0,
+              saved_return_quantity: 0,
+              unit_price: item.unit_price || 0,
+              discount: item.discount || 0,
+              taxable_amount: item.total_price || 0,
+              gst_percentage: item.gst_percentage || 0,
+              cgst_amount: item.cgst_amount || 0,
+              sgst_amount: item.sgst_amount || 0,
+              igst_amount: item.igst_amount || 0,
+              total_amount: item.total_price || 0,
+              item_condition: '',
+              remarks: '',
+              status_code: 0,
+              original_purchase_item_id: item.id || null,
+            };
+          }) || [],
         }));
       }
     }
@@ -368,9 +382,30 @@ const CreditDebitNoteEdit = () => {
   };
 
   const handleItemChange = (idx, e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
     setFormData(prev => {
       const items = [...prev.items];
+      if (name === 'return_quantity') {
+        const valNum = Number(value);
+        if (items[idx].original_sale_item_id || items[idx].original_purchase_item_id) {
+          const maxFromInvoice = Number(items[idx].original_quantity || 0) - Number(items[idx].already_returned || 0);
+          let maxAllowed = maxFromInvoice;
+
+          if (prev.note_type === 'debit') {
+            const physicalMax = Number(items[idx].current_stock || 0) + Number(items[idx].saved_return_quantity || 0);
+            maxAllowed = Math.min(maxFromInvoice, physicalMax);
+          }
+
+          if (valNum > maxAllowed) {
+            toast.warning(`Maximum allowed return quantity is ${maxAllowed}`);
+            value = maxAllowed;
+          } else if (valNum < 0) {
+            value = 0;
+          }
+        } else {
+          if (valNum < 0) value = 0;
+        }
+      }
       items[idx][name] = value;
       return { ...prev, items };
     });
@@ -501,7 +536,7 @@ const CreditDebitNoteEdit = () => {
               <label className={labelClass}>Note Number *</label>
               <input
                 type="text"
-                name="note_number" 
+                name="note_number"
                 value={formData.note_number}
                 onChange={handleChange}
                 className={`${inputClass} ${!isEdit ? 'bg-gray-100' : ''}`}
@@ -525,11 +560,11 @@ const CreditDebitNoteEdit = () => {
                     name="party_name"
                     value={formData.party_name}
                     onChange={(e) => {
-                      const selected = customers.find(c => c.name === e.target.value);
+                      const selected = contacts.find(c => c.name === e.target.value);
                       setFormData(prev => ({
                         ...prev,
                         party_name: e.target.value,
-                        party_contact: selected?.contact || '',
+                        party_contact: selected?.phone || '',
                         party_address: selected?.address || '',
                         party_gstin: selected?.gstin || '',
                         party_state: selected?.state || '',
@@ -539,8 +574,8 @@ const CreditDebitNoteEdit = () => {
                     className={inputClass}
                   >
                     <option value="">-- Select Customer --</option>
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.name}>{customer.name}</option>
+                    {contacts.filter(c => c.account_group_id === 13).map(contact => (
+                      <option key={contact.id} value={contact.name}>{contact.name}</option>
                     ))}
                   </select>
                 </div>
@@ -566,11 +601,11 @@ const CreditDebitNoteEdit = () => {
                   name="party_name"
                   value={formData.party_name}
                   onChange={(e) => {
-                    const selected = suppliers.find(s => s.name === e.target.value);
+                    const selected = contacts.find(c => c.name === e.target.value);
                     setFormData(prev => ({
                       ...prev,
                       party_name: e.target.value,
-                      party_contact: selected?.contact || '',
+                      party_contact: selected?.phone || '',
                       party_address: selected?.address || '',
                       party_gstin: selected?.gstin || '',
                       party_state: selected?.state || '',
@@ -580,8 +615,8 @@ const CreditDebitNoteEdit = () => {
                   className={inputClass}
                 >
                   <option value="">-- Select Supplier --</option>
-                  {suppliers.map(supplier => (
-                    <option key={supplier.id} value={supplier.name}>{supplier.name}</option>
+                  {contacts.filter(c => c.account_group_id === 5).map(contact => (
+                    <option key={contact.id} value={contact.name}>{contact.name}</option>
                   ))}
                 </select>
               </div>
@@ -695,19 +730,19 @@ const CreditDebitNoteEdit = () => {
                           <input type="text" name="hsn_code" value={item.hsn_code} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100" readOnly />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="original_quantity" value={item.original_quantity} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100" readOnly />
+                          <input type="number" onWheel={e => e.target.blur()} name="original_quantity" value={item.original_quantity} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100" readOnly />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="return_quantity" value={item.return_quantity} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50" />
+                          <input type="number" onWheel={e => e.target.blur()} name="return_quantity" value={item.return_quantity} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50" />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="unit_price" value={item.unit_price} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          <input type="number" onWheel={e => e.target.blur()} name="unit_price" value={item.unit_price} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="discount" value={item.discount} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          <input type="number" onWheel={e => e.target.blur()} name="discount" value={item.discount} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" name="gst_percentage" value={item.gst_percentage} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          <input type="number" onWheel={e => e.target.blur()} name="gst_percentage" value={item.gst_percentage} onChange={e => handleItemChange(idx, e)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                         </td>
                         <td className="px-2 py-2">
                           <input type="text" value={summary?.taxableAmount.toFixed(2) || '0.00'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 font-semibold" readOnly />
@@ -732,31 +767,31 @@ const CreditDebitNoteEdit = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelClass}>Subtotal</label>
-              <input type="number" value={formData.subtotal.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.subtotal.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>CGST</label>
-              <input type="number" value={formData.cgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.cgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>SGST</label>
-              <input type="number" value={formData.sgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.sgst_total.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>IGST</label>
-              <input type="number" name="igst_total" value={formData.igst_total} onChange={handleChange} className={inputClass} />
+              <input type="number" onWheel={e => e.target.blur()} name="igst_total" value={formData.igst_total} onChange={handleChange} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Rounding Off</label>
-              <input type="number" value={formData.rounding_off.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.rounding_off.toFixed(2)} className={`${inputClass} bg-gray-100`} readOnly />
             </div>
             <div>
               <label className={labelClass}>Other Charges</label>
-              <input type="number" name="other_charges" value={formData.other_charges} onChange={handleChange} className={inputClass} />
+              <input type="number" onWheel={e => e.target.blur()} name="other_charges" value={formData.other_charges} onChange={handleChange} className={inputClass} />
             </div>
             <div className="md:col-span-2">
               <label className={labelClass}>Total Amount</label>
-              <input type="number" value={formData.total_amount} className="w-full px-3 py-2 border border-blue-300 rounded-md bg-blue-50 text-lg font-bold text-blue-700" readOnly />
+              <input type="number" onWheel={e => e.target.blur()} value={formData.total_amount} className="w-full px-3 py-2 border border-blue-300 rounded-md bg-blue-50 text-lg font-bold text-blue-700" readOnly />
             </div>
           </div>
         </div>

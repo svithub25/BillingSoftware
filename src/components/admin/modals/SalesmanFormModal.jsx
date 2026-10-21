@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const SalesmanFormModal = ({
   isOpen,
@@ -10,11 +10,18 @@ const SalesmanFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const getFieldClass = (error) =>
-    `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-      error ? 'border-red-500' : 'border-gray-300'
+    `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-500' : 'border-gray-300'
     }`;
 
   return (
@@ -25,6 +32,7 @@ const SalesmanFormModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <input
+              ref={inputRef}
               type="text"
               value={salesmanForm.name}
               onChange={(e) => setSalesmanForm({ ...salesmanForm, name: e.target.value })}
@@ -119,6 +127,7 @@ const SalesmanFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Limit</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={salesmanForm.credit_limit || ''}
               onChange={e => setSalesmanForm({ ...salesmanForm, credit_limit: e.target.value })}
               className={getFieldClass(salesmanErrors.credit_limit)}
@@ -128,6 +137,7 @@ const SalesmanFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={salesmanForm.credit_days || ''}
               onChange={e => setSalesmanForm({ ...salesmanForm, credit_days: e.target.value })}
               className={getFieldClass(salesmanErrors.credit_days)}

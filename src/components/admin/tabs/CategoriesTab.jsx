@@ -49,6 +49,23 @@ const CategoriesTab = () => {
     setCategoryErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setCategoryForm({ name: '' });
+        setShowCategoryForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showCategoryForm) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showCategoryForm]);
+
   const handleAddCategory = async () => {
     const errors = validateCategoryForm(categoryForm);
     if (Object.keys(errors).length) {

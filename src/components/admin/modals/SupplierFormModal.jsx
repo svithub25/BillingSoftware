@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const SupplierFormModal = ({
   isOpen,
@@ -10,6 +10,14 @@ const SupplierFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const getFieldClass = (error) =>
@@ -23,6 +31,7 @@ const SupplierFormModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <input
+              ref={inputRef}
               type="text"
               value={supplierForm.name}
               onChange={(e) => {
@@ -126,6 +135,7 @@ const SupplierFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={supplierForm.credit_days || ''}
               onChange={e => setSupplierForm({ ...supplierForm, credit_days: e.target.value })}
               className={getFieldClass(supplierErrors.credit_days)}

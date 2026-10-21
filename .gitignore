@@ -9,11 +9,21 @@ lerna-debug.log*
   
 node_modules/
   
+*.md
+
+*.sql
+
+
+
 backups/ 
 database.db
 dist-electron/
 dist/ 
 dist-ssr/
+tmp/
+coverage/
+playwright-report/
+test-results/
 *.local
 src/components/ss.sql
 # Editor directories and files

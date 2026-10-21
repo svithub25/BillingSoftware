@@ -1,14 +1,22 @@
 export const migration_006_add_shipped_to_sales = {
   name: '006_add_shipped_to_sales',
   up: (db) => {
+    const addCol = (table, colDef) => {
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${colDef};`);
+      } catch (e) {
+        if (!e.message.includes("duplicate column")) {
+          console.warn(`Could not add column ${colDef} to ${table}:`, e.message);
+        }
+      }
+    };
+
     // Add shipped_to columns to sales table
-    db.exec(`
-      ALTER TABLE sales ADD COLUMN shipped_to_name TEXT;
-      ALTER TABLE sales ADD COLUMN shipped_to_contact TEXT;
-      ALTER TABLE sales ADD COLUMN shipped_to_address TEXT;
-      ALTER TABLE sales ADD COLUMN shipped_to_gstin TEXT;
-      ALTER TABLE sales ADD COLUMN is_shipped_different INTEGER DEFAULT 0;
-    `);
+    addCol('sales', 'shipped_to_name TEXT');
+    addCol('sales', 'shipped_to_contact TEXT');
+    addCol('sales', 'shipped_to_address TEXT');
+    addCol('sales', 'shipped_to_gstin TEXT');
+    addCol('sales', 'is_shipped_different INTEGER DEFAULT 0');
 
     console.log('✅ Migration 006: Added shipped_to columns to sales table');
   },

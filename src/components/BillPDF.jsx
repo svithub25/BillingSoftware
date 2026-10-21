@@ -9,17 +9,24 @@ const ITEMS_PER_SINGLE_PAGE = 10;   // Single page has addresses + totals, max 8
 const ITEMS_PER_PAGE = 15;         // Multi-page invoices: 15 items per middle page
 const ITEMS_LAST_PAGE = 12;        // Last page max 12 items (has totals section)
 
-// ============================================================
-// COMPACT BLACK & WHITE INVOICE - PAGINATED
-// ============================================================
- 
+const theme = {
+  primary: '#042040',   // Deep Navy Blue
+  accent: '#b98f3b',    // Gold
+  bg: '#ffffffff',        // Off-white
+  textSecondary: '#677688', // Slate Gray
+  borderLight: '#a7b3c2', // Light Gray-blue
+  borderDark: '#35465b',  // Muted Navy
+  white: '#ffffff'
+};
+
 const styles = StyleSheet.create({
   page: {
     padding: 25,
     paddingBottom: 135,
     fontSize: 10,
-    fontFamily: 'Helvetica', 
-    backgroundColor: '#ffffff',
+    fontFamily: 'Helvetica',
+    backgroundColor: theme.bg,
+    color: theme.primary,
   },
 
   // Header
@@ -29,7 +36,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingBottom: 6,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.accent,
   },
   brandArea: {
     flexDirection: 'row',
@@ -53,10 +60,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
+    color: theme.primary,
   },
   brandContact: {
     fontSize: 10,
     lineHeight: 1.3,
+    color: theme.textSecondary,
   },
   invoiceTitleArea: {
     alignItems: 'flex-end',
@@ -65,6 +74,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 3,
+    color: theme.accent,
   },
   invoiceInfoRow: {
     flexDirection: 'row',
@@ -75,12 +85,14 @@ const styles = StyleSheet.create({
     width: 60,
     textAlign: 'right',
     marginRight: 6,
+    color: theme.textSecondary,
   },
   invoiceInfoValue: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     width: 80,
     textAlign: 'right',
+    color: theme.primary,
   },
 
   // Parties Section
@@ -93,7 +105,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
   },
   partyLabel: {
     fontSize: 9,
@@ -101,22 +115,26 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 3,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderLight,
     paddingBottom: 2,
+    color: theme.accent,
   },
   partyName: {
     fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
+    color: theme.primary,
   },
   partyText: {
     fontSize: 10,
     lineHeight: 1.3,
+    color: theme.textSecondary,
   },
   partyGstin: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     marginTop: 2,
+    color: theme.primary,
   },
 
   // Table
@@ -125,43 +143,56 @@ const styles = StyleSheet.create({
   },
   tableHead: {
     flexDirection: 'row',
-    backgroundColor: '#000000',
+    backgroundColor: theme.primary,
     paddingVertical: 8,
     paddingHorizontal: 6,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    alignItems: 'center',
   },
   tableHeadCell: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
-    color: '#ffffff',
+    color: theme.white,
   },
   tableBody: {
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: '#000000',
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
   },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderLight,
+    alignItems: 'center',
   },
   tableRowLast: {
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 6,
+    alignItems: 'center',
   },
   tableCell: {
     fontSize: 10,
+    color: theme.primary,
   },
   tableCellBold: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
+    color: theme.primary,
   },
-  colNum: { width: '6%', textAlign: 'center' },
-  colItem: { width: '46%', paddingRight: 6 },
-  colQty: { width: '12%', textAlign: 'center' },
-  colRate: { width: '18%', textAlign: 'right' },
+  colNum: { width: '5%', textAlign: 'center' },
+  colItem: { width: '31%', paddingRight: 6 },
+  colQty: { width: '10%', textAlign: 'center' },
+  colRate: { width: '14%', textAlign: 'center' },
+  colDiscGroup: { width: '22%', flexDirection: 'column' },
+  colDiscPerc: { width: '10%', textAlign: 'center' },
+  colDiscAmt: { width: '12%', textAlign: 'right' },
   colTotal: { width: '18%', textAlign: 'right' },
 
   // Summary
@@ -179,18 +210,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 4,
+    color: theme.textSecondary,
   },
   amountWordsText: {
     fontSize: 10,
     fontStyle: 'italic',
     padding: 8,
-    borderWidth: 0.5,
-    borderColor: '#000000',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
+    color: theme.primary,
   },
   totalsCard: {
     width: 200,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
   },
   totalsRow: {
     flexDirection: 'row',
@@ -198,49 +235,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderLight,
   },
   totalsLabel: {
     fontSize: 10,
+    color: theme.textSecondary,
   },
   totalsValue: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
+    color: theme.primary,
   },
   totalsFinal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#000000',
+    backgroundColor: theme.accent,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
   },
   totalsFinalLabel: {
     fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    color: '#ffffff',
+    color: theme.white,
   },
   totalsFinalValue: {
     fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    color: '#ffffff',
+    color: theme.white,
   },
 
   // Remarks
   remarksBox: {
     padding: 10,
     marginBottom: 12,
-    borderWidth: 0.5,
-    borderColor: '#000000',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    backgroundColor: theme.white,
+    borderRadius: 4,
   },
   remarksLabel: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 4,
+    color: theme.textSecondary,
   },
   remarksText: {
     fontSize: 10,
     lineHeight: 1.4,
+    color: theme.primary,
   },
 
   // Footer - fixed at bottom
@@ -250,7 +295,7 @@ const styles = StyleSheet.create({
     left: 25,
     right: 25,
     borderTopWidth: 1.5,
-    borderTopColor: '#000000',
+    borderTopColor: theme.accent,
     paddingTop: 6,
   },
   footerGrid: {
@@ -270,18 +315,20 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginTop: 2,
     textAlign: 'center',
+    color: theme.textSecondary,
   },
   bankArea: {
     flex: 1,
     paddingHorizontal: 12,
-    borderLeftWidth: 0.5,
-    borderLeftColor: '#000000',
+    borderLeftWidth: 1,
+    borderLeftColor: theme.borderLight,
   },
   bankTitle: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 3,
+    color: theme.accent,
   },
   bankLine: {
     flexDirection: 'row',
@@ -290,27 +337,31 @@ const styles = StyleSheet.create({
   bankLabel: {
     fontSize: 9,
     width: 50,
+    color: theme.textSecondary,
   },
   bankValue: {
     fontSize: 9,
     flex: 1,
+    color: theme.primary,
   },
   termsArea: {
     flex: 1.2,
     paddingLeft: 12,
-    borderLeftWidth: 0.5,
-    borderLeftColor: '#000000',
+    borderLeftWidth: 1,
+    borderLeftColor: theme.borderLight,
   },
   termsTitle: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
     marginBottom: 3,
+    color: theme.accent,
   },
   termLine: {
     fontSize: 9,
     marginBottom: 2,
     lineHeight: 1.3,
+    color: theme.textSecondary,
   },
   signatureArea: {
     flexDirection: 'row',
@@ -324,12 +375,13 @@ const styles = StyleSheet.create({
   signatureLine: {
     width: '100%',
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    borderBottomColor: theme.borderDark,
     marginBottom: 2,
     height: 22,
   },
   signatureLabel: {
     fontSize: 9,
+    color: theme.textSecondary,
   },
   footerNote: {
     textAlign: 'center',
@@ -339,22 +391,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
+    color: theme.primary,
   },
   footerNoteSub: {
     fontSize: 9,
     fontStyle: 'italic',
+    color: theme.textSecondary,
   },
   pageNumber: {
     fontSize: 10,
     textAlign: 'center',
     marginTop: 3,
     fontFamily: 'Helvetica-Bold',
+    color: theme.textSecondary,
   },
   continuedNote: {
     fontSize: 10,
     textAlign: 'right',
     fontStyle: 'italic',
     marginTop: 6,
+    color: theme.textSecondary,
   },
 });
 
@@ -553,6 +609,17 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
       <Text style={[styles.tableHeadCell, styles.colItem]}>Item Description</Text>
       <Text style={[styles.tableHeadCell, styles.colQty]}>Qty</Text>
       <Text style={[styles.tableHeadCell, styles.colRate]}>Rate</Text>
+      <View style={styles.colDiscGroup}>
+        <Text style={[styles.tableHeadCell, {
+          paddingBottom: 2,
+          // borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.3)',
+          width: '100%', textAlign: 'center', fontSize: 9
+        }]}>Discount</Text>
+        <View style={{ flexDirection: 'row', width: '100%', paddingTop: 2 }}>
+          <Text style={[styles.tableHeadCell, { width: '45.5%', textAlign: 'center', fontSize: 8 }]}>%</Text>
+          <Text style={[styles.tableHeadCell, { width: '54.5%', textAlign: 'right', fontSize: 8 }]}>Amount</Text>
+        </View>
+      </View>
       <Text style={[styles.tableHeadCell, styles.colTotal]}>Amount</Text>
     </View>
 
@@ -560,14 +627,31 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
       {pageItems.map((item, i) => {
         const isLast = i === pageItems.length - 1;
         const itemNumber = startIndex + i + 1;
+        const batchText = item.batches && item.batches.length > 0
+          ? item.batches.map(b => `${b.batch_number || 'No Batch'} (${b.qty || b.quantity})`).join(', ')
+          : null;
+        const discVal = parseFloat(item.discount) || 0;
+        const discType = item.discount_type || 'percent';
+        const grossAmt = (parseFloat(item.unit_price) || 0) * (parseInt(item.quantity) || 0);
+        const itemDiscAmount = discType === 'amount' ? Math.min(grossAmt, discVal) : (grossAmt * discVal) / 100;
+        const netAmt = item.total_price !== undefined && item.total_price !== null ? item.total_price : Math.max(0, grossAmt - itemDiscAmount);
+
         return (
           <View key={i} style={isLast && isLastPageTable ? styles.tableRowLast : styles.tableRow}>
             <Text style={[styles.tableCell, styles.colNum]}>{itemNumber}</Text>
-            <Text style={[styles.tableCell, styles.colItem]}>{item.name}</Text>
+            <View style={[styles.colItem, { flexDirection: 'column' }]}>
+              <Text style={styles.tableCell}>{item.name}</Text>
+            </View>
             <Text style={[styles.tableCell, styles.colQty]}>{item.quantity}</Text>
             <Text style={[styles.tableCell, styles.colRate]}>{formatAmount(item.unit_price)}</Text>
+            <Text style={[styles.tableCell, styles.colDiscPerc]}>
+              {discVal > 0 && discType === 'percent' ? `${discVal}%` : '-'}
+            </Text>
+            <Text style={[styles.tableCell, styles.colDiscAmt]}>
+              {itemDiscAmount > 0 ? formatAmount(itemDiscAmount) : '-'}
+            </Text>
             <Text style={[styles.tableCellBold, styles.colTotal]}>
-              {formatAmount(item.unit_price * item.quantity)}
+              {formatAmount(netAmt)}
             </Text>
           </View>
         );
@@ -576,7 +660,7 @@ const ItemsTable = ({ pageItems, startIndex, isLastPageTable }) => (
   </View>
 );
 
-const SummarySection = ({ subtotal, discount, discountAmt, roundingOff, total }) => (
+const SummarySection = ({ subtotal, discount, discountType, discountAmt, roundingOff, total }) => (
   <View style={styles.summarySection}>
     <View style={styles.amountWords}>
       <Text style={styles.amountWordsTitle}>Amount in Words</Text>
@@ -590,7 +674,9 @@ const SummarySection = ({ subtotal, discount, discountAmt, roundingOff, total })
       </View>
       {discount > 0 && (
         <View style={styles.totalsRow}>
-          <Text style={styles.totalsLabel}>Discount ({discount}%)</Text>
+          <Text style={styles.totalsLabel}>
+            Discount {discountType === 'amount' ? `` : `(${discount}%)`}
+          </Text>
           <Text style={styles.totalsValue}>- {formatAmount(discountAmt)}</Text>
         </View>
       )}
@@ -685,6 +771,7 @@ const BillPDF = ({
   customer,
   items,
   discount = 0,
+  discountType = 'percent',
   subtotal = 0,
   roundingOff = 0,
   total = 0,
@@ -697,13 +784,20 @@ const BillPDF = ({
   shippedTo = { name: '', contact: '', address: '', gstin: '' },
   companyInfo = null,
   logoDataUrl = null,
-  qrCodeDataUrl = null
+  qrCodeDataUrl = null,
+  billDate = null
 }) => {
   const today = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric'
   });
+
+  const displayDate = billDate ? new Date(billDate).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }) : today;
 
   const getBilledTo = () => {
     if (sale_type === "customer" || sale_type === "others") {
@@ -726,10 +820,41 @@ const BillPDF = ({
 
   const billedTo = getBilledTo();
   const shipTo = isShippedDifferent ? shippedTo : billedTo;
-  const discountAmt = subtotal * (discount / 100);
+  const discountAmt = (discountType || 'percent') === 'amount'
+    ? Math.min(subtotal, discount)
+    : subtotal * (discount / 100);
+
+  // Group items by identical rate and discount for PDF rendering (don't show duplicate in PDF if rate and discount are same)
+  const groupedPdfItems = (() => {
+    const grouped = [];
+    (items || []).forEach(item => {
+      const rate = Number(item.unit_price || 0);
+      const disc = Number(item.discount || 0);
+      const discType = item.discount_type || 'percent';
+      const existing = grouped.find(g =>
+        (g.id && item.id ? g.id === item.id : g.name === item.name) &&
+        Math.abs(Number(g.unit_price || 0) - rate) < 0.001 &&
+        Math.abs(Number(g.discount || 0) - disc) < 0.001 &&
+        (g.discount_type || 'percent') === discType
+      );
+      if (existing) {
+        existing.quantity = Number(existing.quantity || 0) + Number(item.quantity || 0);
+        existing.total_price = Number(existing.total_price || 0) + Number(item.total_price || 0);
+        if (existing.cgst_amount !== undefined) existing.cgst_amount = Number(existing.cgst_amount || 0) + Number(item.cgst_amount || 0);
+        if (existing.sgst_amount !== undefined) existing.sgst_amount = Number(existing.sgst_amount || 0) + Number(item.sgst_amount || 0);
+        if (existing.discount_amount !== undefined) existing.discount_amount = Number(existing.discount_amount || 0) + Number(item.discount_amount || 0);
+        if (item.batches && existing.batches) {
+          existing.batches = [...existing.batches, ...item.batches];
+        }
+      } else {
+        grouped.push({ ...item, batches: item.batches ? [...item.batches] : [] });
+      }
+    });
+    return grouped;
+  })();
 
   // Paginate items
-  const itemPages = paginateItems(items);
+  const itemPages = paginateItems(groupedPdfItems);
   const totalPages = itemPages.length;
 
   // Calculate starting index for each page
@@ -751,7 +876,7 @@ const BillPDF = ({
               companyInfo={companyInfo}
               logoDataUrl={logoDataUrl}
               billNumber={billNumber}
-              today={today}
+              today={displayDate}
             />
 
             {/* Parties section only on first page */}
@@ -783,6 +908,7 @@ const BillPDF = ({
                 <SummarySection
                   subtotal={subtotal}
                   discount={discount}
+                  discountType={discountType}
                   discountAmt={discountAmt}
                   roundingOff={roundingOff}
                   total={total}
@@ -812,4 +938,3 @@ const BillPDF = ({
 };
 
 export default BillPDF;
- 

@@ -3,18 +3,18 @@ import { useHotkeys } from "react-hotkeys-hook";
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import BillPDF from './BillPDF';
-import { pdf } from '@react-pdf/renderer';
+import { pdf, PDFViewer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import CustomerFormModal from './admin/modals/CustomerFormModal';
 import BatchSelectModal from './BatchSelectModal';
 
-const Billing = () => { 
+const Billing = () => {
   // Load saved state from sessionStorage or use defaults
   const loadSavedState = () => {
     const saved = sessionStorage.getItem('billingState');
     if (saved) {
       try {
-        return JSON.parse(saved); 
+        return JSON.parse(saved);
       } catch (e) {
         console.error('Error loading saved state:', e);
         return null;
@@ -32,6 +32,7 @@ const Billing = () => {
   const [searchDropdown, setSearchDropdown] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
   const [discount, setDiscount] = useState(savedState?.discount || 0);
+  const [discountType, setDiscountType] = useState(savedState?.discountType || 'percent');
   const [billNumber, setBillNumber] = useState('');
   const [billDate, setBillDate] = useState(savedState?.billDate || new Date().toISOString().split('T')[0]);
   const [salesmen, setSalesmen] = useState([]);
@@ -95,8 +96,13 @@ const Billing = () => {
   const [customerErrors, setCustomerErrors] = useState({});
 
   // Batch modal state
-  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+  const [batchModal, setBatchModal] = useState({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null, isDuplicateRow: false });
+  const [duplicateItemModal, setDuplicateItemModal] = useState({ open: false, item: null, existingItem: null });
   const [selectedBatches, setSelectedBatches] = useState({}); // { [itemId]: [{batch, qty}] }
+
+  const [previewCompanyInfo, setPreviewCompanyInfo] = useState(null);
+  const [previewLogoDataUrl, setPreviewLogoDataUrl] = useState(null);
+  const [previewQrCodeDataUrl, setPreviewQrCodeDataUrl] = useState(null);
 
   useEffect(() => {
     loadItems();
@@ -104,7 +110,36 @@ const Billing = () => {
     fetchSalesmen();
     fetchCustomers();
     loadTaxSettings();
+    if (import.meta.env.DEV) {
+      loadPreviewCompanyInfo();
+    }
   }, []);
+
+  const loadPreviewCompanyInfo = async () => {
+    try {
+      const companyResult = await window.electronAPI.getCompanyInfo();
+      if (companyResult.success && companyResult.data) {
+        setPreviewCompanyInfo(companyResult.data);
+        if (companyResult.data.logo_path) {
+          const logoResult = await window.electronAPI.getLogoAsBase64(companyResult.data.logo_path);
+          if (logoResult.success) {
+            setPreviewLogoDataUrl(logoResult.dataUrl);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (import.meta.env.DEV && previewCompanyInfo?.upi_id && previewCompanyInfo.upi_id.trim() !== '') {
+      const upiString = `upi://pay?pa=${previewCompanyInfo.upi_id}&pn=${encodeURIComponent(previewCompanyInfo.company_name)}&am=${getFinalTotal()}&cu=INR`;
+      QRCode.toDataURL(upiString, { width: 256, margin: 1, color: { dark: '#000000', light: '#FFFFFF' } })
+        .then(url => setPreviewQrCodeDataUrl(url))
+        .catch(console.error);
+    }
+  }, [cart, discount, gstOnSale, previewCompanyInfo]);
 
   const loadTaxSettings = async () => {
     try {
@@ -121,6 +156,7 @@ const Billing = () => {
     const stateToSave = {
       cart,
       discount,
+      discountType,
       billDate,
       selectedSalesman,
       billNarration,
@@ -131,9 +167,9 @@ const Billing = () => {
       isOthers
     };
     sessionStorage.setItem('billingState', JSON.stringify(stateToSave));
-  }, [cart, discount, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
+  }, [cart, discount, discountType, billDate, selectedSalesman, billNarration, customerInfo, shippedToInfo, isShippedDifferent, isSalesmanCustomer, isOthers]);
 
-  const loadItems = async () => { 
+  const loadItems = async () => {
     try {
       const data = await window.electronAPI.getInventory();
       console.log('Inventory data loaded:', data);
@@ -264,114 +300,203 @@ const Billing = () => {
     return await window.electronAPI.getItemBatches(itemId);
   };
 
+  const getAdjustedStockForModal = (item, batches, excludeCartIdx = null) => {
+    let usedTotalQty = 0;
+    const usedBatchQty = {};
+
+    cart.forEach((c, idx) => {
+      if (c.id === item.id && (excludeCartIdx === null || idx !== excludeCartIdx)) {
+        const rowQty = parseInt(c.quantity) || 0;
+        usedTotalQty += rowQty;
+        if (c.batches && c.batches.length > 0) {
+          c.batches.forEach(b => {
+            const bKey = b.batch_id ? `${b.batch_id}` : (b.batch_number || 'No Batch');
+            usedBatchQty[bKey] = (usedBatchQty[bKey] || 0) + (parseInt(b.qty) || 0);
+          });
+        } else {
+          usedBatchQty['No Batch'] = (usedBatchQty['No Batch'] || 0) + rowQty;
+        }
+      }
+    });
+
+    const adjustedCurrentStock = Math.max(0, (parseInt(item.current_stock) || 0) - usedTotalQty);
+    const adjustedBatches = (batches || []).map(b => {
+      const bKey = b.id ? `${b.id}` : (b.batch_number || 'No Batch');
+      const origQty = parseInt(b.qty_available) || 0;
+      const used = usedBatchQty[bKey] || 0;
+      return {
+        ...b,
+        qty_available: Math.max(0, origQty - used)
+      };
+    });
+
+    return {
+      adjustedItem: { ...item, current_stock: adjustedCurrentStock },
+      adjustedBatches
+    };
+  };
+
   const addToCart = async (item) => {
     // Check if item already exists in cart
     const existingCartItem = cart.find(c => c.id === item.id);
     if (existingCartItem) {
-      // Reopen batch modal if item already in cart and has batches
-      if (existingCartItem.batches && existingCartItem.batches.length > 0) {
-        reopenBatchModal(existingCartItem);
-      } else {
-        // If no batches, just let user edit quantity directly
-        toast.info('Item already in cart. Update quantity in the cart.');
-      }
+      setDuplicateItemModal({ open: true, item, existingItem: existingCartItem });
       return;
     }
 
     const batches = await fetchItemBatches(item.id);
-    // Always open batch modal if batches exist OR if there's stock to manage
-    // This allows selecting from general stock even if no batch tracking exists
-    if (batches && batches.length > 0) {
-      setBatchModal({ open: true, item, batches, cartIdx: cart.length, existingSelections: null });
-    } else if (item.current_stock > 0) {
-      // No batches but has stock - still open modal to select general stock
-      setBatchModal({ open: true, item, batches: [], cartIdx: cart.length, existingSelections: null });
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
+    if (adjustedBatches && adjustedBatches.length > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: adjustedBatches, cartIdx: cart.length, existingSelections: null, isDuplicateRow: false });
+    } else if (adjustedItem.current_stock > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: [], cartIdx: cart.length, existingSelections: null, isDuplicateRow: false });
     } else {
-      // No stock at all
       toast.error('Item is out of stock');
     }
   };
 
-  // Handle batch selection and add to cart or update existing cart item
-  const handleBatchSelection = (cartIdx, item, batchSelections) => {
-    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null });
+  const proceedAddToCartAsNew = async (item) => {
+    setDuplicateItemModal({ open: false, item: null, existingItem: null });
+    const batches = await fetchItemBatches(item.id);
+    const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(item, batches, null);
 
-    // Calculate total qty and use weighted average MRP
-    const totalQty = batchSelections.reduce((sum, b) => sum + Number(b.qty), 0);
-
-    // Calculate weighted average MRP
-    const avgMRP = totalQty > 0
-      ? batchSelections.reduce((sum, b) => {
-          const mrp = b.batch ? Number(b.batch.mrp) : Number(item.mrp);
-          return sum + mrp * Number(b.qty);
-        }, 0) / totalQty
-      : item.mrp;
-
-    const cartItem = {
-      id: item.id,
-      name: item.name,
-      sku: item.sku,
-      hsn_code: item.hsn_code,
-      unit_price: avgMRP,
-      quantity: totalQty,
-      current_stock: item.current_stock,
-      gst_percentage: item.gst_percentage,
-      unit: item.unit,
-      batches: batchSelections.map(b => ({
-        batch_id: b.batch ? b.batch.id : null,
-        batch_number: b.batch ? b.batch.batch_number : 'No Batch',
-        qty: b.qty,
-        mfg_date: b.batch ? b.batch.mfg_date : null,
-        exp_date: b.batch ? b.batch.exp_date : null,
-        purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
-        mrp: b.batch ? b.batch.mrp : item.mrp
-      }))
-    };
-
-
-    console.log('cartt is ' , cartItem)
-    // Check if we're updating an existing cart item
-    const existingCartItem = cart.find(c => c.id === item.id);
-    if (existingCartItem) {
-      // Update existing item
-      setCart(prevCart => prevCart.map(c => c.id === item.id ? cartItem : c));
-    } else {
-      // Add new item
-      setCart(prevCart => [...prevCart, cartItem]);
+    const totalRemainingBatchStock = adjustedBatches.reduce((sum, b) => sum + (parseInt(b.qty_available) || 0), 0);
+    const hasRemainingStock = adjustedItem.current_stock > 0 || totalRemainingBatchStock > 0;
+    if (!hasRemainingStock) {
+      toast.error(`No remaining stock available for ${item.name}. All available stock is already in the cart.`);
+      return;
     }
 
-    // Store batch selections for reopening
+    if (adjustedBatches && adjustedBatches.length > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: adjustedBatches, cartIdx: cart.length, existingSelections: null, isDuplicateRow: true });
+    } else if (adjustedItem.current_stock > 0) {
+      setBatchModal({ open: true, item: adjustedItem, batches: [], cartIdx: cart.length, existingSelections: null, isDuplicateRow: true });
+    } else {
+      toast.error('Item is out of stock');
+    }
+  };
+
+  const getCartKey = (item) => item.cart_id || item.id;
+
+  // Handle batch selection and add to cart or update existing cart item
+  const handleBatchSelection = (cartIdx, item, batchSelections) => {
+    setBatchModal({ open: false, item: null, batches: [], cartIdx: null, existingSelections: null, isDuplicateRow: false });
+
+    // Group batch selections by rate (mrp)
+    const rateGroups = {};
+    batchSelections.forEach(b => {
+      const rate = b.batch ? Number(b.batch.mrp) : Number(item.mrp || item.unit_price || 0);
+      if (!rateGroups[rate]) {
+        rateGroups[rate] = [];
+      }
+      rateGroups[rate].push(b);
+    });
+
+    const newCartItems = Object.entries(rateGroups).map(([rateStr, selections]) => {
+      const rate = Number(rateStr);
+      const totalQty = selections.reduce((sum, b) => sum + Number(b.qty), 0);
+      return {
+        id: item.id,
+        cart_id: `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        name: item.name,
+        sku: item.sku,
+        hsn_code: item.hsn_code,
+        unit_price: rate,
+        quantity: totalQty,
+        current_stock: item.current_stock,
+        gst_percentage: item.gst_percentage,
+        unit: item.unit,
+        discount: item.discount || 0,
+        discount_type: item.discount_type || 'percent',
+        batches: selections.map(b => ({
+          batch_id: b.batch ? b.batch.id : null,
+          batch_number: b.batch ? b.batch.batch_number : 'No Batch',
+          qty: b.qty,
+          qty_available: b.batch ? b.batch.qty_available : item.current_stock,
+          mfg_date: b.batch ? b.batch.mfg_date : null,
+          exp_date: b.batch ? b.batch.exp_date : null,
+          purchase_rate: b.batch ? b.batch.purchase_rate : item.purchase_rate,
+          mrp: b.batch ? b.batch.mrp : item.mrp
+        }))
+      };
+    });
+
+    setCart(prevCart => {
+      let updatedCart = [...prevCart];
+      if (cartIdx !== null && cartIdx !== undefined && cartIdx >= 0 && cartIdx < updatedCart.length) {
+        updatedCart.splice(cartIdx, 1);
+      }
+
+      newCartItems.forEach(newItem => {
+        const existingIdx = !batchModal.isDuplicateRow ? updatedCart.findIndex(c =>
+          c.id === newItem.id &&
+          Number(c.unit_price) === Number(newItem.unit_price) &&
+          Number(c.discount || 0) === Number(newItem.discount || 0) &&
+          (c.discount_type || 'percent') === (newItem.discount_type || 'percent')
+        ) : -1;
+
+        if (existingIdx !== -1) {
+          const existing = updatedCart[existingIdx];
+          const mergedBatches = [...(existing.batches || [])];
+          newItem.batches.forEach(nb => {
+            const foundB = mergedBatches.find(mb => mb.batch_id === nb.batch_id && mb.batch_number === nb.batch_number);
+            if (foundB) {
+              foundB.qty = Number(foundB.qty) + Number(nb.qty);
+            } else {
+              mergedBatches.push({ ...nb });
+            }
+          });
+          updatedCart[existingIdx] = {
+            ...existing,
+            quantity: Number(existing.quantity) + Number(newItem.quantity),
+            batches: mergedBatches
+          };
+        } else {
+          updatedCart.push(newItem);
+        }
+      });
+
+      return updatedCart;
+    });
+
     setSelectedBatches(prev => ({ ...prev, [item.id]: batchSelections }));
+  };
+
+  const addSplitRow = (item) => {
+    proceedAddToCartAsNew(item);
   };
 
   // Reopen batch modal to edit selections
   const reopenBatchModal = async (cartItem) => {
     const batches = await fetchItemBatches(cartItem.id);
     if (batches && batches.length > 0) {
-      // Convert cart item batches back to selection format
       const existingSelections = cartItem.batches?.map(b => ({
         batch_id: b.batch_id,
         qty: b.qty
       })) || [];
 
+      const cartIdx = cart.findIndex(c => getCartKey(c) === getCartKey(cartItem));
+      const { adjustedItem, adjustedBatches } = getAdjustedStockForModal(cartItem, batches, cartIdx !== -1 ? cartIdx : null);
+
       setBatchModal({
         open: true,
-        item: cartItem,
-        batches,
-        cartIdx: null,
-        existingSelections
+        item: adjustedItem,
+        batches: adjustedBatches,
+        cartIdx: cartIdx !== -1 ? cartIdx : null,
+        existingSelections,
+        isDuplicateRow: false
       });
     }
   };
 
   // --- Cart keyboard controls ---
-  const handleCartKeyDown = (e, idx, itemId) => {
+  const handleCartKeyDown = (e, idx, targetKey) => {
     if (e.key === 'Delete') {
-      removeFromCart(itemId);
+      removeFromCart(targetKey);
     } else if (e.key === '+' || e.key === '=') {
-      updateCartItemQuantity(itemId, (parseInt(cart[idx].quantity) || 0) + 1);
+      updateCartItemQuantity(targetKey, (parseInt(cart[idx].quantity) || 0) + 1);
     } else if (e.key === '-' || e.key === '_') {
-      updateCartItemQuantity(itemId, (parseInt(cart[idx].quantity) || 0) - 1);
+      updateCartItemQuantity(targetKey, (parseInt(cart[idx].quantity) || 0) - 1);
     }
     if (e.key === 'Tab' || e.key === 'Enter') {
       e.preventDefault();
@@ -387,32 +512,49 @@ const Billing = () => {
     }
   };
 
-  const updateCartItemQuantity = (itemId, newQuantity) => {
-    // Check for invalid quantities (null, undefined, empty string, 0, negative)
+  const updateCartItemQuantity = (targetKey, newQuantity) => {
     if (!newQuantity || newQuantity <= 0 || isNaN(newQuantity)) {
-      removeFromCart(itemId);
+      removeFromCart(targetKey);
       return;
     }
+    const targetItem = cart.find(item => getCartKey(item) === targetKey);
+    if (targetItem) {
+      const otherRowsQty = cart.reduce((sum, c) => (c.id === targetItem.id && getCartKey(c) !== targetKey) ? sum + (parseInt(c.quantity) || 0) : sum, 0);
+      const maxAllowed = Math.max(0, (parseInt(targetItem.current_stock) || 0) - otherRowsQty);
+      if (newQuantity > maxAllowed) {
+        toast.error(`Cannot exceed available stock (${maxAllowed} remaining)`);
+        if (maxAllowed <= 0) {
+          return;
+        }
+        newQuantity = maxAllowed;
+      }
+    }
     setCart(cart.map(item =>
-      item.id === itemId
+      getCartKey(item) === targetKey
         ? { ...item, quantity: newQuantity }
         : item
     ));
   };
 
-  const removeFromCart = (itemId) => {
-    setCart(cart.filter(item => item.id !== itemId));
-    // Also clean up batch selections
-    setSelectedBatches(prev => {
-      const updated = { ...prev };
-      delete updated[itemId];
-      return updated;
-    });
+  const removeFromCart = (targetKey) => {
+    const targetItem = cart.find(item => getCartKey(item) === targetKey);
+    setCart(cart.filter(item => getCartKey(item) !== targetKey));
+    if (targetItem) {
+      setSelectedBatches(prev => {
+        const updated = { ...prev };
+        delete updated[targetItem.id];
+        return updated;
+      });
+    }
   };
 
   // --- Totals ---
   const calculateItemTotal = (item) => {
-    const baseAmount = item.unit_price * item.quantity;
+    const qty = parseInt(item.quantity, 10) || 0;
+    const grossAmount = (item.unit_price || 0) * qty;
+    const discVal = parseFloat(item.discount) || 0;
+    const itemDiscountAmount = item.discount_type === 'amount' ? Math.min(grossAmount, discVal) : (grossAmount * discVal) / 100;
+    const baseAmount = Math.max(0, grossAmount - itemDiscountAmount);
     const gstRate = gstOnSale ? (item.gst_percentage || 0) : 0;
     const gstAmount = (baseAmount * gstRate) / 100;
     return { baseAmount, gstAmount, totalAmount: baseAmount + gstAmount };
@@ -420,18 +562,24 @@ const Billing = () => {
 
   const getSubtotal = () => cart.reduce((sum, item) => sum + calculateItemTotal(item).baseAmount, 0);
 
+  const getDiscountAmount = () => {
+    const sub = getSubtotal();
+    const discVal = parseFloat(discount) || 0;
+    return discountType === 'amount' ? Math.min(sub, discVal) : (sub * discVal) / 100;
+  };
+
   const getDiscountedSubtotal = () => {
-    const total = getSubtotal();
-    const discountAmount = (total * discount) / 100;
-    return total - discountAmount;
+    return Math.max(0, getSubtotal() - getDiscountAmount());
   };
 
   const getGstTotal = () => {
     if (!gstOnSale) return 0;
-    const discountFactor = 1 - (discount || 0) / 100;
+    const sub = getSubtotal();
+    const overallDiscAmount = getDiscountAmount();
+    const overallDiscountFactor = sub > 0 ? Math.max(0, 1 - (overallDiscAmount / sub)) : 1;
     return cart.reduce((sum, item) => {
-      const baseAmount = (item.unit_price || 0) * (parseInt(item.quantity, 10) || 0);
-      const discountedBase = baseAmount * discountFactor;
+      const { baseAmount } = calculateItemTotal(item);
+      const discountedBase = baseAmount * overallDiscountFactor;
       const gstRate = item.gst_percentage || 0;
       return sum + (discountedBase * gstRate) / 100;
     }, 0);
@@ -458,11 +606,30 @@ const Billing = () => {
       return;
     }
 
-    // Stock validation
+    // Stock validation across all rows in cart
+    const itemQtyMap = {};
+    const batchQtyMap = {};
     for (const cartItem of filteredCart) {
-      if (parseInt(cartItem.quantity) > cartItem.current_stock) {
-        toast.error(`Insufficient stock for ${cartItem.name}. Available: ${cartItem.current_stock}`);
+      const qty = parseInt(cartItem.quantity) || 0;
+      itemQtyMap[cartItem.id] = (itemQtyMap[cartItem.id] || 0) + qty;
+      if (itemQtyMap[cartItem.id] > (cartItem.current_stock || 0)) {
+        toast.error(`Insufficient stock for ${cartItem.name}. Total in cart: ${itemQtyMap[cartItem.id]}, Available: ${cartItem.current_stock}`);
         return;
+      }
+
+      // Check batch quantities
+      if (cartItem.batches && cartItem.batches.length > 0) {
+        for (const b of cartItem.batches) {
+          if (b.batch_id) {
+            const bKey = `${cartItem.id}_${b.batch_id}`;
+            const bQty = parseInt(b.qty) || 0;
+            batchQtyMap[bKey] = (batchQtyMap[bKey] || 0) + bQty;
+            if (b.qty_available !== undefined && batchQtyMap[bKey] > b.qty_available) {
+              toast.error(`Insufficient stock for batch ${b.batch_number} of ${cartItem.name}. Total selected: ${batchQtyMap[bKey]}, Available: ${b.qty_available}`);
+              return;
+            }
+          }
+        }
       }
     }
     if (!customerInfo.id) {
@@ -480,29 +647,39 @@ const Billing = () => {
         });
       }
 
-      const discountFactor = 1 - (discount || 0) / 100;
+      const sub = getSubtotal();
+      const overallDiscAmount = getDiscountAmount();
+      const overallDiscountFactor = sub > 0 ? Math.max(0, 1 - (overallDiscAmount / sub)) : 1;
       const saleItems = filteredCart.map(item => {
         const quantity = parseInt(item.quantity, 10) || 0;
-        const baseAmount = (item.unit_price || 0) * quantity;
-        const discountedBase = baseAmount * discountFactor;
+        const { baseAmount } = calculateItemTotal({ ...item, quantity });
+        const discountedBase = baseAmount * overallDiscountFactor;
         const gstRate = gstOnSale ? (item.gst_percentage || 0) : 0;
         const cgstAmount = (discountedBase * gstRate) / 200;
         const sgstAmount = (discountedBase * gstRate) / 200;
         const totalAmount = discountedBase + cgstAmount + sgstAmount;
         return {
           id: item.id,
+          name: item.name,
+          sku: item.sku,
+          hsn_code: item.hsn_code,
+          unit: item.unit,
           quantity,
           unit_price: item.unit_price,
+          discount: item.discount || 0,
+          discount_type: item.discount_type || 'percent',
+          discount_amount: (item.discount_type || 'percent') === 'amount' ? Math.min((item.unit_price || 0) * quantity, parseFloat(item.discount) || 0) : ((item.unit_price || 0) * quantity * (parseFloat(item.discount) || 0)) / 100,
           gst_percentage: gstRate,
           cgst_amount: cgstAmount,
           sgst_amount: sgstAmount,
           total_price: totalAmount,
-          batches: item.batches || [] // <-- include batches here
+          batches: item.batches || []
         };
       });
 
       const saleData = {
         bill_number: billNumber,
+        contact_id: customerInfo.id || null,
         customer_name: customerInfo.name || null,
         customer_contact: customerInfo.contact || null,
         customer_address: customerInfo.address || null,
@@ -514,7 +691,9 @@ const Billing = () => {
         is_shipped_different: isShippedDifferent,
         sale_date: billDate,
         items: saleItems,
-        discount,
+        discount: parseFloat(discount) || 0,
+        discount_type: discountType,
+        discount_amount: getDiscountAmount(),
         total_amount: getFinalTotal(),
         cgst_total: gstOnSale ? getCgstTotal() : 0,
         sgst_total: gstOnSale ? getSgstTotal() : 0,
@@ -560,14 +739,9 @@ const Billing = () => {
             <BillPDF
               billNumber={billNumber}
               customer={customerInfo}
-              items={cart.map(item => ({
-                hsn_code: item.hsn_code,
-                sku: item.sku,
-                name: item.name,
-                quantity: parseInt(item.quantity) || 0,
-                unit_price: item.unit_price
-              }))}
+              items={saleItems}
               discount={discount}
+              discountType={discountType}
               subtotal={getSubtotal()}
               roundingOff={getRoundingOff()}
               total={getFinalTotal()}
@@ -581,6 +755,7 @@ const Billing = () => {
               companyInfo={companyInfo}
               logoDataUrl={logoDataUrl}
               qrCodeDataUrl={qrCodeDataUrl}
+              billDate={billDate}
             />
           );
 
@@ -1048,102 +1223,176 @@ const Billing = () => {
             ) : (
               <div className="space-y-4">
                 {cart.map((item, idx) => {
+                  const key = getCartKey(item);
                   const { totalAmount } = calculateItemTotal({ ...item, quantity: parseInt(item.quantity) || 0 });
+                  const batchText = item.batches && item.batches.length > 0
+                    ? item.batches.map(b => `${b.batch_number || 'No Batch'} (${b.qty})`).join(', ')
+                    : null;
+
                   return (
-                    <div key={item.id} className="border-b border-gray-200 pb-2 flex justify-between items-center gap-2">
-                      {/* Product Name */}
-                      <span className="font-medium text-gray-900  w-5/12 truncate">{item.name}</span>
-                      {/* Quantity Input */}
-                      <div className="flex items-center gap-1 w-24">
-                        <label className="text-xs text-gray-700">Qty</label>
-                        {item.batches && item.batches.length > 0 ? (
-                          // Read-only with click to edit batches
-                          <div
-                            onClick={() => reopenBatchModal(item)}
-                            className="w-12 px-1 py-1 border border-blue-300 bg-blue-50 rounded text-sm text-center cursor-pointer hover:bg-blue-100 transition-colors font-medium text-blue-700"
-                            title="Click to edit batch selection"
-                          >
-                            {item.quantity}
+                    <div key={key} className="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-white transition-colors space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900 truncate">{item.name}</span>
+                            {/* <button
+                              type="button"
+                              onClick={() => addSplitRow(item)}
+                              className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded font-medium flex items-center gap-1"
+                              title="Add another line for this item (e.g. Free item or different rate/discount)"
+                            >
+                              + Row
+                            </button> */}
                           </div>
-                        ) : (
-                          // Editable input for non-batched items
+                          {batchText && (
+                            <div
+                              onClick={() => reopenBatchModal(item)}
+                              className="text-xs text-blue-600 hover:underline cursor-pointer mt-0.5 truncate"
+                              title="Click to change batch selection"
+                            >
+                              Batches: {batchText}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-gray-900 text-right">₹{totalAmount.toFixed(2)}</span>
+                          <button
+                            onClick={() => removeFromCart(key)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            title="Remove row"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs pt-1 border-t border-gray-200">
+                        {/* Quantity Input */}
+                        <div className="flex items-center gap-1">
+                          <label className="text-gray-600 font-medium">Qty:</label>
+                          {item.batches && item.batches.length > 0 ? (
+                            <div
+                              onClick={() => reopenBatchModal(item)}
+                              className="w-12 px-1 py-1 border border-blue-300 bg-blue-50 rounded text-center cursor-pointer hover:bg-blue-100 font-semibold text-blue-700"
+                              title="Click to edit batch selection"
+                            >
+                              {item.quantity}
+                            </div>
+                          ) : (
+                            <input
+                              ref={el => qtyInputRefs.current[item.id] = el}
+                              type="number"
+                              onWheel={e => e.target.blur()}
+                              value={item.quantity}
+                              min={1}
+                              max={item.current_stock}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '' || val === null || val === undefined) {
+                                  removeFromCart(key);
+                                  return;
+                                }
+                                const numVal = parseInt(val);
+                                if (isNaN(numVal) || numVal <= 0) {
+                                  removeFromCart(key);
+                                } else {
+                                  updateCartItemQuantity(key, numVal);
+                                }
+                              }}
+                              onKeyDown={e => handleCartKeyDown(e, idx, key)}
+                              className="w-12 px-1 py-1 border border-gray-300 rounded bg-white"
+                              tabIndex={0}
+                            />
+                          )}
+                          <span className="text-gray-500">/ {item.current_stock}</span>
+                        </div>
+
+                        {/* Rate Input */}
+                        <div className="flex items-center gap-1">
+                          <label className="text-gray-600 font-medium">Rate:</label>
                           <input
-                            ref={el => qtyInputRefs.current[item.id] = el}
                             type="number"
+                            step="0.01"
                             onWheel={e => e.target.blur()}
-                            value={item.quantity}
-                            min={1}
-                            max={item.current_stock}
+                            value={item.unit_price}
                             onChange={e => {
-                              const val = e.target.value;
-                              if (val === '' || val === null || val === undefined) {
-                                removeFromCart(item.id);
-                                return;
-                              }
-                              const numVal = parseInt(val);
-                              if (isNaN(numVal) || numVal <= 0) {
-                                removeFromCart(item.id);
-                              } else {
-                                updateCartItemQuantity(item.id, numVal);
-                              }
+                              const newPrice = parseFloat(e.target.value) || 0;
+                              setCart(cart.map(cartItem =>
+                                getCartKey(cartItem) === key
+                                  ? { ...cartItem, unit_price: newPrice }
+                                  : cartItem
+                              ));
                             }}
-                            onKeyDown={e => handleCartKeyDown(e, idx, item.id)}
-                            className="w-12 px-1 py-1 border border-gray-300 rounded text-sm"
-                            tabIndex={0}
-                            autoFocus={item.quantity === ''}
+                            className="w-16 px-1 py-1 border border-gray-300 rounded bg-white"
+                            placeholder="₹0.00"
                           />
-                        )}
-                        <span className="text-xs text-gray-500">/ {item.current_stock}</span>
+                        </div>
+
+                        {/* Item Discount Input */}
+                        <div className="flex items-center gap-1">
+                          <label className="text-gray-600 font-medium">Disc:</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            onWheel={e => e.target.blur()}
+                            value={item.discount || ''}
+                            onChange={e => {
+                              const newDisc = parseFloat(e.target.value) || 0;
+                              setCart(cart.map(cartItem =>
+                                getCartKey(cartItem) === key
+                                  ? { ...cartItem, discount: newDisc }
+                                  : cartItem
+                              ));
+                            }}
+                            className="w-14 px-1 py-1 border border-gray-300 rounded bg-white"
+                            placeholder="0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newType = (item.discount_type || 'percent') === 'percent' ? 'amount' : 'percent';
+                              setCart(cart.map(cartItem =>
+                                getCartKey(cartItem) === key
+                                  ? { ...cartItem, discount_type: newType }
+                                  : cartItem
+                              ));
+                            }}
+                            className="px-1.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-semibold text-xs border border-gray-300"
+                            title="Toggle between % and ₹"
+                          >
+                            {(item.discount_type || 'percent') === 'amount' ? '₹' : '%'}
+                          </button>
+                        </div>
                       </div>
-                      {/* Unit Price Input */}
-                      <div className="flex items-center gap-1 w-24">
-                        <label className="text-xs text-gray-700">Rate</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          onWheel={e => e.target.blur()}
-                          value={item.unit_price}
-                          onChange={e => {
-                            const newPrice = parseFloat(e.target.value) || 0;
-                            setCart(cart.map(cartItem =>
-                              cartItem.id === item.id
-                                ? { ...cartItem, unit_price: newPrice }
-                                : cartItem
-                            ));
-                          }}
-                          className="w-14 px-1 py-1 border border-gray-300 rounded text-sm"
-                          placeholder="₹0.00"
-                        />
-                      </div>
-                      {/* Total */}
-                      <span className="font-medium text-gray-900 w-20 text-right">₹{totalAmount.toFixed(2)}</span>
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-red-600 hover:text-red-800 ml-2"
-                        tabIndex={0}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   );
                 })}
 
                 {/* Discount */}
                 <div className="pt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Discount (%)
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Overall Discount ({discountType === 'amount' ? '₹' : '%'})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType(discountType === 'amount' ? 'percent' : 'amount')}
+                      className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded font-medium"
+                    >
+                      Switch to {discountType === 'amount' ? '%' : '₹'}
+                    </button>
+                  </div>
                   <input
                     ref={discountInputRef}
                     type="number"
                     onWheel={e => e.target.blur()}
-                    value={discount}
+                    value={discount || ''}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     min="0"
-                    max="100"
+                    max={discountType === 'amount' ? getSubtotal() : 100}
                     tabIndex={0}
+                    placeholder="0"
                   />
                 </div>
 
@@ -1155,8 +1404,8 @@ const Billing = () => {
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600">
-                      <span>Discount ({discount}%):</span>
-                      <span>-₹{(getSubtotal() * discount / 100).toFixed(2)}</span>
+                      <span>Discount ({discountType === 'amount' ? `₹${discount}` : `${discount}%`}):</span>
+                      <span>-₹{getDiscountAmount().toFixed(2)}</span>
                     </div>
                   )}
                   {gstOnSale && (
@@ -1216,7 +1465,46 @@ const Billing = () => {
         </div>
       </div>
 
-
+      {/* Dev Mode PDF Preview */}
+      {import.meta.env.DEV && (
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Live PDF Preview (Dev Mode)</h2>
+          <div className="w-full h-[800px] border border-gray-300 rounded-lg overflow-hidden">
+            <PDFViewer width="100%" height="100%">
+              <BillPDF
+                billNumber={billNumber}
+                customer={customerInfo}
+                items={cart.map(item => ({
+                  hsn_code: item.hsn_code,
+                  sku: item.sku,
+                  name: item.name,
+                  quantity: parseInt(item.quantity) || 0,
+                  unit_price: item.unit_price,
+                  discount: item.discount || 0,
+                  discount_type: item.discount_type || 'percent',
+                  batches: item.batches || []
+                }))}
+                discount={discount}
+                discountType={discountType}
+                subtotal={getSubtotal()}
+                roundingOff={getRoundingOff()}
+                total={getFinalTotal()}
+                sale_type={isOthers ? 'others' : (isSalesmanCustomer ? 'salesman' : 'customer')}
+                salesman_name={salesmen.find(s => String(s.id) === String(selectedSalesman))?.name || ""}
+                salesman_contact={salesmen.find(s => String(s.id) === String(selectedSalesman))?.contact_info || ""}
+                salesman_address={salesmen.find(s => String(s.id) === String(selectedSalesman))?.address || ""}
+                note={billNarration}
+                isShippedDifferent={isShippedDifferent}
+                shippedTo={shippedToInfo}
+                companyInfo={previewCompanyInfo}
+                logoDataUrl={previewLogoDataUrl}
+                qrCodeDataUrl={previewQrCodeDataUrl}
+                billDate={billDate}
+              />
+            </PDFViewer>
+          </div>
+        </div>
+      )}
 
       {/* Customer Add Modal */}
       <CustomerFormModal
@@ -1245,6 +1533,49 @@ const Billing = () => {
           setCustomerErrors({});
         }}
       />
+
+      {/* Duplicate Item Choice Modal */}
+      {duplicateItemModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Item Already in Bill</h3>
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-800">{duplicateItemModal.item?.name}</span> is already added to this bill. How would you like to proceed?
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const existing = duplicateItemModal.existingItem;
+                  setDuplicateItemModal({ open: false, item: null, existingItem: null });
+                  if (existing && existing.batches && existing.batches.length > 0) {
+                    reopenBatchModal(existing);
+                  } else {
+                    toast.info('Update quantity directly in the cart.');
+                  }
+                }}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow transition text-sm"
+              >
+                Modify Existing Row
+              </button>
+              <button
+                type="button"
+                onClick={() => proceedAddToCartAsNew(duplicateItemModal.item)}
+                className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg border border-gray-300 transition text-sm"
+              >
+                Add as New Row Below (Duplicate)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateItemModal({ open: false, item: null, existingItem: null })}
+                className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition mt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Batch Select Modal */}
       {batchModal.open && (

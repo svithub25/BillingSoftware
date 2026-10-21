@@ -51,13 +51,13 @@ function Banking() {
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: Banknote },
     { id: 'transactions', name: 'Transactions', icon: FileText },
-    { id: 'reports', name: 'Reports', icon: TrendingUp },
-    { id: 'bank_settings', name: 'Settings', icon: Settings }
+    // { id: 'reports', name: 'Reports', icon: TrendingUp },
+    // { id: 'bank_settings', name: 'Settings', icon: Settings }
   ];
 
   return (
     <>
-    {/* <PinProtected message="This module is protected and requires PIN verification to access." modulename="Banking"> */}
+      {/* <PinProtected message="This module is protected and requires PIN verification to access." modulename="Banking"> */}
       <div className="p-6 bg-gray-50 min-h-screen">
         {/* Header */}
         <div className="mb-6">
@@ -94,32 +94,32 @@ function Banking() {
 
         {/* Tab Content */}
         {activeTab === 'dashboard' && (
-          <BankingDashboard 
-            bankAccounts={bankAccounts} 
+          <BankingDashboard
+            bankAccounts={bankAccounts}
             onRefresh={handleRefresh}
           />
         )}
-        
+
         {activeTab === 'transactions' && (
-          <BankingTransactions 
+          <BankingTransactions
             bankAccounts={bankAccounts}
             categories={categories}
             onRefresh={handleRefresh}
             onTransactionChange={handleTransactionChange}
           />
         )}
-        
+
         {activeTab === 'reports' && (
-          <BankingReports 
+          <BankingReports
             bankAccounts={bankAccounts}
           />
         )}
-        
-        {activeTab === 'bank_settings' && (
+
+        {/* {activeTab === 'bank_settings' && (
           <BankSettings 
             onRefresh={handleRefresh}
           />
-        )}
+        )} */}
       </div>
       {/* </PinProtected> */}
     </>

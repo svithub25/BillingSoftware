@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, User, Calendar, DollarSign, FileText, Phone, MapPin } from 'lucide-react';
+import { ArrowLeft, Package, User, Calendar, IndianRupee, FileText, Phone, MapPin } from 'lucide-react';
 
 const SaleDetails = () => {
   const { id } = useParams();
@@ -78,8 +78,26 @@ const SaleDetails = () => {
               <p className="font-semibold">{sale.salesman_name || sale.salesman || 'N/A'}</p>
             </div>
           </div>
-          <div>
+          <div className="flex items-center">
+            <IndianRupee className="w-5 h-5 text-gray-500 mr-2" />
+            <div>
+              <p className="text-sm text-gray-500">Payment Status</p>
+              <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${sale.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                sale.payment_status === 'partially_paid' ? 'bg-purple-100 text-purple-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                {sale.payment_status ? sale.payment_status.replace('_', ' ').toUpperCase() : 'PENDING'}
+              </span>
+            </div>
           </div>
+          <div className="flex items-center">
+            <IndianRupee className="w-5 h-5 text-gray-500 mr-2" />
+            <div>
+              <p className="text-sm text-gray-500">Amount Paid</p>
+              <p className="font-semibold text-green-600">₹{(sale.paid_amount || 0).toLocaleString()}</p>
+            </div>
+          </div>
+
           {/* Customer Information */}
           <div className="bg-blue-50 rounded-lg p-4">
             <div className="flex items-center mb-2">

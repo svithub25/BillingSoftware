@@ -172,21 +172,19 @@ const BranchGoDown = () => {
           <div className="flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('transfers')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'transfers'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'transfers'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Stock Transfers
             </button>
             <button
               onClick={() => setActiveTab('stock')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'stock'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'stock'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Stock by Location
             </button>
@@ -208,89 +206,89 @@ const BranchGoDown = () => {
                 />
               </div>
 
-        {/* Transfers Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className={tableHeaderClass + ' w-20'}>ID</th>
-                <th scope="col" className={tableHeaderClass}>Transfer #</th>
-                <th scope="col" className={tableHeaderClass}>Date</th>
-                <th scope="col" className={tableHeaderClass}>From Location</th>
-                <th scope="col" className={tableHeaderClass}>To Location</th>
-                <th scope="col" className={tableHeaderClass + ' text-right'}>Total Qty</th>
-                <th scope="col" className={tableHeaderClass}>Status</th>
-                <th scope="col" className={tableHeaderClass + ' text-right'}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredMovements.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="text-center py-8 text-gray-500">
-                    No stock transfers found.
-                  </td>
-                </tr>
-              ) : (
-                filteredMovements.map(m => {
-                  const isCompleted = m.movement_status === 'completed';
-                  const statusColors = {
-                    'draft': 'bg-gray-100 text-gray-800',
-                    'pending_approval': 'bg-yellow-100 text-yellow-800',
-                    'approved': 'bg-blue-100 text-blue-800',
-                    'in_transit': 'bg-purple-100 text-purple-800',
-                    'completed': 'bg-green-100 text-green-800',
-                    'cancelled': 'bg-red-100 text-red-800'
-                  };
-
-                  return (
-                    <tr key={m.id} className="hover:bg-blue-50">
-                      <td className={tableDataClass + ' font-semibold'}>{m.id}</td>
-                      <td className={tableDataClass + ' font-medium text-blue-700'}>{m.movement_number}</td>
-                      <td className={tableDataClass}>{m.movement_date}</td>
-                      <td className={tableDataClass}>
-                        <div className="font-medium text-gray-900">{m.from_godown_name || '-'}</div>
-                      </td>
-                      <td className={tableDataClass}>
-                        <div className="font-medium text-gray-900">{m.to_godown_name || '-'}</div>
-                      </td>
-                      <td className={tableDataClass + ' text-right font-bold'}>{m.total_quantity || 0}</td>
-                      <td className={tableDataClass}>
-                        <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${statusColors[m.movement_status] || statusColors.draft}`}>
-                          {m.movement_status.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </td>
-                      <td className={tableDataClass + ' text-right space-x-2'}>
-                        <button
-                          onClick={() => viewDetails(m.id)}
-                          className="text-blue-600 hover:text-blue-900 transition duration-150 p-1 rounded hover:bg-blue-50"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(m)}
-                          className="text-green-600 hover:text-green-900 transition duration-150 text-xs px-2 py-1 rounded hover:bg-green-50"
-                          title="Toggle Status"
-                        >
-                          {isCompleted ? 'Revert' : 'Complete'}
-                        </button>
-                        {m.movement_status !== 'completed' && (
-                          <button
-                            onClick={() => handleDeleteMovement(m.id)}
-                            className="text-red-600 hover:text-red-900 transition duration-150 p-1 rounded hover:bg-red-50"
-                            title="Delete Transfer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </td>
+              {/* Transfers Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className={tableHeaderClass + ' w-20'}>ID</th>
+                      <th scope="col" className={tableHeaderClass}>Transfer #</th>
+                      <th scope="col" className={tableHeaderClass}>Date</th>
+                      <th scope="col" className={tableHeaderClass}>From Location</th>
+                      <th scope="col" className={tableHeaderClass}>To Location</th>
+                      <th scope="col" className={tableHeaderClass + ' text-right'}>Total Qty</th>
+                      <th scope="col" className={tableHeaderClass}>Status</th>
+                      <th scope="col" className={tableHeaderClass + ' text-right'}>Actions</th>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredMovements.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="text-center py-8 text-gray-500">
+                          No stock transfers found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredMovements.map(m => {
+                        const isCompleted = m.movement_status === 'completed';
+                        const statusColors = {
+                          'draft': 'bg-gray-100 text-gray-800',
+                          'pending_approval': 'bg-yellow-100 text-yellow-800',
+                          'approved': 'bg-blue-100 text-blue-800',
+                          'in_transit': 'bg-purple-100 text-purple-800',
+                          'completed': 'bg-green-100 text-green-800',
+                          'cancelled': 'bg-red-100 text-red-800'
+                        };
+
+                        return (
+                          <tr key={m.id} className="hover:bg-blue-50">
+                            <td className={tableDataClass + ' font-semibold'}>{m.id}</td>
+                            <td className={tableDataClass + ' font-medium text-blue-700'}>{m.movement_number}</td>
+                            <td className={tableDataClass}>{m.movement_date}</td>
+                            <td className={tableDataClass}>
+                              <div className="font-medium text-gray-900">{m.from_godown_name || '-'}</div>
+                            </td>
+                            <td className={tableDataClass}>
+                              <div className="font-medium text-gray-900">{m.to_godown_name || '-'}</div>
+                            </td>
+                            <td className={tableDataClass + ' text-right font-bold'}>{m.total_quantity || 0}</td>
+                            <td className={tableDataClass}>
+                              <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${statusColors[m.movement_status] || statusColors.draft}`}>
+                                {m.movement_status.replace('_', ' ').toUpperCase()}
+                              </span>
+                            </td>
+                            <td className={tableDataClass + ' text-right space-x-2'}>
+                              <button
+                                onClick={() => viewDetails(m.id)}
+                                className="text-blue-600 hover:text-blue-900 transition duration-150 p-1 rounded hover:bg-blue-50"
+                                title="View Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleToggleStatus(m)}
+                                className="text-green-600 hover:text-green-900 transition duration-150 text-xs px-2 py-1 rounded hover:bg-green-50"
+                                title="Toggle Status"
+                              >
+                                {isCompleted ? 'Revert' : 'Complete'}
+                              </button>
+                              {m.movement_status !== 'completed' && (
+                                <button
+                                  onClick={() => handleDeleteMovement(m.id)}
+                                  className="text-red-600 hover:text-red-900 transition duration-150 p-1 rounded hover:bg-red-50"
+                                  title="Delete Transfer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : (
             // Stock by Location View
@@ -578,6 +576,7 @@ const TransferFormModal = ({ isOpen, onClose, godowns, onSuccess }) => {
                   <div className="col-span-2">
                     <input
                       type="number"
+                      onWheel={e => e.target.blur()}
                       placeholder="Qty"
                       value={item.quantity}
                       onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
@@ -590,6 +589,7 @@ const TransferFormModal = ({ isOpen, onClose, godowns, onSuccess }) => {
                   <div className="col-span-3">
                     <input
                       type="number"
+                      onWheel={e => e.target.blur()}
                       placeholder="Rate"
                       value={item.unit_rate}
                       onChange={(e) => handleItemChange(index, 'unit_rate', e.target.value)}

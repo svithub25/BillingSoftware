@@ -12,10 +12,10 @@ const validateSupplierForm = (form) => {
   const isEmpty = (v) => v === '' || v === null || v === undefined;
 
   if (isEmpty(form.name) || String(form.name).trim().length < 2) errors.name = 'Name is required';
-  if (isEmpty(form.contact) || String(form.contact).trim().length < 5)
-    errors.contact = 'Contact is required';
-  if (isEmpty(form.gstin) || String(form.gstin).trim().length < 3)
-    errors.gstin = 'GSTIN is required';
+  // if (isEmpty(form.contact) || String(form.contact).trim().length < 5)
+  //   errors.contact = 'Contact is required';
+  // if (isEmpty(form.gstin) || String(form.gstin).trim().length < 3)
+  //   errors.gstin = 'GSTIN is required';
 
   return errors;
 };
@@ -58,6 +58,23 @@ const SuppliersTab = () => {
     setSupplierForm(initialSupplierForm);
     setSupplierErrors({});
   };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setSupplierForm(initialSupplierForm);
+        setShowSupplierForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showSupplierForm || editingSupplier) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showSupplierForm, editingSupplier]);
 
   const handleAddSupplier = async () => {
     const errors = validateSupplierForm(supplierForm);

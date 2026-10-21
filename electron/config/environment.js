@@ -3,13 +3,16 @@ import path from 'path';
 export function createEnvironment(baseDir) {
   const isDev = process.env.NODE_ENV === 'development';
   const resourcesRoot = isDev ? baseDir : process.resourcesPath;
+  const e2eDbPath = process.env.E2E_DB_PATH;
 
   const resolveFromResources = (relativePath) => path.join(resourcesRoot, relativePath);
 
   return {
     isDev,
     paths: {
-      db: isDev
+      db: e2eDbPath
+        ? path.resolve(e2eDbPath)
+        : isDev
         ? path.join(baseDir, '..', 'database.db')
         : resolveFromResources('database.db'),
       packageJson: isDev

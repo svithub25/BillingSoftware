@@ -60,6 +60,23 @@ const SalesmanTab = () => {
     setSalesmanErrors({});
   };
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        setSalesmanForm({ name: '', contact_info: '', address: '', joining_date: '' });
+        setShowSalesmanForm(true);
+      } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (showSalesmanForm || editingSalesman) {
+          e.preventDefault();
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showSalesmanForm, editingSalesman]);
+
   const handleAddSalesman = async () => {
     const errors = validateSalesmanForm(salesmanForm);
     if (Object.keys(errors).length) {

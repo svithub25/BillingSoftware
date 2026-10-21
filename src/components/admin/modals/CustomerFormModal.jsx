@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const CustomerFormModal = ({
   isOpen,
@@ -10,11 +10,23 @@ const CustomerFormModal = ({
   onSubmit,
   onClose
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const getFieldClass = (error) =>
     `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-500' : 'border-gray-300'
     }`;
+
+  const handleInputChange = (field, value) => {
+    setCustomerForm({ ...customerForm, [field]: value.trim() === '' ? null : value });
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -24,9 +36,10 @@ const CustomerFormModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <input
+              ref={inputRef}
               type="text"
-              value={customerForm.name}
-              onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+              value={customerForm.name || ''}
+              onChange={(e) => handleInputChange('name', e.target.value)}
               className={getFieldClass(customerErrors.name)}
             />
             {customerErrors.name && (
@@ -37,8 +50,8 @@ const CustomerFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Contact</label>
             <input
               type="text"
-              value={customerForm.contact}
-              onChange={(e) => setCustomerForm({ ...customerForm, contact: e.target.value })}
+              value={customerForm.contact || ''}
+              onChange={(e) => handleInputChange('contact', e.target.value)}
               className={getFieldClass(customerErrors.contact)}
             />
             {customerErrors.contact && (
@@ -50,7 +63,7 @@ const CustomerFormModal = ({
             <input
               type="email"
               value={customerForm.email || ''}
-              onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
+              onChange={e => handleInputChange('email', e.target.value)}
               className={getFieldClass(customerErrors.email)}
             />
             {customerErrors.email && <p className="text-red-600 text-xs mt-1">{customerErrors.email}</p>}
@@ -60,7 +73,7 @@ const CustomerFormModal = ({
             <input
               type="text"
               value={customerForm.gstin || ''}
-              onChange={e => setCustomerForm({ ...customerForm, gstin: e.target.value })}
+              onChange={e => handleInputChange('gstin', e.target.value)}
               className={getFieldClass(customerErrors.gstin)}
               placeholder="GSTIN"
             />
@@ -72,7 +85,7 @@ const CustomerFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
             <textarea
               value={customerForm.address || ''}
-              onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
+              onChange={e => handleInputChange('address', e.target.value)}
               className={getFieldClass(customerErrors.address)}
               rows={2}
               placeholder="Main address"
@@ -86,7 +99,7 @@ const CustomerFormModal = ({
             <input
               type="text"
               value={customerForm.state || ''}
-              onChange={e => setCustomerForm({ ...customerForm, state: e.target.value })}
+              onChange={e => handleInputChange('state', e.target.value)}
               className={getFieldClass(customerErrors.state)}
             />
           </div>
@@ -95,7 +108,7 @@ const CustomerFormModal = ({
             <input
               type="text"
               value={customerForm.city || ''}
-              onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
+              onChange={e => handleInputChange('city', e.target.value)}
               className={getFieldClass(customerErrors.city)}
             />
           </div>
@@ -104,7 +117,7 @@ const CustomerFormModal = ({
             <input
               type="text"
               value={customerForm.country || 'India'}
-              onChange={e => setCustomerForm({ ...customerForm, country: e.target.value })}
+              onChange={e => handleInputChange('country', e.target.value)}
               className={getFieldClass(customerErrors.country)}
             />
           </div>
@@ -113,7 +126,7 @@ const CustomerFormModal = ({
             <input
               type="text"
               value={customerForm.pincode || ''}
-              onChange={e => setCustomerForm({ ...customerForm, pincode: e.target.value })}
+              onChange={e => handleInputChange('pincode', e.target.value)}
               className={getFieldClass(customerErrors.pincode)}
             />
           </div>
@@ -121,8 +134,9 @@ const CustomerFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Limit</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={customerForm.credit_limit || ''}
-              onChange={e => setCustomerForm({ ...customerForm, credit_limit: e.target.value })}
+              onChange={e => handleInputChange('credit_limit', e.target.value)}
               className={getFieldClass(customerErrors.credit_limit)}
             />
           </div>
@@ -130,8 +144,9 @@ const CustomerFormModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
             <input
               type="number"
+              onWheel={e => e.target.blur()}
               value={customerForm.credit_days || ''}
-              onChange={e => setCustomerForm({ ...customerForm, credit_days: e.target.value })}
+              onChange={e => handleInputChange('credit_days', e.target.value)}
               className={getFieldClass(customerErrors.credit_days)}
             />
           </div>
